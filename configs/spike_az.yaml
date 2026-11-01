@@ -7,15 +7,24 @@ embedder:
 rendering:
   image_size: [64, 64]
   font_size: 44
-  classes: "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
+  preserve_aspect_and_baseline: true
+  classes: "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789.,:;!?\"'-()[]{}/@#%&*+=<>"
   fonts_indexed:
     - "/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf"
     - "/usr/share/fonts/truetype/liberation/LiberationSerif-Regular.ttf"
-    - "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"
+    - "/usr/share/fonts/truetype/liberation/LiberationMono-Regular.ttf"
+    - "/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf"
+    - "/usr/share/fonts/truetype/liberation/LiberationSerif-Bold.ttf"
+    - "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
+    - "/usr/share/fonts/truetype/dejavu/DejaVuSerif-Bold.ttf"
+    - "/usr/share/fonts/truetype/roboto/unhinted/RobotoTTF/Roboto-Medium.ttf"
   fonts_heldout:
     - "/usr/share/fonts/truetype/roboto/unhinted/RobotoTTF/Roboto-Regular.ttf"
+    - "/usr/share/fonts/truetype/roboto/unhinted/RobotoTTF/Roboto-Bold.ttf"
+    - "/usr/share/fonts/truetype/roboto/unhinted/RobotoTTF/Roboto-Italic.ttf"
     - "/usr/share/fonts/truetype/noto/NotoSans-Regular.ttf"
-    - "/usr/share/fonts/truetype/liberation/LiberationMono-Regular.ttf"
+    - "/usr/share/fonts/truetype/noto/NotoSerif-Regular.ttf"
+    - "/usr/share/fonts/truetype/noto/NotoSansMono-Regular.ttf"
 
 index:
   metric: "inner_product"
