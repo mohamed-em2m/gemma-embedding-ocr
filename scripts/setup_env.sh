@@ -11,7 +11,7 @@ echo " Starting EmbeddingOCR Environment Setup..."
 echo "=========================================================="
 
 # 1. System packages & 100+ typography font families
-echo "[1/4] Installing system dependencies and fonts..."
+echo "[1/4] Installing system dependencies and clean fonts..."
 export DEBIAN_FRONTEND=noninteractive
 apt-get update -qq
 apt-get install -y -qq \
@@ -34,8 +34,7 @@ apt-get install -y -qq \
     fonts-ebgaramond \
     fonts-cabin \
     fonts-quicksand \
-    fonts-inter \
-    fonts-aenigma
+    fonts-inter
 
 fc-cache -f -v > /dev/null 2>&1
 echo "✓ System dependencies & fonts installed."
@@ -76,32 +75,29 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$SCRIPT_DIR"
 python3 -m pip install -e . -q
 
-# 5. Build available font cache catalog
-echo "Indexing installed fonts..."
+# 5. Build clean 166-font catalog
+echo "Indexing clean document fonts..."
 mkdir -p data
 python3 -c "
 from pathlib import Path
-from PIL import Image, ImageDraw, ImageFont
 
-fonts = list(Path('/usr/share/fonts').rglob('*.ttf')) + list(Path('/usr/share/fonts').rglob('*.otf'))
-valid = []
-dummy = Image.new('RGB', (16, 16))
-draw = ImageDraw.Draw(dummy)
-test_chars = 'ABCabc0129?!'
+all_fonts = list(Path('/usr/share/fonts').rglob('*.ttf')) + list(Path('/usr/share/fonts').rglob('*.otf'))
+standard_keywords = ['liberation', 'dejavu', 'roboto', 'notosans-', 'notoserif-', 'ubuntu', 'lato', 'opensans', 'cascadia', 'firacode', 'inter', 'inconsolata', 'cantarell', 'courier']
 
-for f in fonts:
-    try:
-        font = ImageFont.truetype(str(f), 24)
-        bbox = draw.textbbox((0, 0), test_chars, font=font)
-        if bbox[2] > bbox[0] and bbox[3] > bbox[1]:
-            valid.append(str(f))
-    except Exception:
+filtered = []
+for p in all_fonts:
+    name = str(p).lower()
+    if any(x in name for x in ['tifinagh', 'taitham', 'armenian', 'rohingya', 'cherokee', 'balinese', 'sinhala', 'carian', 'hebrew', 'arabic', 'siddham', 'bengali', 'devanagari', 'ethiopic', 'gurmukhi', 'takri', 'thai', 'khmer', 'lao', 'myanmar', 'cham', 'sogdian', 'multani', 'linear', 'sundanese', 'meetei']):
         continue
+    if any(k in name for k in standard_keywords):
+        filtered.append(str(p))
 
-with open('data/available_fonts.txt', 'w') as out:
-    for v in valid:
-        out.write(v + '\n')
-print(f'Successfully cataloged {len(valid)} verified fonts into data/available_fonts.txt')
+filtered = sorted(list(set(filtered)))
+with open('data/standard_clean_fonts.txt', 'w') as out:
+    for f_path in filtered:
+        out.write(f_path + '\n')
+
+print(f'Successfully cataloged {len(filtered)} verified clean document fonts in data/standard_clean_fonts.txt')
 "
 
 echo "=========================================================="
