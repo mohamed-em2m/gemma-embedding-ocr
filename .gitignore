@@ -1,0 +1,29 @@
+# Python / uv
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+dist/
+
+# Project artifacts (never commit)
+data/
+artifacts/
+checkpoints/
+*.faiss
+*.index
+.cache/
+runs/
+wandb/
+models/
+*.safetensors
+
+# Secrets / editor
+.env
+.env.*
+.vscode/
+.idea/
+.DS_Store

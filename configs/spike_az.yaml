@@ -1,0 +1,22 @@
+embedder:
+  model_id: "google/embeddinggemma-2"
+  dims: [768, 512, 256, 128]
+  device: "auto"
+  batch_size: 16
+
+rendering:
+  image_size: [64, 64]
+  font_size: 44
+  classes: "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
+  fonts_indexed:
+    - "/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf"
+    - "/usr/share/fonts/truetype/liberation/LiberationSerif-Regular.ttf"
+    - "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"
+  fonts_heldout:
+    - "/usr/share/fonts/truetype/roboto/unhinted/RobotoTTF/Roboto-Regular.ttf"
+    - "/usr/share/fonts/truetype/noto/NotoSans-Regular.ttf"
+    - "/usr/share/fonts/truetype/liberation/LiberationMono-Regular.ttf"
+
+index:
+  metric: "inner_product"
+  top_k: 5

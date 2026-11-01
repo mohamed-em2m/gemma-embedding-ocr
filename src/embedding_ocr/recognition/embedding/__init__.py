@@ -1,0 +1,1 @@
+"""Embedding recognition sub-module."""
