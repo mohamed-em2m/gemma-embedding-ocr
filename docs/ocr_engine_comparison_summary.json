@@ -1,0 +1,26 @@
+{
+  "n_queries": 156,
+  "classes": 52,
+  "results": {
+    "EmbeddingGemma 2": {
+      "exact_acc": 93.59,
+      "ci_acc": 100.0,
+      "latency_ms": 742.47
+    },
+    "Tesseract (PSM 10)": {
+      "exact_acc": 76.28,
+      "ci_acc": 81.41,
+      "latency_ms": 293.41
+    },
+    "EasyOCR": {
+      "exact_acc": 61.54,
+      "ci_acc": 68.59,
+      "latency_ms": 13.5
+    },
+    "PaddleOCR (rec)": {
+      "exact_acc": 83.97,
+      "ci_acc": 92.31,
+      "latency_ms": 54.06
+    }
+  }
+}
