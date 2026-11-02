@@ -1,0 +1,159 @@
+{
+  "model_id": "zai-org/GLM-OCR",
+  "total_glyphs": 310,
+  "correct": 252,
+  "accuracy_pct": 81.29,
+  "latency_ms_per_glyph": 543.59,
+  "sample_errors": [
+    {
+      "font": "UbuntuMono-B.ttf",
+      "target": "c",
+      "prediction": "C"
+    },
+    {
+      "font": "UbuntuMono-B.ttf",
+      "target": "d",
+      "prediction": "D"
+    },
+    {
+      "font": "UbuntuMono-B.ttf",
+      "target": "n",
+      "prediction": "N"
+    },
+    {
+      "font": "UbuntuMono-B.ttf",
+      "target": "o",
+      "prediction": "O"
+    },
+    {
+      "font": "UbuntuMono-B.ttf",
+      "target": "p",
+      "prediction": "P"
+    },
+    {
+      "font": "UbuntuMono-B.ttf",
+      "target": "r",
+      "prediction": "]"
+    },
+    {
+      "font": "UbuntuMono-B.ttf",
+      "target": "s",
+      "prediction": "S"
+    },
+    {
+      "font": "UbuntuMono-B.ttf",
+      "target": "v",
+      "prediction": "V"
+    },
+    {
+      "font": "UbuntuMono-B.ttf",
+      "target": "w",
+      "prediction": "W"
+    },
+    {
+      "font": "UbuntuMono-B.ttf",
+      "target": "x",
+      "prediction": "X"
+    },
+    {
+      "font": "UbuntuMono-B.ttf",
+      "target": "z",
+      "prediction": "Z"
+    },
+    {
+      "font": "UbuntuMono-B.ttf",
+      "target": "O",
+      "prediction": "0"
+    },
+    {
+      "font": "UbuntuMono-R.ttf",
+      "target": "c",
+      "prediction": "C"
+    },
+    {
+      "font": "UbuntuMono-R.ttf",
+      "target": "d",
+      "prediction": "D"
+    },
+    {
+      "font": "UbuntuMono-R.ttf",
+      "target": "n",
+      "prediction": "N"
+    },
+    {
+      "font": "UbuntuMono-R.ttf",
+      "target": "o",
+      "prediction": "O"
+    },
+    {
+      "font": "UbuntuMono-R.ttf",
+      "target": "p",
+      "prediction": "P"
+    },
+    {
+      "font": "UbuntuMono-R.ttf",
+      "target": "r",
+      "prediction": "]"
+    },
+    {
+      "font": "UbuntuMono-R.ttf",
+      "target": "s",
+      "prediction": "S"
+    },
+    {
+      "font": "UbuntuMono-R.ttf",
+      "target": "v",
+      "prediction": "V"
+    },
+    {
+      "font": "UbuntuMono-R.ttf",
+      "target": "w",
+      "prediction": "W"
+    },
+    {
+      "font": "UbuntuMono-R.ttf",
+      "target": "x",
+      "prediction": "X"
+    },
+    {
+      "font": "UbuntuMono-R.ttf",
+      "target": "z",
+      "prediction": "Z"
+    },
+    {
+      "font": "UbuntuMono-R.ttf",
+      "target": "O",
+      "prediction": "0"
+    },
+    {
+      "font": "Lato-Regular.ttf",
+      "target": "c",
+      "prediction": "C"
+    },
+    {
+      "font": "Lato-Regular.ttf",
+      "target": "l",
+      "prediction": "1"
+    },
+    {
+      "font": "Lato-Regular.ttf",
+      "target": "o",
+      "prediction": "O"
+    },
+    {
+      "font": "Lato-Regular.ttf",
+      "target": "s",
+      "prediction": "S"
+    },
+    {
+      "font": "Lato-Regular.ttf",
+      "target": "v",
+      "prediction": "V"
+    },
+    {
+      "font": "Lato-Regular.ttf",
+      "target": "w",
+      "prediction": "W"
+    }
+  ]
+}

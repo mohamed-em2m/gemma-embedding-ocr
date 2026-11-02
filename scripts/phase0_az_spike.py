@@ -1,6 +1,7 @@
-"""Phase 0 Spike: A-Z Embedding + FAISS Search.
+"""Phase 0 Spike: Glyph Embedding + FAISS Search (Extended).
 
-Evaluates Latin glyph embedding and vector matching using EmbeddingGemma 2.
+Evaluates Latin glyphs, digits, and punctuation embedding and vector matching
+with baseline & aspect ratio preservation using EmbeddingGemma 2.
 """
 
 from __future__ import annotations
@@ -15,33 +16,14 @@ import faiss
 import numpy as np
 import torch
 import yaml
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image
 from sentence_transformers import SentenceTransformer
 
-
-def render_glyph(
-    char: str,
-    font_path: str,
-    canvas_size: int = 64,
-    font_size: int = 44,
-) -> Image.Image:
-    """Render a single character centered on a white canvas."""
-    image = Image.new("RGB", (canvas_size, canvas_size), color=(255, 255, 255))
-    draw = ImageDraw.Draw(image)
-    try:
-        font = ImageFont.truetype(font_path, font_size)
-    except Exception:
-        font = ImageFont.load_default()
-
-    bbox = draw.textbbox((0, 0), char, font=font)
-    w = bbox[2] - bbox[0]
-    h = bbox[3] - bbox[1]
-
-    x = (canvas_size - w) / 2 - bbox[0]
-    y = (canvas_size - h) / 2 - bbox[1]
-
-    draw.text((x, y), char, fill=(0, 0, 0), font=font)
-    return image
+from embedding_ocr.data.glyph_renderer import (
+    CASE_PAIRS,
+    LOOKALIKE_PAIRS,
+    render_glyph,
+)
 
 
 def build_faiss_index(vectors: np.ndarray) -> faiss.IndexFlatIP:
@@ -80,7 +62,7 @@ def evaluate_retrieval(
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Run Phase 0 Spike")
+    parser = argparse.ArgumentParser(description="Run Phase 0 Extended Spike")
     parser.add_argument("--config", type=str, default="configs/spike_az.yaml")
     args = parser.parse_args()
 
@@ -88,7 +70,7 @@ def main() -> None:
         cfg = yaml.safe_load(f)
 
     classes = list(cfg["rendering"]["classes"])
-    assert len(classes) == 52, f"Expected 52 classes, got {len(classes)}"
+    print(f"Loaded {len(classes)} classes (letters, digits, punctuation/symbols).")
 
     use_cuda = torch.cuda.is_available() and cfg["embedder"]["device"] != "cpu"
     device = "cuda" if use_cuda else "cpu"
@@ -106,13 +88,20 @@ def main() -> None:
     heldout_fonts = cfg["rendering"]["fonts_heldout"]
     img_size = cfg["rendering"]["image_size"][0]
     font_size = cfg["rendering"]["font_size"]
+    preserve_aspect = cfg["rendering"].get("preserve_aspect_and_baseline", True)
 
-    print("Rendering glyphs...")
+    print("Rendering glyphs with baseline & aspect ratio preservation...")
     indexed_images: list[Image.Image] = []
     indexed_labels: list[str] = []
     for font_path in indexed_fonts:
         for ch in classes:
-            img = render_glyph(ch, font_path, img_size, font_size)
+            img = render_glyph(
+                ch,
+                font_path,
+                img_size,
+                font_size,
+                preserve_aspect_and_baseline=preserve_aspect,
+            )
             indexed_images.append(img)
             indexed_labels.append(ch)
 
@@ -120,35 +109,42 @@ def main() -> None:
     heldout_labels: list[str] = []
     for font_path in heldout_fonts:
         for ch in classes:
-            img = render_glyph(ch, font_path, img_size, font_size)
+            img = render_glyph(
+                ch,
+                font_path,
+                img_size,
+                font_size,
+                preserve_aspect_and_baseline=preserve_aspect,
+            )
             heldout_images.append(img)
             heldout_labels.append(ch)
 
     n_indexed = len(indexed_images)
     n_heldout = len(heldout_images)
-    print(f"Rendered {n_indexed} indexed glyphs and {n_heldout} held-out glyphs.")
+    print(f"Rendered {n_indexed} indexed glyphs ({len(indexed_fonts)} fonts)")
+    print(f"Rendered {n_heldout} held-out glyphs ({len(heldout_fonts)} fonts).")
 
-    # Results dictionary
     results: dict[str, Any] = {
         "dimensions": {},
         "costs": {},
+        "num_classes": len(classes),
+        "fonts_indexed_count": len(indexed_fonts),
+        "fonts_heldout_count": len(heldout_fonts),
     }
 
     # E5: Latency and Memory measurement at 768d
     print("\n--- Running E5: Cost & Latency Benchmark ---")
-    # Latency batch=1
     t0 = time.perf_counter()
-    for _ in range(10):
+    for _ in range(5):
         _ = model.encode(  # type: ignore[call-overload]
             indexed_images[0], truncate_dim=768, normalize_embeddings=True
         )
     t1 = time.perf_counter()
-    lat_b1 = (t1 - t0) / 10.0 * 1000.0  # ms
+    lat_b1 = (t1 - t0) / 5.0 * 1000.0  # ms
 
-    # Latency batch=16
     sample_batch = indexed_images[:16]
     t0 = time.perf_counter()
-    for _ in range(5):
+    for _ in range(3):
         _ = model.encode(  # type: ignore[call-overload]
             sample_batch,
             batch_size=16,
@@ -156,7 +152,7 @@ def main() -> None:
             normalize_embeddings=True,
         )
     t1 = time.perf_counter()
-    lat_b16 = (t1 - t0) / (5 * 16) * 1000.0  # ms per image
+    lat_b16 = (t1 - t0) / (3 * 16) * 1000.0  # ms per image
 
     max_mem_mb = 0.0
     if device == "cuda":
@@ -176,18 +172,6 @@ def main() -> None:
 
     batch_size = cfg["embedder"]["batch_size"]
     dims = cfg["embedder"]["dims"]
-
-    case_pairs = [
-        ("c", "C"),
-        ("o", "O"),
-        ("s", "S"),
-        ("v", "V"),
-        ("w", "W"),
-        ("x", "X"),
-        ("z", "Z"),
-        ("u", "U"),
-        ("p", "P"),
-    ]
 
     for dim in dims:
         print(f"\n=================== Evaluating Dim: {dim} ===================")
@@ -224,21 +208,9 @@ def main() -> None:
         e1_top1, e1_top5, _ = evaluate_retrieval(
             text_embs, classes, text_index, classes
         )
-        # Compute 52x52 text similarity matrix
-        sim_matrix = np.dot(text_embs, text_embs.T)
-        np.fill_diagonal(sim_matrix, -1.0)
-        top_close_text_pairs = []
-        for i in range(len(classes)):
-            j = int(np.argmax(sim_matrix[i]))
-            top_close_text_pairs.append(
-                (classes[i], classes[j], float(sim_matrix[i, j]))
-            )
-        top_close_text_pairs.sort(key=lambda x: x[2], reverse=True)
-
         dim_res["E1_text_self"] = {
             "top1": e1_top1,
             "top5": e1_top5,
-            "closest_pairs": top_close_text_pairs[:10],
         }
         print(
             f"[E1 Text Self] Top-1: {e1_top1 * 100:.1f}%, Top-5: {e1_top5 * 100:.1f}%"
@@ -265,31 +237,38 @@ def main() -> None:
         dim_res["E3_image_to_image"] = {
             "top1": e3_top1,
             "top5": e3_top5,
-            "sample_errors": e3_errs[:15],
+            "total_queries": len(heldout_labels),
+            "total_errors": len(e3_errs),
+            "sample_errors": e3_errs[:20],
         }
         print(
-            f"[E3 Image->Image] Top-1: {e3_top1 * 100:.1f}%,"
-            f" Top-5: {e3_top5 * 100:.1f}%"
+            f"[E3 Image->Image] Top-1: {e3_top1 * 100:.2f}%,"
+            f" Top-5: {e3_top5 * 100:.2f}%"
+            f" (Errors: {len(e3_errs)} / {len(heldout_labels)})"
         )
 
-        # Case-pair ambiguity analysis on E3
+        # Case-pair and Look-alike ambiguity analysis on E3
         case_confusions = 0
+        lookalike_confusions = 0
         for true_l, pred_l, _ in e3_errs:
-            for c_low, c_up in case_pairs:
+            for c_low, c_up in CASE_PAIRS:
                 if (true_l == c_low and pred_l == c_up) or (
                     true_l == c_up and pred_l == c_low
                 ):
                     case_confusions += 1
+            for p1, p2 in LOOKALIKE_PAIRS:
+                if (true_l == p1 and pred_l == p2) or (true_l == p2 and pred_l == p1):
+                    lookalike_confusions += 1
 
         dim_res["case_pair_confusions_in_e3"] = case_confusions
+        dim_res["lookalike_confusions_in_e3"] = lookalike_confusions
         print(
-            f"Case-pair direct confusions in E3 errors:"
-            f" {case_confusions}/{len(e3_errs)} total errors"
+            f"Case-pair confusions in E3: {case_confusions}/{len(e3_errs)} | "
+            f"Look-alike confusions: {lookalike_confusions}/{len(e3_errs)}"
         )
 
         results["dimensions"][dim] = dim_res
 
-    # Save results to json
     out_path = Path("docs/spike_results.json")
     with open(out_path, "w") as f:
         json.dump(results, f, indent=2)

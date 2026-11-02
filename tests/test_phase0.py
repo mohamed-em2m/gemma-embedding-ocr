@@ -11,10 +11,15 @@ import numpy as np
 import pytest
 
 from embedding_ocr.data.glyph_renderer import (
+    ALL_CHAR_CLASSES,
+    ALPHANUMERIC_CLASSES,
     CASE_PAIRS,
+    DIGITS,
     LATIN_CLASSES,
+    LOOKALIKE_PAIRS,
     render_all_glyphs,
     render_glyph,
+    render_glyph_with_features,
 )
 from embedding_ocr.recognition.base import RecognitionResult
 from embedding_ocr.recognition.embedding.index import FaissIndex, NumpyIndex
@@ -27,9 +32,10 @@ def test_latin_classes_count() -> None:
     assert len(LATIN_CLASSES) == 52
 
 
-def test_latin_classes_content() -> None:
-    assert "a" in LATIN_CLASSES
-    assert "Z" in LATIN_CLASSES
+def test_digits_and_symbols_count() -> None:
+    assert len(DIGITS) == 10
+    assert len(ALPHANUMERIC_CLASSES) == 62
+    assert len(ALL_CHAR_CLASSES) > 80
 
 
 def test_render_glyph_default_font() -> None:
@@ -40,6 +46,23 @@ def test_render_glyph_default_font() -> None:
     assert isinstance(img, Image.Image)
     assert img.size == (64, 64)
     assert img.mode == "RGB"
+
+
+def test_render_glyph_digits_and_symbols() -> None:
+    """Check digits and symbols render without error."""
+    img_digit = render_glyph("7", font_path="/nonexistent/font.ttf")
+    img_punct = render_glyph("?", font_path="/nonexistent/font.ttf")
+    assert img_digit.size == (64, 64)
+    assert img_punct.size == (64, 64)
+
+
+def test_render_glyph_with_features() -> None:
+    """Test feature extraction (aspect ratio, relative height)."""
+    img, feats = render_glyph_with_features("c", font_path="/nonexistent/font.ttf")
+    assert "aspect_ratio" in feats
+    assert "relative_height" in feats
+    assert "relative_width" in feats
+    assert feats["relative_height"] > 0.0
 
 
 def test_render_glyph_pixel_not_all_white() -> None:
@@ -65,6 +88,11 @@ def test_case_pairs_completeness() -> None:
         assert low.islower()
         assert up.isupper()
         assert low.upper() == up
+
+
+def test_lookalikes_contain_digits() -> None:
+    assert ("O", "0") in LOOKALIKE_PAIRS
+    assert ("l", "1") in LOOKALIKE_PAIRS
 
 
 # ── RecognitionResult ────────────────────────────────────────────────────────
@@ -222,10 +250,8 @@ def test_matryoshka_truncation_renormalization() -> None:
     vecs = _random_unit_vectors(10, full_dim)
     truncated = vecs[:, :128]
     norms = np.linalg.norm(truncated, axis=1)
-    # Before re-normalization, norms will NOT be 1
     assert not np.allclose(norms, 1.0, atol=1e-3)
 
-    # After re-normalization
     renormed = truncated / norms[:, None]
     norms2 = np.linalg.norm(renormed, axis=1)
     np.testing.assert_allclose(norms2, 1.0, atol=1e-6)

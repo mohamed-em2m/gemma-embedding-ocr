@@ -1,0 +1,36 @@
+/usr/share/fonts/truetype/ubuntu/UbuntuMono-B.ttf
+/usr/share/fonts/truetype/ubuntu/UbuntuMono-R.ttf
+/usr/share/fonts/truetype/lato/Lato-Regular.ttf
+/usr/share/fonts/truetype/ubuntu/Ubuntu-M.ttf
+/usr/share/fonts/opentype/inter/InterDisplay-ExtraLight.otf
+/usr/share/fonts/truetype/roboto/unhinted/RobotoTTF/Roboto-MediumItalic.ttf
+/usr/share/fonts/truetype/lato/Lato-Semibold.ttf
+/usr/share/fonts/truetype/ubuntu/Ubuntu-Th.ttf
+/usr/share/fonts/opentype/inter/InterDisplay-ExtraLightItalic.otf
+/usr/share/fonts/opentype/cantarell/Cantarell-ExtraBold.otf
+/usr/share/fonts/truetype/firacode/FiraCode-SemiBold.ttf
+/usr/share/fonts/truetype/open-sans/OpenSans-CondLight.ttf
+/usr/share/fonts/truetype/cascadia-code/CascadiaMono.ttf
+/usr/share/fonts/truetype/noto/NotoSerif-Bold.ttf
+/usr/share/fonts/truetype/ubuntu/UbuntuMono-Italic[wght].ttf
+/usr/share/fonts/opentype/inter/InterDisplay-ThinItalic.otf
+/usr/share/fonts/truetype/roboto/unhinted/RobotoTTF/Roboto-ThinItalic.ttf
+/usr/share/fonts/truetype/ubuntu/Ubuntu[wdth,wght].ttf
+/usr/share/fonts/truetype/roboto/unhinted/RobotoCondensed-Medium.ttf
+/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf
+/usr/share/fonts/truetype/cascadia-code/CascadiaCodePL.ttf
+/usr/share/fonts/opentype/inter/Inter-Italic.otf
+/usr/share/fonts/opentype/courier-prime/Courier Prime Code Italic.otf
+/usr/share/fonts/opentype/courier-prime/Courier Prime Code.otf
+/usr/share/fonts/truetype/noto/NotoSerif-BoldItalic.ttf
+/usr/share/fonts/truetype/ubuntu/Ubuntu-MI.ttf
+/usr/share/fonts/opentype/inter/Inter-ExtraLightItalic.otf
+/usr/share/fonts/truetype/roboto/unhinted/RobotoTTF/Roboto-Medium.ttf
+/usr/share/fonts/opentype/inter/Inter-Medium.otf
+/usr/share/fonts/opentype/inter/InterDisplay-Bold.otf
+/usr/share/fonts/truetype/cascadia-code/CascadiaMonoPL.ttf
+/usr/share/fonts/truetype/dejavu/DejaVuSansMono-Oblique.ttf
+/usr/share/fonts/truetype/firacode/FiraCode-Retina.ttf
+/usr/share/fonts/opentype/courier-prime/Courier Prime Bold.otf
+/usr/share/fonts/opentype/inter/Inter-Regular.otf
+/usr/share/fonts/truetype/ubuntu/UbuntuSansMono[wght].ttf

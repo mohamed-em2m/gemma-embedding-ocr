@@ -10,7 +10,10 @@ htmlcov/
 dist/
 
 # Project artifacts (never commit)
-data/
+data/*
+!data/standard_clean_fonts.txt
+!data/clean_fonts_indexed_130.txt
+!data/clean_fonts_heldout_36.txt
 artifacts/
 checkpoints/
 *.faiss
