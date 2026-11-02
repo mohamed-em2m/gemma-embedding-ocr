@@ -1,0 +1,65 @@
+"""EmbeddingRecognizer implementing RecognitionEngine."""
+
+from __future__ import annotations
+
+import numpy as np
+
+from embedding_ocr.recognition.base import RecognitionEngine, RecognitionResult
+from embedding_ocr.recognition.embedding.matcher import PrototypeMatcher
+from embedding_ocr.recognition.embedding.prototypes import PrototypeDB
+from embedding_ocr.recognition.embedding.segmenter import CharacterSegmenter
+
+
+class EmbeddingRecognizer(RecognitionEngine):
+    """Recognition engine utilizing visual embeddings + vector prototype search."""
+
+    def __init__(
+        self,
+        prototype_db: PrototypeDB,
+        segmenter: CharacterSegmenter | None = None,
+        matcher: PrototypeMatcher | None = None,
+        top_k: int = 25,
+    ) -> None:
+        self.prototype_db = prototype_db
+        self.segmenter = segmenter or CharacterSegmenter()
+        self.matcher = matcher or PrototypeMatcher()
+        self.top_k = top_k
+
+    def recognize(self, image: np.ndarray) -> RecognitionResult:
+        """Recognize text in an image region using character embedding matching.
+
+        Args:
+            image: uint8 numpy array of text region (H, W, 3).
+
+        Returns:
+            RecognitionResult with recognized string and mean confidence.
+        """
+        # 1. Segment into characters
+        segments = self.segmenter.segment(image)
+        if not segments:
+            return RecognitionResult(text="", confidence=0.0)
+
+        # 2. Extract batch embeddings for all characters in region
+        char_images = [seg.image for seg in segments]
+        embeddings = self.prototype_db.embedder.embed_images(char_images)
+
+        # 3. Vector prototype search
+        sims, retrieved_labels = self.prototype_db.search(embeddings, top_k=self.top_k)
+
+        # 4. Match characters and aggregate
+        recognized_chars: list[str] = []
+        confidences: list[float] = []
+
+        for i, seg in enumerate(segments):
+            match = self.matcher.match_character(
+                similarities=sims[i],
+                labels=retrieved_labels[i],
+                relative_height=seg.relative_height,
+            )
+            recognized_chars.append(match.character)
+            confidences.append(match.confidence)
+
+        text = "".join(recognized_chars)
+        avg_confidence = float(np.mean(confidences)) if confidences else 0.0
+
+        return RecognitionResult(text=text, confidence=max(0.0, min(1.0, avg_confidence)))
