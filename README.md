@@ -47,7 +47,37 @@ uv run ruff check . && uv run ruff format .              # lint / format
 uv run mypy src                                          # type-check
 uv run python scripts/phase0_az_spike.py \
     --config configs/spike_az.yaml                       # Phase 0 spike
+uv run python scripts/compare_new_ocr_models.py          # Gemma vs new OCR VLMs
 ```
+
+### Generative OCR VLM comparison
+
+`scripts/compare_new_ocr_models.py` runs one shared glyph benchmark against:
+
+| Key | Model | Backend |
+|-----|-------|---------|
+| `gemma` | `google/embeddinggemma-2` | FAISS prototype matching |
+| `lighton` | `lightonai/LightOnOCR-3-0.8B` | Transformers (`Qwen3_5ForConditionalGeneration`) |
+| `dots` | `dots-studio/dots.mocr` | Transformers (`trust_remote_code=True`) |
+| `oxr` | `SoMarkAI/OXR-1.0` | OpenAI-compatible local vLLM server |
+
+```bash
+# Run everything; unavailable engines are reported, not fatal
+uv run python scripts/compare_new_ocr_models.py
+
+# Quick smoke test / subset
+uv run python scripts/compare_new_ocr_models.py --engines gemma lighton --limit 52
+
+# OXR is served separately (model card ships an out-of-tree vLLM plugin)
+uv run python scripts/compare_new_ocr_models.py \
+    --engines oxr --oxr-base-url http://127.0.0.1:8080/v1
+```
+
+Results are written to `docs/new_ocr_models_comparison.{json,md}`. `dots`
+optionally uses `qwen_vl_utils` when installed; otherwise it falls back to the
+processor's chat template. The exact single-glyph prompt for `dots` and OXR is
+**unverified** (both are document-parsing models), so override them with
+`--dots-prompt` / `--oxr-prompt` when tuning.
 
 ---
 

@@ -28,3 +28,23 @@ Six distinct open-licensed fonts partitioned into Set A (Index) and Set B (Held-
 ## 4. Vector Search
 - Index: FAISS `IndexFlatIP` (Exact Inner Product on L2-normalized embeddings = Cosine similarity).
 - Metric: Top-1 and Top-5 accuracy across the 52 classes.
+
+## 5. Generative OCR VLM Comparison (November 2026)
+
+Added three document-OCR VLMs to the cross-engine comparison:
+
+| Model | Loading path | Status |
+| --- | --- | --- |
+| `lightonai/LightOnOCR-3-0.8B` | `transformers>=5.5.4`, `Qwen3_5ForConditionalGeneration` | Verified from model card; transcription prompt is `""` |
+| `dots-studio/dots.mocr` | `AutoModelForCausalLM` + `AutoProcessor`, `trust_remote_code=True` | Verified from model card; single-glyph prompt is **unverified** |
+| `SoMarkAI/OXR-1.0` | OpenAI-compatible HTTP server (out-of-tree vLLM plugin) | Local `transformers` inference is not documented; adapter talks to a separately started vLLM server |
+
+- Shared benchmark: `scripts/compare_new_ocr_models.py`.
+- All engines use the same rendered glyph queries (default: 52 Latin classes,
+  3 held-out Liberation fonts) and report exact, case-insensitive, and
+  extracted-glyph accuracy plus per-item latency.
+- Unavailable engines are recorded in the JSON/Markdown report instead of
+  aborting the run, because the three VLMs have different hardware and
+  serving requirements.
+- OXR is a document parser served through vLLM; its default prompt and model
+  name must be supplied by the user when the server uses different values.
