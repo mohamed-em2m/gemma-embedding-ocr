@@ -48,7 +48,28 @@ uv run mypy src                                          # type-check
 uv run python scripts/phase0_az_spike.py \
     --config configs/spike_az.yaml                       # Phase 0 spike
 uv run python scripts/compare_new_ocr_models.py          # Gemma vs new OCR VLMs
+uv run python scripts/test_word_ocr_vs_glm.py \
+    --gemma-dim 768 --augment                            # Benchmark vs GLM-OCR
 ```
+
+---
+
+## Benchmark: Word & Phrase OCR vs GLM-OCR
+
+We evaluated **EmbeddingOCR** (Hierarchical and Character-level) against **GLM-OCR** on document crops across clean and degraded conditions (rotation $\pm 3^\circ$, Gaussian blur, contrast jitter, and noise). Detailed analysis is available in [`docs/benchmark_word_ocr_vs_glm.md`](docs/benchmark_word_ocr_vs_glm.md).
+
+### Results Under Augmentation (Noise, Blur, Skew)
+
+| Recognizer | Primary Word Norm CER | Word Raw CER | Word Norm Acc | Phrase Norm CER | Latency / Word |
+| :--- | :---: | :---: | :---: | :---: | :---: |
+| **GLM-OCR** (`zai-org/GLM-OCR`) | **0.00%** | **0.00%** | **100.0%** | **0.00%** | 618.6 ms |
+| **Hierarchical EmbeddingOCR (768D)** | **4.12%** | **9.41%** | **80.0%** | **11.27%** | 793.4 ms |
+| **Char-level EmbeddingOCR (768D)** | **17.25%** | **29.02%** | **30.7%** | **19.42%** | 5,157.5 ms |
+
+**Takeaways:**
+1. **Hierarchical EmbeddingOCR** scales robustly under realistic document noise, maintaining **4.12% Norm CER** (80.0% word accuracy) at **793 ms/word**.
+2. **Character-level EmbeddingOCR** breaks down under scanner noise due to connected component binarization fragmentation, inflating latency to >5s per word.
+3. **GLM-OCR** demonstrates 0.00% CER on isolated standard words due to strong web-scale pretraining language priors and vision transformer robustness.
 
 ### Generative OCR VLM comparison
 

@@ -198,21 +198,27 @@ class RecognitionResult:
     text: str
     confidence: float
 
+
 class RecognitionEngine(Protocol):
     def recognize(self, image: np.ndarray) -> RecognitionResult:
         """Input: text-region image (H, W, C). Output: text and confidence."""
 
+
 class Embedder(Protocol):
     name: str
-    dim: int                                  # active dimension (e.g. 768 / 256)
+    dim: int  # active dimension (e.g. 768 / 256)
+
     def embed_images(self, images: list[np.ndarray]) -> np.ndarray: ...
     def embed_texts(self, texts: list[str]) -> np.ndarray: ...
+
     # both return float32 (n, dim), already truncated to `dim` and L2-normalized
+
 
 class VectorIndex(Protocol):
     def build(self, vectors: np.ndarray, labels: np.ndarray) -> None: ...
     def search(self, queries: np.ndarray, k: int) -> tuple[np.ndarray, np.ndarray]:
         """Return (similarities, prototype_ids), each (n_queries, k)."""
+
     def save(self, path: Path) -> None: ...
     @classmethod
     def load(cls, path: Path) -> "VectorIndex": ...
