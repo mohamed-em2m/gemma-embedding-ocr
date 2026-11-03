@@ -1,0 +1,102 @@
+{
+  "GLM-OCR": {
+    "word_accuracy": 1.0,
+    "word_cer": 0.0,
+    "word_wer": 0.0,
+    "avg_word_latency_ms": 603.3039757500092,
+    "phrase_accuracy": 1.0,
+    "phrase_cer": 0.0,
+    "phrase_wer": 0.0,
+    "avg_phrase_latency_ms": 1342.270015000031,
+    "sample_word_predictions": [
+      [
+        "invoice",
+        "invoice"
+      ],
+      [
+        "total",
+        "total"
+      ],
+      [
+        "customer",
+        "customer"
+      ],
+      [
+        "payment",
+        "payment"
+      ],
+      [
+        "service",
+        "service"
+      ],
+      [
+        "network",
+        "network"
+      ]
+    ],
+    "sample_phrase_predictions": [
+      [
+        "invoice total 2026",
+        "invoice total 2026"
+      ],
+      [
+        "customer account balance",
+        "customer account balance"
+      ],
+      [
+        "optical character recognition",
+        "optical character recognition"
+      ]
+    ]
+  },
+  "Hierarchical_EmbeddingOCR_768D": {
+    "word_accuracy": 0.75,
+    "word_cer": 0.39552238805970147,
+    "word_wer": 0.75,
+    "avg_word_latency_ms": 1296.3467871000603,
+    "phrase_accuracy": 0.2,
+    "phrase_cer": 0.31896551724137934,
+    "phrase_wer": 0.7333333333333333,
+    "avg_phrase_latency_ms": 2044.28729199999,
+    "sample_word_predictions": [
+      [
+        "invoice",
+        "invoice"
+      ],
+      [
+        "total",
+        "Total"
+      ],
+      [
+        "customer",
+        "customer"
+      ],
+      [
+        "payment",
+        "PayMENT"
+      ],
+      [
+        "service",
+        "SERVICE"
+      ],
+      [
+        "network",
+        "Network"
+      ]
+    ],
+    "sample_phrase_predictions": [
+      [
+        "invoice total 2026",
+        "invoice Total '''"
+      ],
+      [
+        "customer account balance",
+        "customer account Balance"
+      ],
+      [
+        "optical character recognition",
+        "optical Character RecITION"
+      ]
+    ]
+  }
+}
