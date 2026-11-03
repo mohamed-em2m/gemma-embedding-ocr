@@ -21,7 +21,7 @@ from typing import Any
 import jiwer
 import numpy as np
 import torch
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageDraw, ImageEnhance, ImageFilter, ImageFont
 
 from embedding_ocr.data.glyph_renderer import ALPHANUMERIC_CLASSES
 from embedding_ocr.recognition.embedding.embedder import EmbeddingGemma2
@@ -90,6 +90,7 @@ def render_crop(
     text: str,
     font_path: str,
     font_size: int = 32,
+    augment: bool = False,
 ) -> np.ndarray:
     try:
         font = ImageFont.truetype(font_path, font_size)
@@ -101,6 +102,31 @@ def render_crop(
     img = Image.new("RGB", (max(w, 20), max(h, 20)), color=(255, 255, 255))
     draw = ImageDraw.Draw(img)
     draw.text((14 - bbox[0], 10 - bbox[1]), text, font=font, fill=(0, 0, 0))
+
+    if augment:
+        rng = np.random.default_rng(42)
+        # 1. Subtle rotation / skew
+        angle = float(rng.uniform(-3.0, 3.0))
+        img = img.rotate(
+            angle, resample=Image.Resampling.BILINEAR, fillcolor=(255, 255, 255)
+        )
+
+        # 2. Gaussian blur (simulating slight out-of-focus capture)
+        if rng.random() < 0.6:
+            radius = float(rng.uniform(0.4, 0.9))
+            img = img.filter(ImageFilter.GaussianBlur(radius=radius))
+
+        # 3. Contrast adjustment
+        enhancer = ImageEnhance.Contrast(img)
+        img = enhancer.enhance(float(rng.uniform(0.8, 1.2)))
+
+        arr = np.array(img, dtype=np.float32)
+
+        # 4. Additive Gaussian noise (scanner grain)
+        noise = rng.normal(0, float(rng.uniform(4.0, 10.0)), arr.shape)
+        arr = np.clip(arr + noise, 0, 255).astype(np.uint8)
+        return arr
+
     return np.array(img, dtype=np.uint8)
 
 
@@ -142,9 +168,10 @@ def evaluate_engine(
     name: str,
     recognizer: Any,
     test_fonts: list[str],
+    augment: bool = False,
 ) -> dict[str, Any]:
     print("\n=======================================================")
-    print(f"Evaluating {name}")
+    print(f"Evaluating {name} (augment={augment})")
     print("=======================================================")
 
     all_word_gts = []
@@ -153,7 +180,7 @@ def evaluate_engine(
 
     for f_path in test_fonts:
         for w in EVAL_WORDS:
-            crop = render_crop(w, f_path)
+            crop = render_crop(w, f_path, augment=augment)
             t0 = time.perf_counter()
             res = recognizer.recognize(crop)
             t1 = time.perf_counter()
@@ -169,7 +196,7 @@ def evaluate_engine(
 
     for f_path in test_fonts:
         for p in EVAL_PHRASES:
-            crop = render_crop(p, f_path)
+            crop = render_crop(p, f_path, augment=augment)
             t0 = time.perf_counter()
             res = recognizer.recognize(crop)
             t1 = time.perf_counter()
@@ -231,6 +258,11 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--gemma-dim", type=int, default=768)
     parser.add_argument("--skip-glm", action="store_true")
+    parser.add_argument(
+        "--augment",
+        action="store_true",
+        help="Apply blur, noise, skew, and contrast degradation.",
+    )
     args = parser.parse_args()
 
     results: dict[str, Any] = {}
@@ -238,12 +270,15 @@ def main():
     if not valid_test_fonts:
         valid_test_fonts = [f for f in INDEX_FONTS[:2] if Path(f).exists()]
     print(f"Test Fonts: {[Path(f).name for f in valid_test_fonts]}")
+    print(f"Augmentation active: {args.augment}")
 
     # 1. GLM-OCR
     if not args.skip_glm:
         print("\nLoading GLM-OCR...")
         glm = GLMOCRRecognizer(model_id="zai-org/GLM-OCR", device="auto")
-        results["GLM-OCR"] = evaluate_engine("GLM-OCR", glm, valid_test_fonts)
+        results["GLM-OCR"] = evaluate_engine(
+            "GLM-OCR", glm, valid_test_fonts, augment=args.augment
+        )
         del glm
         torch.cuda.empty_cache()
 
@@ -274,6 +309,7 @@ def main():
         f"Hierarchical_EmbeddingOCR_{args.gemma_dim}D",
         hierarchical_engine,
         valid_test_fonts,
+        augment=args.augment,
     )
 
     # 4. Character-level EmbeddingOCR (Segmentation + Prototype matching)
@@ -287,6 +323,7 @@ def main():
         f"Char_EmbeddingOCR_{args.gemma_dim}D",
         char_recognizer,
         valid_test_fonts,
+        augment=args.augment,
     )
 
     out_file = Path("docs/word_ocr_vs_glm_report.json")

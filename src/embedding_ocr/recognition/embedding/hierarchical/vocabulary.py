@@ -128,17 +128,19 @@ class EmbeddingVocabulary:
         # Truncate to desired candidate budget for efficiency (prioritizing custom/extra words)
         word_list = list(words_dict.values())
         if max_words and len(word_list) > max_words:
-            # Sort: priority extra words first (token_id == -1), then by token frequency
-            word_list.sort(key=lambda t: -100 if t.token_id == -1 else t.token_id)
+            # Sort deterministically: priority extra words first (token_id == -1), then by token frequency, then text
+            word_list.sort(
+                key=lambda t: (-100 if t.token_id == -1 else t.token_id, t.text)
+            )
             word_list = word_list[:max_words]
 
         subword_list = list(subwords_dict.values())
         if max_subwords and len(subword_list) > max_subwords:
-            subword_list.sort(key=lambda t: t.token_id)
+            subword_list.sort(key=lambda t: (t.token_id, t.text))
             subword_list = subword_list[:max_subwords]
 
         char_list = list(chars_dict.values())
-        char_list.sort(key=lambda t: t.token_id)
+        char_list.sort(key=lambda t: (t.token_id, t.text))
 
         self.word_tokens = word_list
         self.subword_tokens = subword_list
@@ -161,9 +163,12 @@ class EmbeddingVocabulary:
             meta_file = self.cache_dir / f"{cat_name}_meta.json"
 
             if not force_recompute and emb_file.exists() and meta_file.exists():
-                vectors = np.load(emb_file)
-                # Verify length matches
-                if len(vectors) == len(tokens):
+                cached_meta = json.loads(meta_file.read_text())
+                if len(cached_meta) == len(tokens) and all(
+                    cached_meta[i].get("text") == tokens[i].text
+                    for i in range(len(tokens))
+                ):
+                    vectors = np.load(emb_file)
                     index = FaissIndex(dim=self.embedder.dim)
                     index.build(vectors, np.arange(len(tokens)))
                     setattr(self, attr_name, index)

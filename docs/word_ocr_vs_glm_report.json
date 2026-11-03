@@ -8,7 +8,7 @@
       "norm_accuracy": 0.9333333333333333,
       "raw_accuracy": 0.48
     },
-    "avg_word_latency_ms": 902.0797773466257,
+    "avg_word_latency_ms": 875.9043551467281,
     "phrase_metrics": {
       "primary_norm_cer": 0.07673860911270983,
       "raw_cer": 0.1606714628297362,
@@ -17,7 +17,7 @@
       "norm_accuracy": 0.4444444444444444,
       "raw_accuracy": 0.0
     },
-    "avg_phrase_latency_ms": 1508.213455722196,
+    "avg_phrase_latency_ms": 1428.4795446112387,
     "samples": [
       {
         "type": "word",
@@ -120,7 +120,7 @@
       "norm_accuracy": 0.4533333333333333,
       "raw_accuracy": 0.32
     },
-    "avg_word_latency_ms": 916.5341592665695,
+    "avg_word_latency_ms": 920.8328554800149,
     "phrase_metrics": {
       "primary_norm_cer": 0.17266187050359713,
       "raw_cer": 0.2446043165467626,
@@ -129,7 +129,7 @@
       "norm_accuracy": 0.0,
       "raw_accuracy": 0.0
     },
-    "avg_phrase_latency_ms": 686.3192712221967,
+    "avg_phrase_latency_ms": 670.2851817777223,
     "samples": [
       {
         "type": "word",
