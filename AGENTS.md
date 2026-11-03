@@ -607,10 +607,24 @@ Scope: Latin script only for now.
 
 ---
 
-## 12. Decisions made and questions still open
+## 13. Current Session State & Resumption Guide (IAM Handwriting & Solution 1)
 
-**Decided**
-1. Embedder: EmbeddingGemma 2 is the primary candidate (multimodal). Alternatives are only fallbacks if Phase 0 shows weak glyph discrimination.
-2. Script scope: **Latin only** first. Arabic and other connected scripts are future work.
-3. Datasets and fonts for the full benchmark: **deferred** until after the Phase 0 results. Phase 0 uses rendered a-z / A-Z only.
-4. Hardware: CPU and GPU both available; code stays device-agnostic.
+### Status
+- **Current Experiment**: Solution 1 (Multi-font visual prototypes for handwriting recognition on IAM words).
+- **Installed Handwriting Fonts**:
+  - `fonts-dancingscript`, `fonts-kaushanscript`, `fonts-kristi`, `fonts-sjfonts` via apt.
+- **Cache Location**:
+  - `artifacts/vocab_cache_iam_multifont/` stores precomputed multi-font visual prototype vectors (`words_visual_c353c32d_768d.npy`, `subwords_visual_c353c32d_768d.npy`, `chars_visual_c353c32d_768d.npy`).
+- **Resumption Command**:
+  ```bash
+  uv run python scripts/test_iam_handwriting.py \
+      --num-samples 50 \
+      --gemma-dim 768 \
+      --skip-glm \
+      --use-visual-prototypes \
+      --max-words 300 \
+      --max-subwords 100
+  ```
+- **Primary Metric**: **Normalized CER** (`jiwer.cer([normalize_text(t) for t in gts], [normalize_text(t) for t in preds])`) — lowercase and whitespace-trimmed.
+- **Active Plan**: Refer to `PLAN.md` for complete roadmap and next steps (Solution 2: Deslanting/Otsu preprocessing, Solution 3: LoRA contrastive fine-tuning).
+

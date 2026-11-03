@@ -1,0 +1,87 @@
+# EmbeddingOCR: Project Plan & Current Roadmap
+
+> **Single Source of Truth** for current project state, active experiments, and next steps to resume execution seamlessly across sessions.
+
+---
+
+## 1. Project Overview & Current Architecture
+
+**EmbeddingOCR** is a modular OCR architecture replacing traditional CTC / attention-based character recognition with **direct visual embedding prototype retrieval in vector space** using **EmbeddingGemma 2 (768D)** and **FAISS**.
+
+### Key Evolution: Hierarchical Multi-Font EmbeddingOCR
+1. **Tier 1 (Word Lexicon)**: High-confidence direct full-word image-to-prototype matching (handles non-segmentable cursive scripts and common vocabulary in single inference).
+2. **Tier 2 (Subwords / BPE)**: Sub-lexical components matched when full word is not in lexicon.
+3. **Tier 3 (Characters)**: Vertical projection segmentation + character glyph prototype retrieval as robust fallback.
+4. **Multi-Font Visual Prototypes (Solution 1)**:
+   - For real-world handwriting (IAM Handwriting Dataset), text-string embeddings alone fail to capture cursive stroke variations.
+   - We generate visual prototype embeddings across multiple handwriting fonts (`LiberationSans`, `DancingScript`, `KaushanScript`, `SteveHand`, `Kristi`) with affine shear/slant angles.
+   - Vector retrieval applies **max-similarity aggregation per candidate token class** over top-k hits.
+
+---
+
+## 2. Completed Milestones
+
+- [x] **Phase 0: A-Z Spike**
+  - Text-to-text, image-to-text cross-modal, and image-to-image glyph matching verified.
+  - Matryoshka dimension scaling (768, 512, 256, 128) evaluated.
+- [x] **Phase 1 & 2: Core Abstractions & Pipeline Setup**
+  - `RecognitionEngine`, `RecognitionResult`, `Embedder` protocol, `VectorIndex` protocol (`FaissIndex`, `NumpyIndex`).
+  - Preprocessing, horizontal crop projection segmentation, baseline reconstruction.
+- [x] **Phase 3 & Synthetic Word Benchmark vs GLM-OCR**
+  - Hierarchical word + subword + character multi-tier matching implemented.
+  - Outperformed GLM-OCR on synthetic rendered crops (**Norm CER: 12.83% vs 37.88%**).
+- [x] **IAM Handwriting Dataset Integration**
+  - Benchmark script created (`scripts/test_iam_handwriting.py`) evaluating real-world human handwriting crops from `priyank-m/IAM_words_text_recognition`.
+  - Baseline single-font hierarchical result recorded: **84.14% Norm CER**, **32.0% Norm Acc** (vs GLM-OCR **5.73% Norm CER**, **84.0% Norm Acc**).
+- [x] **Handwriting Fonts & Visual Prototypes Engine (Solution 1)**
+  - System handwriting fonts installed: `fonts-dancingscript`, `fonts-kaushanscript`, `fonts-kristi`, `fonts-sjfonts`.
+  - Fast SentencePiece token extraction implemented in `vocabulary.py` (down from 30m stall to 6.8s).
+  - Multi-font prototype rendering with slant augmentation and max-similarity aggregation implemented in `src/embedding_ocr/recognition/embedding/hierarchical/vocabulary.py`.
+  - Staged, tested (pytest, ruff, mypy green), committed (`7ae563a`), and pushed to GitHub `origin/main`.
+
+---
+
+## 3. Active Running State (Colab / Runtime)
+
+- **Active Process**: Multi-font visual prototype generation & IAM handwriting benchmark.
+  - Command:
+    ```bash
+    uv run python scripts/test_iam_handwriting.py \
+        --num-samples 50 \
+        --gemma-dim 768 \
+        --skip-glm \
+        --use-visual-prototypes \
+        --max-words 300 \
+        --max-subwords 100
+    ```
+- **Cache Location**: `artifacts/vocab_cache_iam_multifont/`
+  - Tier 1 Words: `words_visual_c353c32d_768d.npy` (1,500 prototype embeddings, cached)
+  - Tier 2 Subwords: `subwords_visual_c353c32d_768d.npy` (500 prototype embeddings, cached)
+  - Tier 3 Characters: `chars_visual_c353c32d_768d.npy` (475 prototype embeddings, generating)
+- **Monitoring Cadence**: 360-second status check cycle.
+
+---
+
+## 4. Immediate Next Steps (To Resume In Case Session Ends)
+
+1. **Verify / Run Benchmark with Cached Multi-Font Prototypes**:
+   - The multi-font prototypes in `artifacts/vocab_cache_iam_multifont/` are persistent.
+   - Run or inspect:
+     ```bash
+     uv run python scripts/test_iam_handwriting.py \
+         --num-samples 50 \
+         --gemma-dim 768 \
+         --skip-glm \
+         --use-visual-prototypes \
+         --max-words 300 \
+         --max-subwords 100
+     ```
+2. **Record Multi-Font Results in Reports**:
+   - Compare new Normalized CER against single-font baseline (**84.14%**).
+   - Update `docs/iam_handwriting_benchmark_report.md` and `README.md`.
+3. **Explore Solution 2 & Solution 3 if Needed**:
+   - **Solution 2 (Image Preprocessing & Normalization)**: Deslanting (Slant correction via shear angle optimization), Otsu adaptive thresholding, and skeleton thinning before embedding.
+   - **Solution 3 (Lightweight Contrastive Fine-Tuning / LoRA)**: Fine-tune `EmbeddingGemma 2` vision tower projection head on IAM handwriting word crops using InfoNCE loss.
+4. **Git Sync**:
+   - Ensure `uv run ruff check .`, `uv run mypy src`, `uv run pytest` pass.
+   - Commit and push report updates to `main`.
