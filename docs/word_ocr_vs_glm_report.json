@@ -1,0 +1,226 @@
+{
+  "Hierarchical_EmbeddingOCR_768D": {
+    "word_metrics": {
+      "primary_norm_cer": 0.03333333333333333,
+      "raw_cer": 0.11960784313725491,
+      "norm_wer": 0.06666666666666667,
+      "raw_wer": 0.52,
+      "norm_accuracy": 0.9333333333333333,
+      "raw_accuracy": 0.48
+    },
+    "avg_word_latency_ms": 902.0797773466257,
+    "phrase_metrics": {
+      "primary_norm_cer": 0.07673860911270983,
+      "raw_cer": 0.1606714628297362,
+      "norm_wer": 0.18518518518518517,
+      "raw_wer": 0.5370370370370371,
+      "norm_accuracy": 0.4444444444444444,
+      "raw_accuracy": 0.0
+    },
+    "avg_phrase_latency_ms": 1508.213455722196,
+    "samples": [
+      {
+        "type": "word",
+        "gt": "invoice",
+        "pred": "invoice",
+        "norm_match": true
+      },
+      {
+        "type": "word",
+        "gt": "total",
+        "pred": "Total",
+        "norm_match": true
+      },
+      {
+        "type": "word",
+        "gt": "customer",
+        "pred": "customer",
+        "norm_match": true
+      },
+      {
+        "type": "word",
+        "gt": "payment",
+        "pred": "Payment",
+        "norm_match": true
+      },
+      {
+        "type": "word",
+        "gt": "service",
+        "pred": "service",
+        "norm_match": true
+      },
+      {
+        "type": "word",
+        "gt": "network",
+        "pred": "Network",
+        "norm_match": true
+      },
+      {
+        "type": "word",
+        "gt": "system",
+        "pred": "System",
+        "norm_match": true
+      },
+      {
+        "type": "word",
+        "gt": "neural",
+        "pred": "neural",
+        "norm_match": true
+      },
+      {
+        "type": "word",
+        "gt": "python",
+        "pred": "Python",
+        "norm_match": true
+      },
+      {
+        "type": "word",
+        "gt": "digital",
+        "pred": "digital",
+        "norm_match": true
+      },
+      {
+        "type": "phrase",
+        "gt": "invoice total 2026",
+        "pred": "invoice Total 2026",
+        "norm_match": true
+      },
+      {
+        "type": "phrase",
+        "gt": "customer account balance",
+        "pred": "customer account Balance",
+        "norm_match": true
+      },
+      {
+        "type": "phrase",
+        "gt": "optical character recognition",
+        "pred": "optical Character RecITION",
+        "norm_match": false
+      },
+      {
+        "type": "phrase",
+        "gt": "neural network system",
+        "pred": "neural Network System",
+        "norm_match": true
+      },
+      {
+        "type": "phrase",
+        "gt": "digital document service",
+        "pred": "digital Document service",
+        "norm_match": true
+      }
+    ]
+  },
+  "Char_EmbeddingOCR_768D": {
+    "word_metrics": {
+      "primary_norm_cer": 0.13137254901960785,
+      "raw_cer": 0.22941176470588234,
+      "norm_wer": 0.5466666666666666,
+      "raw_wer": 0.68,
+      "norm_accuracy": 0.4533333333333333,
+      "raw_accuracy": 0.32
+    },
+    "avg_word_latency_ms": 916.5341592665695,
+    "phrase_metrics": {
+      "primary_norm_cer": 0.17266187050359713,
+      "raw_cer": 0.2446043165467626,
+      "norm_wer": 0.7222222222222222,
+      "raw_wer": 0.7777777777777778,
+      "norm_accuracy": 0.0,
+      "raw_accuracy": 0.0
+    },
+    "avg_phrase_latency_ms": 686.3192712221967,
+    "samples": [
+      {
+        "type": "word",
+        "gt": "invoice",
+        "pred": "InVOICe",
+        "norm_match": true
+      },
+      {
+        "type": "word",
+        "gt": "total",
+        "pred": "totaI",
+        "norm_match": false
+      },
+      {
+        "type": "word",
+        "gt": "customer",
+        "pred": "customel",
+        "norm_match": false
+      },
+      {
+        "type": "word",
+        "gt": "payment",
+        "pred": "payment",
+        "norm_match": true
+      },
+      {
+        "type": "word",
+        "gt": "service",
+        "pred": "SelVICe",
+        "norm_match": false
+      },
+      {
+        "type": "word",
+        "gt": "network",
+        "pred": "netwolK",
+        "norm_match": false
+      },
+      {
+        "type": "word",
+        "gt": "system",
+        "pred": "system",
+        "norm_match": true
+      },
+      {
+        "type": "word",
+        "gt": "neural",
+        "pred": "neulaI",
+        "norm_match": false
+      },
+      {
+        "type": "word",
+        "gt": "python",
+        "pred": "python",
+        "norm_match": true
+      },
+      {
+        "type": "word",
+        "gt": "digital",
+        "pred": "dIgItaI",
+        "norm_match": false
+      },
+      {
+        "type": "phrase",
+        "gt": "invoice total 2026",
+        "pred": "InvoIce totaI 2026",
+        "norm_match": false
+      },
+      {
+        "type": "phrase",
+        "gt": "customer account balance",
+        "pred": "customel account baIance",
+        "norm_match": false
+      },
+      {
+        "type": "phrase",
+        "gt": "optical character recognition",
+        "pred": "optIcaI chalactel lecognItIon",
+        "norm_match": false
+      },
+      {
+        "type": "phrase",
+        "gt": "neural network system",
+        "pred": "neulaI netwolK system",
+        "norm_match": false
+      },
+      {
+        "type": "phrase",
+        "gt": "digital document service",
+        "pred": "dIgItaI document selvIce",
+        "norm_match": false
+      }
+    ]
+  }
+}
