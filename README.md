@@ -49,16 +49,18 @@ uv run python scripts/phase0_az_spike.py \
     --config configs/spike_az.yaml                       # Phase 0 spike
 uv run python scripts/compare_new_ocr_models.py          # Gemma vs new OCR VLMs
 uv run python scripts/test_word_ocr_vs_glm.py \
-    --gemma-dim 768 --augment                            # Benchmark vs GLM-OCR
+    --gemma-dim 768 --augment                            # Benchmark vs GLM-OCR (synthetic)
+uv run python scripts/test_iam_handwriting.py \
+    --num-samples 50 --gemma-dim 768                     # Benchmark on IAM Handwriting
 ```
 
 ---
 
 ## Benchmark: Word & Phrase OCR vs GLM-OCR
 
-We evaluated **EmbeddingOCR** (Hierarchical and Character-level) against **GLM-OCR** on document crops across clean and degraded conditions (rotation $\pm 3^\circ$, Gaussian blur, contrast jitter, and noise). Detailed analysis is available in [`docs/benchmark_word_ocr_vs_glm.md`](docs/benchmark_word_ocr_vs_glm.md).
+We evaluated **EmbeddingOCR** (Hierarchical and Character-level) against **GLM-OCR** across printed synthetic document crops (clean and degraded) and real human handwriting crops from the IAM dataset.
 
-### Results Under Augmentation (Noise, Blur, Skew)
+### 1. Degraded Printed Crops (Noise, Blur, Skew)
 
 | Recognizer | Primary Word Norm CER | Word Raw CER | Word Norm Acc | Phrase Norm CER | Latency / Word |
 | :--- | :---: | :---: | :---: | :---: | :---: |
@@ -66,10 +68,20 @@ We evaluated **EmbeddingOCR** (Hierarchical and Character-level) against **GLM-O
 | **Hierarchical EmbeddingOCR (768D)** | **4.12%** | **9.41%** | **80.0%** | **11.27%** | 793.4 ms |
 | **Char-level EmbeddingOCR (768D)** | **17.25%** | **29.02%** | **30.7%** | **19.42%** | 5,157.5 ms |
 
-**Takeaways:**
-1. **Hierarchical EmbeddingOCR** scales robustly under realistic document noise, maintaining **4.12% Norm CER** (80.0% word accuracy) at **793 ms/word**.
-2. **Character-level EmbeddingOCR** breaks down under scanner noise due to connected component binarization fragmentation, inflating latency to >5s per word.
-3. **GLM-OCR** demonstrates 0.00% CER on isolated standard words due to strong web-scale pretraining language priors and vision transformer robustness.
+_See [`docs/benchmark_word_ocr_vs_glm.md`](docs/benchmark_word_ocr_vs_glm.md) for full analysis._
+
+### 2. IAM Handwriting Dataset (Real Human Cursive)
+
+| Recognizer | Primary Word Norm CER | Word Raw CER | Word Norm Acc | Norm WER | Latency / Word |
+| :--- | :---: | :---: | :---: | :---: | :---: |
+| **GLM-OCR** (`zai-org/GLM-OCR`) | **5.73%** | **6.17%** | **84.0%** | **18.00%** | 1,144.3 ms |
+| **Hierarchical EmbeddingOCR (768D)** | **84.14%** | **91.19%** | **32.0%** | **104.00%** | 2,516.5 ms |
+
+_See [`docs/iam_handwriting_benchmark_report.md`](docs/iam_handwriting_benchmark_report.md) for full analysis._
+
+**Key Takeaways:**
+1. **IAM Handwriting breaks the 100% memorization ceiling:** GLM-OCR drops to 84% accuracy with misreads on ligatures (`"an"` $\to$ `"am"`, `"It"` $\to$ `"Itr"`).
+2. **EmbeddingOCR Domain Gap:** Hierarchical EmbeddingOCR retains 32% accuracy on distinct word shapes (`"little"`, `"happened"`, `"exhausted"`), but experiences a domain gap on cursive handwriting because its prototype index is currently built from digital typographic fonts. Cursive prototype indexing or contrastive fine-tuning is required for handwriting.
 
 ### Generative OCR VLM comparison
 

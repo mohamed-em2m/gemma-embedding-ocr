@@ -28,6 +28,7 @@ dependencies = [
   "paddlepaddle>=3.3.0",
   "accelerate>=1.15.0",
   "qwen-vl-utils>=0.0.14",
+  "datasets>=5.1.0",
 ]
 
 [project.optional-dependencies]
