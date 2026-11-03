@@ -17,6 +17,8 @@ class SegmentedCharacter:
     aspect_ratio: float  # h / w
     relative_height: float  # h / line_height
     is_space_before: bool = False  # True if inter-character spacing indicates a word boundary
+    relative_top: float = 0.0  # y / line_height (0.0 = top of line)
+    relative_bottom: float = 1.0  # (y + h) / line_height (1.0 = bottom of line)
 
 
 class CharacterSegmenter:
@@ -107,6 +109,8 @@ class CharacterSegmenter:
 
             aspect = float(h) / max(1.0, float(w))
             rel_h = float(h) / max(1.0, float(h_img))
+            rel_top = float(y) / max(1.0, float(h_img))
+            rel_bottom = float(y + h) / max(1.0, float(h_img))
 
             segmented_chars.append(
                 SegmentedCharacter(
@@ -115,6 +119,8 @@ class CharacterSegmenter:
                     aspect_ratio=aspect,
                     relative_height=rel_h,
                     is_space_before=is_space_before,
+                    relative_top=rel_top,
+                    relative_bottom=rel_bottom,
                 )
             )
 

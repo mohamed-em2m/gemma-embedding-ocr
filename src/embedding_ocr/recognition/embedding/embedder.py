@@ -94,6 +94,7 @@ class EmbeddingGemma2:
 
         self.dim = dim
         self.batch_size = batch_size
+        self._cache: dict[bytes, np.ndarray] = {}
 
         # Resolve device
         if device == "auto":
@@ -114,22 +115,54 @@ class EmbeddingGemma2:
             device=self._device,
         )
 
-    def embed_images(self, images: list[np.ndarray]) -> np.ndarray:
+    def embed_images(self, images: list[np.ndarray], use_cache: bool = True) -> np.ndarray:
         """Embed a list of numpy image arrays (H, W, 3) uint8.
 
         Converts to PIL.Image internally; model handles preprocessing.
+        Utilizes fast memory caching and batched tensor encoding.
         """
+        if not images:
+            return np.empty((0, self.dim), dtype=np.float32)
+
+        import hashlib
+
         from PIL import Image  # type: ignore[import-untyped]
 
-        pil_images = [Image.fromarray(img) for img in images]
-        result: np.ndarray = self._model.encode(
-            pil_images,  # type: ignore[arg-type]
-            batch_size=self.batch_size,
-            truncate_dim=self.dim,
-            normalize_embeddings=True,
-            show_progress_bar=False,
-        )
-        return result.astype(np.float32)
+        results: list[np.ndarray | None] = [None] * len(images)
+        to_encode_indices: list[int] = []
+        to_encode_pil: list[Image.Image] = []
+        keys: list[bytes] = []
+
+        if use_cache:
+            for idx, img in enumerate(images):
+                # Fast MD5 hash on byte buffer
+                key = hashlib.md5(img.tobytes()).digest()
+                keys.append(key)
+                if key in self._cache:
+                    results[idx] = self._cache[key]
+                else:
+                    to_encode_indices.append(idx)
+                    to_encode_pil.append(Image.fromarray(img))
+        else:
+            to_encode_indices = list(range(len(images)))
+            to_encode_pil = [Image.fromarray(img) for img in images]
+
+        if to_encode_pil:
+            encoded: np.ndarray = self._model.encode(
+                to_encode_pil,  # type: ignore[arg-type]
+                batch_size=self.batch_size,
+                truncate_dim=self.dim,
+                normalize_embeddings=True,
+                show_progress_bar=False,
+            ).astype(np.float32)
+
+            for local_i, global_i in enumerate(to_encode_indices):
+                vec = encoded[local_i]
+                results[global_i] = vec
+                if use_cache:
+                    self._cache[keys[global_i]] = vec
+
+        return np.array(results, dtype=np.float32)
 
     def embed_texts(self, texts: list[str]) -> np.ndarray:
         """Embed a list of text strings using the 'Document' task prefix."""

@@ -50,6 +50,10 @@ class EmbeddingRecognizer(RecognitionEngine):
         recognized_chars: list[str] = []
         confidences: list[float] = []
 
+        # Estimate line baseline and cap-height from segmented components
+        cap_height_top = min((seg.relative_top for seg in segments), default=0.2)
+        baseline_bottom = float(np.median([seg.relative_bottom for seg in segments])) if segments else 0.8
+
         for i, seg in enumerate(segments):
             if seg.is_space_before and recognized_chars:
                 recognized_chars.append(" ")
@@ -58,6 +62,10 @@ class EmbeddingRecognizer(RecognitionEngine):
                 similarities=sims[i],
                 labels=retrieved_labels[i],
                 relative_height=seg.relative_height,
+                relative_top=seg.relative_top,
+                relative_bottom=seg.relative_bottom,
+                baseline_bottom=baseline_bottom,
+                cap_height_top=cap_height_top,
             )
             recognized_chars.append(match.character)
             confidences.append(match.confidence)

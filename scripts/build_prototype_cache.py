@@ -1,0 +1,83 @@
+"""Build and curate a clean multi-font prototype database for EmbeddingOCR.
+
+Embeds 62 alphanumeric classes across 25+ standard typographic clean fonts,
+and saves the FAISS index + metadata to disk for instant loading.
+
+Usage:
+    uv run python scripts/build_prototype_cache.py --num-fonts 25 --dim 768
+"""
+
+from __future__ import annotations
+
+import argparse
+import time
+from pathlib import Path
+
+from embedding_ocr.data.glyph_renderer import ALPHANUMERIC_CLASSES
+from embedding_ocr.recognition.embedding.embedder import EmbeddingGemma2
+from embedding_ocr.recognition.embedding.index import FaissIndex
+from embedding_ocr.recognition.embedding.prototypes import PrototypeDB
+
+
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description="Build and persist clean multi-font prototype index.")
+    parser.add_argument(
+        "--font-catalog",
+        type=Path,
+        default=Path("data/standard_clean_fonts.txt"),
+    )
+    parser.add_argument("--num-fonts", type=int, default=25, help="Number of clean fonts to include.")
+    parser.add_argument("--dim", type=int, default=768, choices=[768, 512, 256, 128])
+    parser.add_argument("--device", default="auto")
+    parser.add_argument(
+        "--output-dir",
+        type=Path,
+        default=Path("artifacts/prototypes"),
+    )
+    return parser.parse_args()
+
+
+def main() -> None:
+    args = parse_args()
+    print("=" * 80)
+    print("BUILDING CURATED MULTI-FONT PROTOTYPE DATABASE")
+    print("=" * 80)
+
+    if not args.font_catalog.exists():
+        msg = f"Font catalog {args.font_catalog} not found."
+        raise FileNotFoundError(msg)
+
+    valid_fonts = [
+        line.strip()
+        for line in args.font_catalog.read_text().splitlines()
+        if line.strip() and not line.startswith("#") and Path(line.strip()).exists()
+    ]
+
+    selected_fonts = valid_fonts[: args.num_fonts]
+    total_classes = len(ALPHANUMERIC_CLASSES)
+    total_prototypes = len(selected_fonts) * total_classes
+
+    print(f"Fonts selected: {len(selected_fonts)}")
+    print(f"Classes:        {total_classes} (Alphanumeric: a-z, A-Z, 0-9)")
+    print(f"Total vectors:  {total_prototypes}")
+    print(f"Embedding Dim:  {args.dim}d")
+
+    # Initialize embedder and index
+    embedder = EmbeddingGemma2(dim=args.dim, device=args.device, batch_size=16)
+    index = FaissIndex(dim=args.dim)
+    proto_db = PrototypeDB(embedder=embedder, index=index, classes=ALPHANUMERIC_CLASSES)
+
+    t0 = time.perf_counter()
+    proto_db.build_from_fonts(selected_fonts)
+    build_time = time.perf_counter() - t0
+
+    save_path = args.output_dir / f"clean_alnum_{args.dim}d"
+    proto_db.save(save_path)
+
+    print(f"\nBuilt {total_prototypes} prototypes in {build_time:.2f}s ({build_time / total_prototypes * 1000.0:.1f}ms/item).")
+    print(f"Persisted to: {save_path.with_suffix('.faiss')} and {save_path.with_suffix('.labels.json')}")
+    print("Ready for zero-latency instant loading across all OCR benchmarks!")
+
+
+if __name__ == "__main__":
+    main()

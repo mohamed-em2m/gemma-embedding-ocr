@@ -37,6 +37,10 @@ class PrototypeMatcher:
         similarities: np.ndarray,
         labels: list[str],
         relative_height: float | None = None,
+        relative_top: float | None = None,
+        relative_bottom: float | None = None,
+        baseline_bottom: float | None = None,
+        cap_height_top: float | None = None,
     ) -> MatchPrediction:
         """Find the best character match from prototype hits.
 
@@ -44,6 +48,10 @@ class PrototypeMatcher:
             similarities: 1D array of cosine similarities for the top-k retrieved prototypes.
             labels: List of character strings corresponding to the similarities.
             relative_height: Relative height of the character in the word line.
+            relative_top: Normalized top coordinate (y / H).
+            relative_bottom: Normalized bottom coordinate ((y + h) / H).
+            baseline_bottom: Estimated line baseline position.
+            cap_height_top: Estimated line uppercase cap-height position.
 
         Returns:
             MatchPrediction with predicted character and confidence score.
@@ -67,14 +75,28 @@ class PrototypeMatcher:
         # Confidence mapped from similarity and margin
         conf = max(0.0, min(1.0, (top1_sim + margin) / 1.5))
 
-        # Disambiguate case pairs using geometric relative height
-        if relative_height is not None:
-            # If lowercase candidate but glyph is full line height -> promote to uppercase
-            if best_char in self.case_map and relative_height >= self.case_height_thresh:
-                best_char = self.case_map[best_char]
-            # If uppercase candidate but glyph is small (< threshold) -> demote to lowercase
-            elif best_char in self.reverse_case_map and relative_height < self.case_height_thresh:
-                best_char = self.reverse_case_map[best_char]
+        # Disambiguate case pairs using geometric relative height and baseline cues
+        is_case_candidate = best_char in self.case_map or best_char in self.reverse_case_map
+        if is_case_candidate:
+            # Baseline & Cap-height analysis if available
+            is_uppercase: bool | None = None
+            if relative_top is not None and cap_height_top is not None:
+                # If top reaches near cap-height, it's uppercase
+                is_uppercase = (relative_top <= cap_height_top + 0.08)
+
+            if is_uppercase is None and relative_height is not None:
+                is_uppercase = relative_height >= self.case_height_thresh
+
+            if is_uppercase is not None:
+                if is_uppercase and best_char in self.case_map:
+                    best_char = self.case_map[best_char]
+                elif not is_uppercase and best_char in self.reverse_case_map:
+                    # Special check: descenders like 'p'
+                    if best_char == "P" and relative_bottom is not None and baseline_bottom is not None:
+                        if relative_bottom > baseline_bottom + 0.05:
+                            best_char = "p"
+                    else:
+                        best_char = self.reverse_case_map[best_char]
 
         return MatchPrediction(
             character=best_char,
