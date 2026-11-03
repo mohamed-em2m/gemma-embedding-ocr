@@ -1,22 +1,22 @@
 {
   "Hierarchical_MultiFont_Deslanted_768D": {
     "metrics": {
-      "primary_norm_cer": 0.6431718061674009,
-      "raw_cer": 0.6563876651982379,
-      "norm_wer": 0.82,
-      "raw_wer": 0.84,
-      "norm_accuracy": 0.48,
-      "raw_accuracy": 0.46
+      "primary_norm_cer": 0.5550660792951542,
+      "raw_cer": 0.5682819383259912,
+      "norm_wer": 0.86,
+      "raw_wer": 0.88,
+      "norm_accuracy": 0.44,
+      "raw_accuracy": 0.42
     },
-    "avg_latency_ms": 1815.8440654199512,
+    "avg_latency_ms": 1829.8312178000197,
     "samples": [
       {
         "id": 0,
         "gt": "little",
-        "pred": "little",
-        "confidence": 0.9331297278404236,
-        "norm_match": true,
-        "raw_match": true
+        "pred": "its",
+        "confidence": 0.8945711851119995,
+        "norm_match": false,
+        "raw_match": false
       },
       {
         "id": 1,
@@ -101,7 +101,7 @@
       {
         "id": 11,
         "gt": "the",
-        "pred": "essn'ososend",
+        "pred": "essn",
         "confidence": 0.9002856612205505,
         "norm_match": false,
         "raw_match": false
@@ -109,10 +109,10 @@
       {
         "id": 12,
         "gt": "familiar",
-        "pred": "familiar",
-        "confidence": 0.9247260093688965,
-        "norm_match": true,
-        "raw_match": true
+        "pred": "em",
+        "confidence": 0.8537043333053589,
+        "norm_match": false,
+        "raw_match": false
       },
       {
         "id": 13,
@@ -125,7 +125,7 @@
       {
         "id": 14,
         "gt": "in",
-        "pred": "'ll esscosess",
+        "pred": "'ll essc",
         "confidence": 0.9075020998716354,
         "norm_match": false,
         "raw_match": false
@@ -157,7 +157,7 @@
       {
         "id": 18,
         "gt": "be",
-        "pred": "essessg;ro-ess",
+        "pred": "essess",
         "confidence": 0.8914468958973885,
         "norm_match": false,
         "raw_match": false
@@ -237,7 +237,7 @@
       {
         "id": 28,
         "gt": "of",
-        "pred": "ososess",
+        "pred": "osos",
         "confidence": 0.9094469547271729,
         "norm_match": false,
         "raw_match": false
@@ -397,8 +397,8 @@
       {
         "id": 48,
         "gt": "something",
-        "pred": "ul ldity essL.osL.ity osul",
-        "confidence": 0.9090346023440361,
+        "pred": "ul att essL osul",
+        "confidence": 0.9089484885334969,
         "norm_match": false,
         "raw_match": false
       },

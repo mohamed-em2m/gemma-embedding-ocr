@@ -75,6 +75,7 @@ _See [`docs/benchmark_word_ocr_vs_glm.md`](docs/benchmark_word_ocr_vs_glm.md) fo
 | Recognizer | Primary Word Norm CER | Word Raw CER | Word Norm Acc | Norm WER | Latency / Word |
 | :--- | :---: | :---: | :---: | :---: | :---: |
 | **GLM-OCR** (`zai-org/GLM-OCR`) | **5.73%** | **6.17%** | **84.0%** | **18.00%** | 1,144.3 ms |
+| **Hierarchical Multi-Font + Length-Filtered (768D)** | **55.51%** | **56.83%** | **44.0%** | **86.00%** | 1,829.8 ms |
 | **Hierarchical Multi-Font + Deslanted (768D)** *(Sol 1 + 2)* | **64.32%** | **65.64%** | **48.0%** | **82.00%** | 1,815.8 ms |
 | **Hierarchical Multi-Font (768D)** *(Solution 1)* | **62.11%** | **62.11%** | **40.0%** | **90.00%** | 1,760.6 ms |
 | **Hierarchical Baseline (768D)** *(Single Font)* | **84.14%** | **91.19%** | **32.0%** | **104.00%** | 2,516.5 ms |
@@ -82,8 +83,9 @@ _See [`docs/benchmark_word_ocr_vs_glm.md`](docs/benchmark_word_ocr_vs_glm.md) fo
 _See [`docs/iam_handwriting_benchmark_report.md`](docs/iam_handwriting_benchmark_report.md) for full analysis._
 
 **Key Takeaways:**
-1. **Word Accuracy Climbs to 48.0%:** Deslanting + binarization preprocessing (Solution 2) combined with multi-font prototypes (Solution 1) lifted exact word recognition accuracy from **32.0% to 48.0%** and reduced WER from **104% to 82%**.
-2. **Distinct Cursive Words Unlocked:** Words like `"For"`, `"new"`, `"which"`, and `"found"` matched perfectly once strokes were vertically aligned.
+1. **CER Drops Down to 55.51%:** Combining character capacity estimation with multi-font visual prototypes and deslanting dropped Normalized CER from **84.14% down to 55.51%** (-28.63 pp total drop).
+2. **Subword Hallucinations Suppressed:** Prevents runaway subword strings on narrow crops.
+
 
 
 

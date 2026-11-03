@@ -11,7 +11,10 @@ from __future__ import annotations
 
 import numpy as np
 
-from embedding_ocr.pipeline.preprocess import preprocess_handwriting_crop
+from embedding_ocr.pipeline.preprocess import (
+    estimate_char_count_and_width,
+    preprocess_handwriting_crop,
+)
 from embedding_ocr.recognition.base import RecognitionEngine, RecognitionResult
 from embedding_ocr.recognition.embedding.embedder import Embedder
 from embedding_ocr.recognition.embedding.hierarchical.craft_detector import (
@@ -100,24 +103,39 @@ class HierarchicalWordRecognizer(RecognitionEngine):
 
         # If at depth 0, attempt full-word candidate retrieval
         if depth == 0 and self.vocabulary.word_index is not None:
+            # Estimate physical character capacity of the crop
+            est_chars, _ = estimate_char_count_and_width(word_crop)
             sims, tokens = self.vocabulary.search_words(query_emb, top_k=self.top_k)
-            if len(tokens[0]) >= 2:
-                top1_tok = tokens[0][0]
-                sim1 = float(sims[0][0])
-                sim2 = float(sims[0][1])
+
+            # Filter candidates whose length deviates excessively from estimated physical capacity
+            valid_candidates = []
+            for t, s in zip(tokens[0], sims[0], strict=False):
+                char_len = len(t.text.strip())
+                # Allow tolerance (+/- 3 characters or 50% relative margin)
+                if abs(char_len - est_chars) <= max(3, int(est_chars * 0.6)):
+                    valid_candidates.append((t, float(s)))
+
+            if len(valid_candidates) >= 2:
+                top1_tok, sim1 = valid_candidates[0]
+                _, sim2 = valid_candidates[1]
                 margin = sim1 - sim2
 
                 # Case normalization check: if top1 and top2 are the same word in different case (e.g. system vs System),
                 # compute margin against the next truly different word candidate.
-                if top1_tok.text.lower() == tokens[0][1].text.lower():
-                    for alt_tok, alt_sim in zip(
-                        tokens[0][2:], sims[0][2:], strict=False
-                    ):
+                if top1_tok.text.lower() == valid_candidates[1][0].text.lower():
+                    for alt_tok, alt_sim in valid_candidates[2:]:
                         if alt_tok.text.lower() != top1_tok.text.lower():
-                            margin = sim1 - float(alt_sim)
+                            margin = sim1 - alt_sim
                             break
 
                 if sim1 >= self.min_word_sim and margin >= self.min_word_margin:
+                    self.stats["full_word_hits"] += 1
+                    result = (top1_tok.text, sim1)
+                    self._cache[crop_hash] = result
+                    return result
+            elif len(valid_candidates) == 1:
+                top1_tok, sim1 = valid_candidates[0]
+                if sim1 >= (self.min_word_sim + 0.02):
                     self.stats["full_word_hits"] += 1
                     result = (top1_tok.text, sim1)
                     self._cache[crop_hash] = result
@@ -163,6 +181,14 @@ class HierarchicalWordRecognizer(RecognitionEngine):
 
                 if left_text and right_text and left_text != "?" and right_text != "?":
                     combined_text = left_text + right_text
+
+                    # Length sanity check: prevent subword hallucinations on small crops
+                    est_crop_chars, _ = estimate_char_count_and_width(word_crop)
+                    max_allowed_len = max(4, int(est_crop_chars * 1.5))
+                    if len(combined_text) > max_allowed_len:
+                        # Truncate or suppress runaway subword concatenation
+                        combined_text = combined_text[:max_allowed_len]
+
                     combined_conf = (left_conf + right_conf) / 2.0
                     result = (combined_text, combined_conf)
                     self._cache[crop_hash] = result

@@ -178,6 +178,56 @@ def adaptive_binarize(
     return cv2.cvtColor(bin_img, cv2.COLOR_GRAY2RGB)
 
 
+def estimate_char_count_and_width(
+    image: np.ndarray,
+    min_char_width: float = 10.0,
+) -> tuple[int, float]:
+    """Estimate character count and average character width from word crop geometry.
+
+    In Latin handwriting and print, character width is strongly bounded by line height
+    and aspect ratio. Average character width in Latin script is roughly 0.45x - 0.70x of
+    the core x-height / total line height.
+
+    Args:
+        image: Word crop (H, W, C) or (H, W).
+        min_char_width: Minimum physical pixel width for a valid single glyph.
+
+    Returns:
+        (estimated_chars, avg_char_width_px)
+    """
+    h, w = image.shape[:2]
+    if h < 6 or w < 6:
+        return 1, float(w)
+
+    # Convert to grayscale binary to count connected ink components or transitions
+    gray = cv2.cvtColor(image, cv2.COLOR_RGB2GRAY) if image.ndim == 3 else image.copy()
+
+    # Otsu binary (text positive)
+    _, bin_img = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
+
+    # 1. Height-based aspect ratio estimate
+    # In Latin words, typical character aspect ratio (width / height) is ~0.45 to ~0.65
+    nominal_char_width = max(min_char_width, h * 0.52)
+    aspect_est = max(1, int(round(w / nominal_char_width)))
+
+    # 2. Ink transition count estimate (horizontal scan along midline)
+    mid_y = h // 2
+    y_band = bin_img[max(0, mid_y - 2) : min(h, mid_y + 3), :]
+    profile = np.max(y_band, axis=0) > 0
+    # Count transitions from 0 to 1 (stroke starts)
+    diffs = np.diff(profile.astype(np.int32))
+    stroke_starts = int(np.sum(diffs > 0))
+    # In Latin cursive, average letters have ~1.5 to 2 vertical strokes
+    transition_est = max(1, int(round(stroke_starts / 1.6))) if stroke_starts > 0 else 1
+
+    # Fuse aspect estimate and transition estimate
+    fused_count = int(round(0.6 * aspect_est + 0.4 * transition_est))
+    fused_count = max(1, fused_count)
+    avg_char_w = float(w) / float(fused_count)
+
+    return fused_count, avg_char_w
+
+
 def preprocess_handwriting_crop(
     crop: np.ndarray,
     deslant: bool = True,
