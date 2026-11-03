@@ -75,17 +75,16 @@ _See [`docs/benchmark_word_ocr_vs_glm.md`](docs/benchmark_word_ocr_vs_glm.md) fo
 | Recognizer | Primary Word Norm CER | Word Raw CER | Word Norm Acc | Norm WER | Latency / Word |
 | :--- | :---: | :---: | :---: | :---: | :---: |
 | **GLM-OCR** (`zai-org/GLM-OCR`) | **5.73%** | **6.17%** | **84.0%** | **18.00%** | 1,144.3 ms |
+| **Hierarchical Multi-Font + Deslanted (768D)** *(Sol 1 + 2)* | **64.32%** | **65.64%** | **48.0%** | **82.00%** | 1,815.8 ms |
 | **Hierarchical Multi-Font (768D)** *(Solution 1)* | **62.11%** | **62.11%** | **40.0%** | **90.00%** | 1,760.6 ms |
 | **Hierarchical Baseline (768D)** *(Single Font)* | **84.14%** | **91.19%** | **32.0%** | **104.00%** | 2,516.5 ms |
 
 _See [`docs/iam_handwriting_benchmark_report.md`](docs/iam_handwriting_benchmark_report.md) for full analysis._
 
 **Key Takeaways:**
-1. **Multi-Font Handwriting Prototypes (Solution 1) Win:** Multi-font rendering (`DancingScript`, `KaushanScript`, `SteveHand`, `Kristi`) with max-similarity aggregation reduced Normalized CER from **84.14% to 62.11%** (-22.03 pp) and lifted word accuracy to **40.0%**.
-2. **GLM-OCR Handwriting Comparison:** Autoregressive GLM-OCR drops to 84% accuracy with ligature errors (`"an"` $\to$ `"am"`, `"It"` $\to$ `"Itr"`).
-3. **Next Improvement Horizons:**
-   - **Solution 2**: Deslanting / shear angle normalization and Otsu binarization.
-   - **Solution 3**: Vision-tower LoRA fine-tuning on IAM handwriting crops.
+1. **Word Accuracy Climbs to 48.0%:** Deslanting + binarization preprocessing (Solution 2) combined with multi-font prototypes (Solution 1) lifted exact word recognition accuracy from **32.0% to 48.0%** and reduced WER from **104% to 82%**.
+2. **Distinct Cursive Words Unlocked:** Words like `"For"`, `"new"`, `"which"`, and `"found"` matched perfectly once strokes were vertically aligned.
+
 
 
 ### Generative OCR VLM comparison

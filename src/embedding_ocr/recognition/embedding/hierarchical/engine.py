@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import numpy as np
 
+from embedding_ocr.pipeline.preprocess import preprocess_handwriting_crop
 from embedding_ocr.recognition.base import RecognitionEngine, RecognitionResult
 from embedding_ocr.recognition.embedding.embedder import Embedder
 from embedding_ocr.recognition.embedding.hierarchical.craft_detector import (
@@ -41,6 +42,7 @@ class HierarchicalWordRecognizer(RecognitionEngine):
         min_char_sim: float = 0.65,
         max_recursion_depth: int = 4,
         top_k: int = 15,
+        preprocess_handwriting: bool = False,
     ) -> None:
         self.embedder = embedder
         self.vocabulary = vocabulary
@@ -56,6 +58,7 @@ class HierarchicalWordRecognizer(RecognitionEngine):
         self.min_char_sim = min_char_sim
         self.max_recursion_depth = max_recursion_depth
         self.top_k = top_k
+        self.preprocess_handwriting = preprocess_handwriting
 
         # In-memory LRU-style cache for repeated word/subword visual crops
         self._cache: dict[bytes, tuple[str, float]] = {}
@@ -81,6 +84,12 @@ class HierarchicalWordRecognizer(RecognitionEngine):
         h, w = word_crop.shape[:2]
         if w < 6 or h < 6:
             return "", 0.0
+
+        if depth == 0 and self.preprocess_handwriting:
+            word_crop = preprocess_handwriting_crop(word_crop)
+            h, w = word_crop.shape[:2]
+            if w < 6 or h < 6:
+                return "", 0.0
 
         crop_hash = self._hash_crop(word_crop)
         if crop_hash in self._cache:

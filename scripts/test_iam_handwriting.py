@@ -156,6 +156,11 @@ def main():
         default=300,
         help="Max vocabulary subwords to index.",
     )
+    parser.add_argument(
+        "--preprocess-handwriting",
+        action="store_true",
+        help="Apply deslanting and adaptive Otsu binarization to input handwriting crops.",
+    )
     args = parser.parse_args()
 
     print(
@@ -208,16 +213,20 @@ def main():
         )
         vocab.build_indexes(force_recompute=False)
 
-        engine_name = (
-            f"Hierarchical_MultiFont_{args.gemma_dim}D"
-            if args.use_visual_prototypes
-            else f"Hierarchical_EmbeddingOCR_{args.gemma_dim}D"
-        )
+        tag_parts = ["Hierarchical"]
+        if args.use_visual_prototypes:
+            tag_parts.append("MultiFont")
+        if args.preprocess_handwriting:
+            tag_parts.append("Deslanted")
+        tag_parts.append(f"{args.gemma_dim}D")
+        engine_name = "_".join(tag_parts)
+
         hier_engine = HierarchicalWordRecognizer(
             embedder=embedder,
             vocabulary=vocab,
             min_word_sim=0.70 if args.use_visual_prototypes else 0.72,
             min_word_margin=0.005,
+            preprocess_handwriting=args.preprocess_handwriting,
         )
         results[engine_name] = evaluate_model(
             engine_name,
