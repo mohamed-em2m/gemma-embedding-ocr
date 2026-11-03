@@ -9,20 +9,18 @@ from __future__ import annotations
 import json
 import time
 from pathlib import Path
-from typing import Any
 
 import numpy as np
 import torch
-from PIL import Image
 
 from embedding_ocr.data.glyph_renderer import LATIN_CLASSES, render_glyph
 from embedding_ocr.recognition.easyocr import EasyOCRRecognizer
-from embedding_ocr.recognition.paddle import PaddleRecognizer
-from embedding_ocr.recognition.tesseract import TesseractRecognizer
 from embedding_ocr.recognition.embedding.embedder import EmbeddingGemma2
 from embedding_ocr.recognition.embedding.index import FaissIndex
-from embedding_ocr.recognition.embedding.prototypes import PrototypeDB
 from embedding_ocr.recognition.embedding.matcher import PrototypeMatcher
+from embedding_ocr.recognition.embedding.prototypes import PrototypeDB
+from embedding_ocr.recognition.paddle import PaddleRecognizer
+from embedding_ocr.recognition.tesseract import TesseractRecognizer
 
 
 def main() -> None:

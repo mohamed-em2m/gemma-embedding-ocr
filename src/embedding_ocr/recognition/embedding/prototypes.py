@@ -2,13 +2,11 @@
 
 from __future__ import annotations
 
-import json
+from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Sequence
 
 import numpy as np
-from PIL import Image
 
 from embedding_ocr.data.glyph_renderer import LATIN_CLASSES, render_glyph
 from embedding_ocr.recognition.embedding.embedder import Embedder

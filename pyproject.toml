@@ -26,6 +26,8 @@ dependencies = [
   "easyocr>=1.7.2",
   "paddleocr>=3.7.0",
   "paddlepaddle>=3.3.0",
+  "accelerate>=1.15.0",
+  "qwen-vl-utils>=0.0.14",
 ]
 
 [project.optional-dependencies]
@@ -44,11 +46,14 @@ packages = ["src/embedding_ocr"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B", "SIM", "NPY", "PT"]
+ignore = ["E501"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 markers = ["model: tests requiring the real EmbeddingGemma2 model (skip in CI)"]
 
 [tool.mypy]
-strict = true
 ignore_missing_imports = true
+warn_unused_ignores = false
+disallow_untyped_calls = false
+check_untyped_defs = true

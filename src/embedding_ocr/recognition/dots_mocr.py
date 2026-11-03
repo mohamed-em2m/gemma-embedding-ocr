@@ -23,7 +23,7 @@ from PIL import Image
 
 from embedding_ocr.recognition.base import RecognitionEngine, RecognitionResult
 
-_DEFAULT_PROMPT = "Extract all text from this image. Output only the text."
+_DEFAULT_PROMPT = "Output the single character in this image."
 
 
 class DotsMOCRRecognizer(RecognitionEngine):
@@ -44,7 +44,7 @@ class DotsMOCRRecognizer(RecognitionEngine):
             prompt: Instruction sent alongside the image.
             max_new_tokens: Generation budget per crop.
         """
-        from transformers import AutoModelForCausalLM, AutoProcessor
+        from transformers import AutoConfig, AutoModelForCausalLM, AutoProcessor
 
         self.prompt = prompt
         self.max_new_tokens = max_new_tokens
@@ -55,16 +55,59 @@ class DotsMOCRRecognizer(RecognitionEngine):
             self._device = "cpu"
 
         dtype = torch.bfloat16 if self._device == "cuda" else torch.float32
+        config = AutoConfig.from_pretrained(model_id, trust_remote_code=True)
+        if hasattr(config, "vision_config"):
+            if isinstance(config.vision_config, dict):
+                config.vision_config["attn_implementation"] = "sdpa"
+            else:
+                config.vision_config.attn_implementation = "sdpa"
+        if hasattr(config, "_attn_implementation"):
+            config._attn_implementation = "sdpa"
+
         self._processor = AutoProcessor.from_pretrained(
             model_id, trust_remote_code=True
         )
         self._model = AutoModelForCausalLM.from_pretrained(
             model_id,
-            torch_dtype=dtype,
+            config=config,
+            dtype=dtype,
             device_map=self._device,
             trust_remote_code=True,
+            attn_implementation="sdpa",
         )
         self._model.eval()
+
+        # Ensure class method handles None cache_position safely in modern transformers
+        cls = type(self._model)
+        orig_prepare = cls.prepare_inputs_for_generation
+
+        def _safe_prepare(
+            model_self: Any,
+            input_ids: torch.Tensor,
+            cache_position: torch.Tensor | None = None,
+            **kwargs: Any,
+        ) -> dict[str, Any]:
+            try:
+                return orig_prepare(
+                    model_self,
+                    input_ids,
+                    cache_position=cache_position,
+                    **kwargs,
+                )
+            except TypeError as exc:
+                if "NoneType" in str(exc) and "subscriptable" in str(exc):
+                    # Fallback when cache_position was None
+                    seq_len = input_ids.shape[1]
+                    fallback_pos = torch.arange(seq_len, device=input_ids.device)
+                    return orig_prepare(
+                        model_self,
+                        input_ids,
+                        cache_position=fallback_pos,
+                        **kwargs,
+                    )
+                raise
+
+        cls.prepare_inputs_for_generation = _safe_prepare  # type: ignore[assignment]
 
     def _prepare_inputs(self, pil_image: Image.Image) -> Any:
         messages = [
@@ -105,11 +148,20 @@ class DotsMOCRRecognizer(RecognitionEngine):
         """Recognize text in a single text-region crop."""
         pil_image = Image.fromarray(image)
         inputs = self._prepare_inputs(pil_image)
+        if isinstance(inputs, dict):
+            inputs.pop("mm_token_type_ids", None)
+            if "input_ids" in inputs and "cache_position" not in inputs:
+                inputs["cache_position"] = torch.arange(
+                    inputs["input_ids"].shape[1], device=inputs["input_ids"].device
+                )
+        elif hasattr(inputs, "pop"):
+            inputs.pop("mm_token_type_ids", None)
 
         with torch.no_grad():
             output = self._model.generate(
                 **inputs,
                 max_new_tokens=self.max_new_tokens,
+                eos_token_id=[151643, 151673],
                 do_sample=False,
             )
 

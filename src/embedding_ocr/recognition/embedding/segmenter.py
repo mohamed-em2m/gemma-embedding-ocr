@@ -3,9 +3,9 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+
 import cv2
 import numpy as np
-from PIL import Image
 
 
 @dataclass(frozen=True)

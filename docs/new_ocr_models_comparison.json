@@ -1,0 +1,748 @@
+{
+  "n_queries": 156,
+  "classes": 52,
+  "test_fonts": [
+    "/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf",
+    "/usr/share/fonts/truetype/liberation/LiberationSerif-BoldItalic.ttf",
+    "/usr/share/fonts/truetype/liberation/LiberationMono-Italic.ttf"
+  ],
+  "index_fonts": [
+    "/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf",
+    "/usr/share/fonts/truetype/liberation/LiberationSerif-Regular.ttf",
+    "/usr/share/fonts/truetype/liberation/LiberationMono-Regular.ttf"
+  ],
+  "results": [
+    {
+      "name": "EmbeddingGemma 2",
+      "status": "ok",
+      "exact": 123,
+      "case_insensitive": 156,
+      "extracted": 123,
+      "extracted_case_insensitive": 156,
+      "total": 156,
+      "latency_ms": 766.0948327499991,
+      "error": "",
+      "errors": [
+        {
+          "target": "c",
+          "prediction": "C",
+          "raw": "C"
+        },
+        {
+          "target": "k",
+          "prediction": "K",
+          "raw": "K"
+        },
+        {
+          "target": "m",
+          "prediction": "M",
+          "raw": "M"
+        },
+        {
+          "target": "o",
+          "prediction": "O",
+          "raw": "O"
+        },
+        {
+          "target": "p",
+          "prediction": "P",
+          "raw": "P"
+        },
+        {
+          "target": "s",
+          "prediction": "S",
+          "raw": "S"
+        },
+        {
+          "target": "u",
+          "prediction": "U",
+          "raw": "U"
+        },
+        {
+          "target": "v",
+          "prediction": "V",
+          "raw": "V"
+        },
+        {
+          "target": "w",
+          "prediction": "W",
+          "raw": "W"
+        },
+        {
+          "target": "x",
+          "prediction": "X",
+          "raw": "X"
+        },
+        {
+          "target": "z",
+          "prediction": "Z",
+          "raw": "Z"
+        },
+        {
+          "target": "c",
+          "prediction": "C",
+          "raw": "C"
+        },
+        {
+          "target": "k",
+          "prediction": "K",
+          "raw": "K"
+        },
+        {
+          "target": "m",
+          "prediction": "M",
+          "raw": "M"
+        },
+        {
+          "target": "o",
+          "prediction": "O",
+          "raw": "O"
+        },
+        {
+          "target": "p",
+          "prediction": "P",
+          "raw": "P"
+        },
+        {
+          "target": "s",
+          "prediction": "S",
+          "raw": "S"
+        },
+        {
+          "target": "u",
+          "prediction": "U",
+          "raw": "U"
+        },
+        {
+          "target": "v",
+          "prediction": "V",
+          "raw": "V"
+        },
+        {
+          "target": "w",
+          "prediction": "W",
+          "raw": "W"
+        },
+        {
+          "target": "x",
+          "prediction": "X",
+          "raw": "X"
+        },
+        {
+          "target": "z",
+          "prediction": "Z",
+          "raw": "Z"
+        },
+        {
+          "target": "c",
+          "prediction": "C",
+          "raw": "C"
+        },
+        {
+          "target": "k",
+          "prediction": "K",
+          "raw": "K"
+        },
+        {
+          "target": "m",
+          "prediction": "M",
+          "raw": "M"
+        },
+        {
+          "target": "o",
+          "prediction": "O",
+          "raw": "O"
+        },
+        {
+          "target": "p",
+          "prediction": "P",
+          "raw": "P"
+        },
+        {
+          "target": "s",
+          "prediction": "S",
+          "raw": "S"
+        },
+        {
+          "target": "u",
+          "prediction": "U",
+          "raw": "U"
+        },
+        {
+          "target": "v",
+          "prediction": "V",
+          "raw": "V"
+        },
+        {
+          "target": "w",
+          "prediction": "W",
+          "raw": "W"
+        },
+        {
+          "target": "x",
+          "prediction": "X",
+          "raw": "X"
+        },
+        {
+          "target": "z",
+          "prediction": "Z",
+          "raw": "Z"
+        }
+      ],
+      "exact_pct": 78.85,
+      "case_insensitive_pct": 100.0,
+      "extracted_pct": 78.85,
+      "extracted_case_insensitive_pct": 100.0
+    },
+    {
+      "name": "lighton",
+      "status": "ok",
+      "exact": 95,
+      "case_insensitive": 115,
+      "extracted": 129,
+      "extracted_case_insensitive": 150,
+      "total": 156,
+      "latency_ms": 2992.2015593012816,
+      "error": "",
+      "errors": [
+        {
+          "target": "c",
+          "prediction": "C",
+          "raw": "C"
+        },
+        {
+          "target": "i",
+          "prediction": "<figure>",
+          "raw": "<figure>\n### Figure \u2013 Information Icon\n*Type: logo*\n\nThe image is a simple black and white icon representing an information symbol. It is commonly used to denote information or a question in various c"
+        },
+        {
+          "target": "l",
+          "prediction": "<figure>",
+          "raw": "<figure>\n### Figure \u2013 Black Rectangle\n*Type: other*\n\nThe image shows a simple black rectangle centered on a white background.\n\nThe rectangle is vertically oriented and occupies the entire width of the"
+        },
+        {
+          "target": "o",
+          "prediction": "O",
+          "raw": "O"
+        },
+        {
+          "target": "s",
+          "prediction": "S",
+          "raw": "S"
+        },
+        {
+          "target": "v",
+          "prediction": "V",
+          "raw": "V"
+        },
+        {
+          "target": "w",
+          "prediction": "W",
+          "raw": "W"
+        },
+        {
+          "target": "x",
+          "prediction": "X",
+          "raw": "X"
+        },
+        {
+          "target": "z",
+          "prediction": "Z",
+          "raw": "Z"
+        },
+        {
+          "target": "I",
+          "prediction": "<figure>",
+          "raw": "<figure>\n### Figure \u2013 Black Rectangle\n*Type: other*\n\nThe image shows a simple black rectangle centered on a white background.\n\nThe rectangle is vertically oriented and occupies the center of the image"
+        },
+        {
+          "target": "a",
+          "prediction": "$a$",
+          "raw": "$a$"
+        },
+        {
+          "target": "b",
+          "prediction": "$b$",
+          "raw": "$b$"
+        },
+        {
+          "target": "c",
+          "prediction": "C",
+          "raw": "C"
+        },
+        {
+          "target": "d",
+          "prediction": "$d$",
+          "raw": "$d$"
+        },
+        {
+          "target": "g",
+          "prediction": "$g$",
+          "raw": "$g$"
+        },
+        {
+          "target": "h",
+          "prediction": "$h$",
+          "raw": "$h$"
+        },
+        {
+          "target": "k",
+          "prediction": "$k$",
+          "raw": "$k$"
+        },
+        {
+          "target": "l",
+          "prediction": "I",
+          "raw": "I"
+        },
+        {
+          "target": "m",
+          "prediction": "$m$",
+          "raw": "$m$"
+        },
+        {
+          "target": "n",
+          "prediction": "$n$",
+          "raw": "$n$"
+        },
+        {
+          "target": "o",
+          "prediction": "O",
+          "raw": "O"
+        },
+        {
+          "target": "p",
+          "prediction": "$p$",
+          "raw": "$p$"
+        },
+        {
+          "target": "q",
+          "prediction": "$q$",
+          "raw": "$q$"
+        },
+        {
+          "target": "r",
+          "prediction": "$r$",
+          "raw": "$r$"
+        },
+        {
+          "target": "s",
+          "prediction": "S",
+          "raw": "S"
+        },
+        {
+          "target": "t",
+          "prediction": "$t$",
+          "raw": "$t$"
+        },
+        {
+          "target": "u",
+          "prediction": "$u$",
+          "raw": "$u$"
+        },
+        {
+          "target": "v",
+          "prediction": "V",
+          "raw": "V"
+        },
+        {
+          "target": "w",
+          "prediction": "W",
+          "raw": "W"
+        },
+        {
+          "target": "x",
+          "prediction": "$x$",
+          "raw": "$x$"
+        },
+        {
+          "target": "z",
+          "prediction": "Z",
+          "raw": "Z"
+        },
+        {
+          "target": "B",
+          "prediction": "$B$",
+          "raw": "$B$"
+        },
+        {
+          "target": "E",
+          "prediction": "$E$",
+          "raw": "$E$"
+        },
+        {
+          "target": "F",
+          "prediction": "$F$",
+          "raw": "$F$"
+        },
+        {
+          "target": "K",
+          "prediction": "$K$",
+          "raw": "$K$"
+        },
+        {
+          "target": "M",
+          "prediction": "$M$",
+          "raw": "$M$"
+        },
+        {
+          "target": "P",
+          "prediction": "$P$",
+          "raw": "$P$"
+        },
+        {
+          "target": "R",
+          "prediction": "$R$",
+          "raw": "$R$"
+        },
+        {
+          "target": "T",
+          "prediction": "$T$",
+          "raw": "$T$"
+        },
+        {
+          "target": "U",
+          "prediction": "$U$",
+          "raw": "$U$"
+        },
+        {
+          "target": "b",
+          "prediction": "$b$",
+          "raw": "$b$"
+        },
+        {
+          "target": "c",
+          "prediction": "C",
+          "raw": "C"
+        },
+        {
+          "target": "d",
+          "prediction": "$d$",
+          "raw": "$d$"
+        },
+        {
+          "target": "h",
+          "prediction": "$h$",
+          "raw": "$h$"
+        },
+        {
+          "target": "k",
+          "prediction": "$k$",
+          "raw": "$k$"
+        },
+        {
+          "target": "l",
+          "prediction": "$\\lambda$",
+          "raw": "$\\lambda$"
+        },
+        {
+          "target": "m",
+          "prediction": "$m$",
+          "raw": "$m$"
+        },
+        {
+          "target": "n",
+          "prediction": "$n$",
+          "raw": "$n$"
+        },
+        {
+          "target": "o",
+          "prediction": "O",
+          "raw": "O"
+        },
+        {
+          "target": "p",
+          "prediction": "$p$",
+          "raw": "$p$"
+        }
+      ],
+      "exact_pct": 60.9,
+      "case_insensitive_pct": 73.72,
+      "extracted_pct": 82.69,
+      "extracted_case_insensitive_pct": 96.15
+    },
+    {
+      "name": "dots",
+      "status": "ok",
+      "exact": 0,
+      "case_insensitive": 0,
+      "extracted": 3,
+      "extracted_case_insensitive": 6,
+      "total": 156,
+      "latency_ms": 582.8728736794872,
+      "error": "",
+      "errors": [
+        {
+          "target": "a",
+          "prediction": "The single character in the image is \"A\".",
+          "raw": "The single character in the image is \"A\"."
+        },
+        {
+          "target": "b",
+          "prediction": "The single character in the image is \"A\".",
+          "raw": "The single character in the image is \"A\"."
+        },
+        {
+          "target": "c",
+          "prediction": "The single character in the image is \"A\".",
+          "raw": "The single character in the image is \"A\"."
+        },
+        {
+          "target": "d",
+          "prediction": "The single character in the image is \"A\".",
+          "raw": "The single character in the image is \"A\"."
+        },
+        {
+          "target": "e",
+          "prediction": "The single character in the image is \"A\".",
+          "raw": "The single character in the image is \"A\"."
+        },
+        {
+          "target": "f",
+          "prediction": "The single character in the image is \"A\".",
+          "raw": "The single character in the image is \"A\"."
+        },
+        {
+          "target": "g",
+          "prediction": "The single character in the image is \"A\".",
+          "raw": "The single character in the image is \"A\"."
+        },
+        {
+          "target": "h",
+          "prediction": "The single character in the image is \"A\".",
+          "raw": "The single character in the image is \"A\"."
+        },
+        {
+          "target": "i",
+          "prediction": "The single character in the image is \"A\".",
+          "raw": "The single character in the image is \"A\"."
+        },
+        {
+          "target": "j",
+          "prediction": "The single character in the image is \"A\".",
+          "raw": "The single character in the image is \"A\"."
+        },
+        {
+          "target": "k",
+          "prediction": "The single character in the image is \"A\".",
+          "raw": "The single character in the image is \"A\"."
+        },
+        {
+          "target": "l",
+          "prediction": "The single character in the image is \"A\".",
+          "raw": "The single character in the image is \"A\"."
+        },
+        {
+          "target": "m",
+          "prediction": "The single character in the image is \"A\".",
+          "raw": "The single character in the image is \"A\"."
+        },
+        {
+          "target": "n",
+          "prediction": "The single character in the image is \"A\".",
+          "raw": "The single character in the image is \"A\"."
+        },
+        {
+          "target": "o",
+          "prediction": "The single character in the image is \"A\".",
+          "raw": "The single character in the image is \"A\"."
+        },
+        {
+          "target": "p",
+          "prediction": "The single character in the image is \"A\".",
+          "raw": "The single character in the image is \"A\"."
+        },
+        {
+          "target": "q",
+          "prediction": "The single character in the image is \"A\".",
+          "raw": "The single character in the image is \"A\"."
+        },
+        {
+          "target": "r",
+          "prediction": "The single character in the image is \"A\".",
+          "raw": "The single character in the image is \"A\"."
+        },
+        {
+          "target": "s",
+          "prediction": "The single character in the image is \"A\".",
+          "raw": "The single character in the image is \"A\"."
+        },
+        {
+          "target": "t",
+          "prediction": "The single character in the image is \"A\".",
+          "raw": "The single character in the image is \"A\"."
+        },
+        {
+          "target": "u",
+          "prediction": "The single character in the image is \"A\".",
+          "raw": "The single character in the image is \"A\"."
+        },
+        {
+          "target": "v",
+          "prediction": "The single character in the image is \"A\".",
+          "raw": "The single character in the image is \"A\"."
+        },
+        {
+          "target": "w",
+          "prediction": "The single character in the image is \"A\".",
+          "raw": "The single character in the image is \"A\"."
+        },
+        {
+          "target": "x",
+          "prediction": "The single character in the image is \"A\".",
+          "raw": "The single character in the image is \"A\"."
+        },
+        {
+          "target": "y",
+          "prediction": "The single character in the image is \"A\".",
+          "raw": "The single character in the image is \"A\"."
+        },
+        {
+          "target": "z",
+          "prediction": "The single character in the image is \"A\".",
+          "raw": "The single character in the image is \"A\"."
+        },
+        {
+          "target": "A",
+          "prediction": "The single character in the image is \"A\".",
+          "raw": "The single character in the image is \"A\"."
+        },
+        {
+          "target": "B",
+          "prediction": "The single character in the image is \"A\".",
+          "raw": "The single character in the image is \"A\"."
+        },
+        {
+          "target": "C",
+          "prediction": "The single character in the image is \"A\".",
+          "raw": "The single character in the image is \"A\"."
+        },
+        {
+          "target": "D",
+          "prediction": "The single character in the image is \"A\".",
+          "raw": "The single character in the image is \"A\"."
+        },
+        {
+          "target": "E",
+          "prediction": "The single character in the image is \"A\".",
+          "raw": "The single character in the image is \"A\"."
+        },
+        {
+          "target": "F",
+          "prediction": "The single character in the image is \"A\".",
+          "raw": "The single character in the image is \"A\"."
+        },
+        {
+          "target": "G",
+          "prediction": "The single character in the image is \"A\".",
+          "raw": "The single character in the image is \"A\"."
+        },
+        {
+          "target": "H",
+          "prediction": "The single character in the image is \"A\".",
+          "raw": "The single character in the image is \"A\"."
+        },
+        {
+          "target": "I",
+          "prediction": "The single character in the image is \"A\".",
+          "raw": "The single character in the image is \"A\"."
+        },
+        {
+          "target": "J",
+          "prediction": "The single character in the image is \"A\".",
+          "raw": "The single character in the image is \"A\"."
+        },
+        {
+          "target": "K",
+          "prediction": "The single character in the image is \"A\".",
+          "raw": "The single character in the image is \"A\"."
+        },
+        {
+          "target": "L",
+          "prediction": "The single character in the image is \"A\".",
+          "raw": "The single character in the image is \"A\"."
+        },
+        {
+          "target": "M",
+          "prediction": "The single character in the image is \"A\".",
+          "raw": "The single character in the image is \"A\"."
+        },
+        {
+          "target": "N",
+          "prediction": "The single character in the image is \"A\".",
+          "raw": "The single character in the image is \"A\"."
+        },
+        {
+          "target": "O",
+          "prediction": "The single character in the image is \"A\".",
+          "raw": "The single character in the image is \"A\"."
+        },
+        {
+          "target": "P",
+          "prediction": "The single character in the image is \"A\".",
+          "raw": "The single character in the image is \"A\"."
+        },
+        {
+          "target": "Q",
+          "prediction": "The single character in the image is \"A\".",
+          "raw": "The single character in the image is \"A\"."
+        },
+        {
+          "target": "R",
+          "prediction": "The single character in the image is \"A\".",
+          "raw": "The single character in the image is \"A\"."
+        },
+        {
+          "target": "S",
+          "prediction": "The single character in the image is \"A\".",
+          "raw": "The single character in the image is \"A\"."
+        },
+        {
+          "target": "T",
+          "prediction": "The single character in the image is \"A\".",
+          "raw": "The single character in the image is \"A\"."
+        },
+        {
+          "target": "U",
+          "prediction": "The single character in the image is \"A\".",
+          "raw": "The single character in the image is \"A\"."
+        },
+        {
+          "target": "V",
+          "prediction": "The single character in the image is \"A\".",
+          "raw": "The single character in the image is \"A\"."
+        },
+        {
+          "target": "W",
+          "prediction": "The single character in the image is \"A\".",
+          "raw": "The single character in the image is \"A\"."
+        },
+        {
+          "target": "X",
+          "prediction": "The single character in the image is \"A\".",
+          "raw": "The single character in the image is \"A\"."
+        }
+      ],
+      "exact_pct": 0.0,
+      "case_insensitive_pct": 0.0,
+      "extracted_pct": 1.92,
+      "extracted_case_insensitive_pct": 3.85
+    },
+    {
+      "name": "oxr",
+      "status": "unavailable",
+      "exact": 0,
+      "case_insensitive": 0,
+      "extracted": 0,
+      "extracted_case_insensitive": 0,
+      "total": 156,
+      "latency_ms": 0.0,
+      "error": "RuntimeError: OXR request failed at http://127.0.0.1:8080/v1. Start an OpenAI-compatible OXR/vLLM server first: HTTP Error 404: Not Found",
+      "errors": [],
+      "exact_pct": 0.0,
+      "case_insensitive_pct": 0.0,
+      "extracted_pct": 0.0,
+      "extracted_case_insensitive_pct": 0.0
+    }
+  ]
+}

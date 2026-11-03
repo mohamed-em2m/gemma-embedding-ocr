@@ -406,7 +406,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--dots-model", default="dots-studio/dots.mocr")
     parser.add_argument(
         "--dots-prompt",
-        default="Extract all text from this image. Output only the text.",
+        default="Output the single character in this image.",
     )
     parser.add_argument(
         "--oxr-base-url",

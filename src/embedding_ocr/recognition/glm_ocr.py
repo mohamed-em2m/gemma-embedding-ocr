@@ -15,17 +15,24 @@ class GLMOCRRecognizer(RecognitionEngine):
     def __init__(
         self,
         model_id: str = "zai-org/GLM-OCR",
-        device: str = "cuda" if torch.cuda.is_available() else "cpu",
-        torch_dtype: torch.dtype = torch.bfloat16 if torch.cuda.is_available() else torch.float32,
+        device: str = "auto",
+        torch_dtype: torch.dtype | None = None,
     ) -> None:
         from transformers import AutoModelForImageTextToText, AutoProcessor
 
-        self.device = device
+        resolved_device = "cuda" if device == "auto" and torch.cuda.is_available() else device
+        if resolved_device == "auto":
+            resolved_device = "cpu"
+        resolved_dtype = torch_dtype if torch_dtype is not None else (
+            torch.bfloat16 if resolved_device == "cuda" else torch.float32
+        )
+
+        self.device = resolved_device
         self.processor = AutoProcessor.from_pretrained(model_id, trust_remote_code=True)
         self.model = AutoModelForImageTextToText.from_pretrained(
             model_id,
-            torch_dtype=torch_dtype,
-            device_map=device,
+            torch_dtype=resolved_dtype,
+            device_map=resolved_device,
             trust_remote_code=True,
         )
 

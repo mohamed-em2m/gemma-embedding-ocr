@@ -3,10 +3,8 @@
 from __future__ import annotations
 
 import numpy as np
-import pytest
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageDraw
 
-from embedding_ocr.data.glyph_renderer import LATIN_CLASSES
 from embedding_ocr.recognition.base import RecognitionResult
 from embedding_ocr.recognition.embedding.engine import EmbeddingRecognizer
 from embedding_ocr.recognition.embedding.index import NumpyIndex

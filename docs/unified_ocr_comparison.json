@@ -1,0 +1,99 @@
+{
+  "n_queries": 10,
+  "results": [
+    {
+      "name": "tesseract",
+      "category": "Conventional OCR",
+      "status": "ok",
+      "exact": 7,
+      "case_insensitive": 7,
+      "extracted": 7,
+      "extracted_case_insensitive": 7,
+      "total": 10,
+      "latency_ms": 228.33676650006964,
+      "error": "",
+      "errors": [
+        {
+          "target": "g",
+          "prediction": "e",
+          "raw": "e"
+        },
+        {
+          "target": "i",
+          "prediction": "L",
+          "raw": "L"
+        },
+        {
+          "target": "j",
+          "prediction": "Jj",
+          "raw": "Jj"
+        }
+      ],
+      "exact_pct": 70.0,
+      "case_insensitive_pct": 70.0,
+      "extracted_pct": 70.0,
+      "extracted_case_insensitive_pct": 70.0
+    },
+    {
+      "name": "easyocr",
+      "category": "Conventional OCR",
+      "status": "ok",
+      "exact": 6,
+      "case_insensitive": 6,
+      "extracted": 6,
+      "extracted_case_insensitive": 6,
+      "total": 10,
+      "latency_ms": 131.71854649990564,
+      "error": "",
+      "errors": [
+        {
+          "target": "c",
+          "prediction": "",
+          "raw": ""
+        },
+        {
+          "target": "e",
+          "prediction": "",
+          "raw": ""
+        },
+        {
+          "target": "g",
+          "prediction": "9",
+          "raw": "9"
+        },
+        {
+          "target": "i",
+          "prediction": "1",
+          "raw": "1"
+        }
+      ],
+      "exact_pct": 60.0,
+      "case_insensitive_pct": 60.0,
+      "extracted_pct": 60.0,
+      "extracted_case_insensitive_pct": 60.0
+    },
+    {
+      "name": "EmbeddingGemma (Max-Agg + Matcher)",
+      "category": "EmbeddingOCR",
+      "status": "ok",
+      "exact": 9,
+      "case_insensitive": 10,
+      "extracted": 9,
+      "extracted_case_insensitive": 10,
+      "total": 10,
+      "latency_ms": 752.4698984998395,
+      "error": "",
+      "errors": [
+        {
+          "target": "c",
+          "prediction": "C",
+          "raw": "C"
+        }
+      ],
+      "exact_pct": 90.0,
+      "case_insensitive_pct": 100.0,
+      "extracted_pct": 90.0,
+      "extracted_case_insensitive_pct": 100.0
+    }
+  ]
+}

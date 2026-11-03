@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import time
+
 import numpy as np
 
 from embedding_ocr.data.glyph_renderer import render_glyph

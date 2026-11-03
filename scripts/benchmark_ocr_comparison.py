@@ -10,6 +10,7 @@ Tests both word-level text crops and single-glyph crops across:
 from __future__ import annotations
 
 import time
+
 import numpy as np
 from PIL import Image, ImageDraw, ImageFont
 
@@ -51,7 +52,7 @@ def main() -> None:
         "Speed", "Tesseract", "Paddle", "Benchmark"
     ]
 
-    print(f"\n1. Initializing Conventional OCR Engines...")
+    print("\n1. Initializing Conventional OCR Engines...")
     tess = TesseractRecognizer(psm=7)
     print("  ✓ Tesseract (PSM 7 - Single line)")
     easy = EasyOCRRecognizer(gpu=True)

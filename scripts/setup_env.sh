@@ -2,6 +2,7 @@
 # ==============================================================================
 # EmbeddingOCR: Environment Setup Script
 # Reproduces the full development and runtime environment on Debian/Ubuntu/Colab
+# Uses uv exclusively as specified in AGENTS.md
 # ==============================================================================
 
 set -euo pipefail
@@ -10,13 +11,17 @@ echo "=========================================================="
 echo " Starting EmbeddingOCR Environment Setup..."
 echo "=========================================================="
 
-# 1. System packages & 100+ typography font families
-echo "[1/4] Installing system dependencies and clean fonts..."
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$SCRIPT_DIR"
+
+# 1. System packages, tesseract OCR, & clean typography font families
+echo "[1/4] Installing system dependencies, Tesseract OCR, and clean fonts..."
 export DEBIAN_FRONTEND=noninteractive
 apt-get update -qq
 apt-get install -y -qq \
     git curl wget \
     fontconfig \
+    tesseract-ocr \
     fonts-dejavu-core fonts-dejavu-extra \
     fonts-noto-core fonts-noto-mono \
     fonts-roboto \
@@ -37,48 +42,48 @@ apt-get install -y -qq \
     fonts-inter
 
 fc-cache -f -v > /dev/null 2>&1
-echo "✓ System dependencies & fonts installed."
+echo "✓ System dependencies, Tesseract, & fonts installed."
 
 # 2. Install / ensure uv is present
 echo "[2/4] Setting up uv package manager..."
 if ! command -v uv &> /dev/null; then
     curl -LsSf https://astral.sh/uv/install.sh | sh
-    export PATH="$HOME/.local/bin:$PATH"
+    export PATH="$HOME/.local/bin:$HOME/.cargo/bin:$PATH"
 fi
 echo "✓ uv is ready: $(uv --version)"
 
-# 3. Python libraries
-echo "[3/4] Installing core AI, vision, and vector search packages..."
-python3 -m pip install --upgrade pip -q
-python3 -m pip install -q \
-    torch \
-    transformers \
-    "sentence-transformers>=6.1.0" \
-    "faiss-cpu>=1.8.0" \
-    pillow \
-    numpy \
-    pyyaml \
-    pydantic \
-    typer \
-    rich \
-    jiwer \
-    rapidfuzz \
-    opencv-python-headless \
-    ruff \
-    mypy \
-    pytest \
-    pytest-cov
+# 3. Synchronize environment with uv (dev group included)
+echo "[3/4] Installing Python dependencies via uv sync..."
+uv sync --group dev
 
-# 4. Install local package in editable mode
-echo "[4/4] Installing embedding-ocr in editable mode..."
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-cd "$SCRIPT_DIR"
-python3 -m pip install -e . -q
+# 4. Setup flash_attn compatibility shim for Turing/T4 & environments without CUDA kernels
+echo "[4/4] Setting up flash_attn SDPA compatibility shim..."
+uv run python -c "
+import importlib.util
+from pathlib import Path
+import site
 
-# 5. Build clean 166-font catalog
+spec = importlib.util.find_spec('flash_attn')
+if spec is None or spec.origin is None:
+    site_dirs = [p for p in site.getsitepackages() if 'site-packages' in p]
+    target_dir = Path(site_dirs[0]) / 'flash_attn' if site_dirs else None
+    if target_dir:
+        target_dir.mkdir(parents=True, exist_ok=True)
+        init_file = target_dir / '__init__.py'
+        init_file.write_text(
+            '__version__ = \"0.0.1\"\n\n'
+            'def flash_attn_varlen_func(*args, **kwargs):\n'
+            '    raise NotImplementedError(\"flash_attn CUDA kernels not compiled; use SDPA attention.\")\n'
+        )
+        print('✓ flash_attn compatibility shim installed to', target_dir)
+else:
+    print('✓ flash_attn already resolved:', spec.origin)
+"
+
+# 5. Build clean font catalog
 echo "Indexing clean document fonts..."
 mkdir -p data
-python3 -c "
+uv run python -c "
 from pathlib import Path
 
 all_fonts = list(Path('/usr/share/fonts').rglob('*.ttf')) + list(Path('/usr/share/fonts').rglob('*.otf'))
@@ -102,6 +107,7 @@ print(f'Successfully cataloged {len(filtered)} verified clean document fonts in 
 
 echo "=========================================================="
 echo " EmbeddingOCR environment successfully configured!"
-echo " Run unit tests with:  pytest tests/"
-echo " Run spike with:       python scripts/phase0_az_spike.py"
+echo " Run unit tests:  uv run pytest"
+echo " Run linter:     uv run ruff check ."
+echo " Run benchmark:  uv run python scripts/compare_new_ocr_models.py"
 echo "=========================================================="
