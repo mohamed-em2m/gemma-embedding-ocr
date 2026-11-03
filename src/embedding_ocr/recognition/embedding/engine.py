@@ -52,7 +52,11 @@ class EmbeddingRecognizer(RecognitionEngine):
 
         # Estimate line baseline and cap-height from segmented components
         cap_height_top = min((seg.relative_top for seg in segments), default=0.2)
-        baseline_bottom = float(np.median([seg.relative_bottom for seg in segments])) if segments else 0.8
+        baseline_bottom = (
+            float(np.median([seg.relative_bottom for seg in segments]))
+            if segments
+            else 0.8
+        )
 
         for i, seg in enumerate(segments):
             if seg.is_space_before and recognized_chars:
@@ -73,4 +77,6 @@ class EmbeddingRecognizer(RecognitionEngine):
         text = "".join(recognized_chars)
         avg_confidence = float(np.mean(confidences)) if confidences else 0.0
 
-        return RecognitionResult(text=text, confidence=max(0.0, min(1.0, avg_confidence)))
+        return RecognitionResult(
+            text=text, confidence=max(0.0, min(1.0, avg_confidence))
+        )

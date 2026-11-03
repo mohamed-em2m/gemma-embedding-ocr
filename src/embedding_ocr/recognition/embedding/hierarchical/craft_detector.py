@@ -26,6 +26,7 @@ class CraftWordDetector:
     def _ensure_loaded(self) -> None:
         if self._craft is None:
             import torchvision.models.vgg as vgg
+
             if not hasattr(vgg, "model_urls"):
                 vgg.model_urls = {
                     "vgg16_bn": "https://download.pytorch.org/models/vgg16_bn-6c64b313.pth"
@@ -52,8 +53,11 @@ class CraftWordDetector:
             List of (x, y, w, h) bounding boxes.
         """
         self._ensure_loaded()
+        if self._craft is None:
+            return []
         if image.ndim == 2:
             import cv2
+
             img_rgb = cv2.cvtColor(image, cv2.COLOR_GRAY2RGB)
         else:
             img_rgb = image

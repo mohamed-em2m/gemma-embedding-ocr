@@ -81,6 +81,7 @@ def render_glyph(
     """
     image = Image.new("RGB", (canvas_size, canvas_size), color=(255, 255, 255))
     draw = ImageDraw.Draw(image)
+    font: ImageFont.ImageFont | ImageFont.FreeTypeFont
     try:
         font = ImageFont.truetype(str(font_path), font_size)
     except Exception:
@@ -128,6 +129,7 @@ def render_glyph_with_features(
         font_size=font_size,
         preserve_aspect_and_baseline=True,
     )
+    font: ImageFont.ImageFont | ImageFont.FreeTypeFont
     try:
         font = ImageFont.truetype(str(font_path), font_size)
     except Exception:

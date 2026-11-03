@@ -16,7 +16,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import ClassVar, Protocol, runtime_checkable
+from typing import ClassVar, Protocol, cast, runtime_checkable
 
 import numpy as np
 
@@ -149,7 +149,9 @@ class FaissIndex:
 
         meta = json.loads(meta_path.read_text())
         obj = cls(dim=meta["dim"], embedder_name=meta["embedder_name"])
-        obj._index = faiss.read_index(str(path.with_suffix(cls._FAISS_EXT)))
+        obj._index = cast(
+            faiss.IndexFlatIP, faiss.read_index(str(path.with_suffix(cls._FAISS_EXT)))
+        )
         obj._labels = np.load(str(path) + "_labels.npy", allow_pickle=True)
         return obj
 

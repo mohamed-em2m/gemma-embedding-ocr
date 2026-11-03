@@ -64,9 +64,13 @@ class PrototypeMatcher:
                 class_scores[lbl] = score
 
         # Sort classes by max similarity
-        sorted_classes = sorted(class_scores.items(), key=lambda item: item[1], reverse=True)
+        sorted_classes = sorted(
+            class_scores.items(), key=lambda item: item[1], reverse=True
+        )
         if not sorted_classes:
-            return MatchPrediction(character="", confidence=0.0, raw_top1_sim=0.0, margin=0.0)
+            return MatchPrediction(
+                character="", confidence=0.0, raw_top1_sim=0.0, margin=0.0
+            )
 
         best_char, top1_sim = sorted_classes[0]
         top2_sim = sorted_classes[1][1] if len(sorted_classes) > 1 else 0.0
@@ -76,13 +80,15 @@ class PrototypeMatcher:
         conf = max(0.0, min(1.0, (top1_sim + margin) / 1.5))
 
         # Disambiguate case pairs using geometric relative height and baseline cues
-        is_case_candidate = best_char in self.case_map or best_char in self.reverse_case_map
+        is_case_candidate = (
+            best_char in self.case_map or best_char in self.reverse_case_map
+        )
         if is_case_candidate:
             # Baseline & Cap-height analysis if available
             is_uppercase: bool | None = None
             if relative_top is not None and cap_height_top is not None:
                 # If top reaches near cap-height, it's uppercase
-                is_uppercase = (relative_top <= cap_height_top + 0.08)
+                is_uppercase = relative_top <= cap_height_top + 0.08
 
             if is_uppercase is None and relative_height is not None:
                 is_uppercase = relative_height >= self.case_height_thresh
@@ -92,7 +98,11 @@ class PrototypeMatcher:
                     best_char = self.case_map[best_char]
                 elif not is_uppercase and best_char in self.reverse_case_map:
                     # Special check: descenders like 'p'
-                    if best_char == "P" and relative_bottom is not None and baseline_bottom is not None:
+                    if (
+                        best_char == "P"
+                        and relative_bottom is not None
+                        and baseline_bottom is not None
+                    ):
                         if relative_bottom > baseline_bottom + 0.05:
                             best_char = "p"
                     else:

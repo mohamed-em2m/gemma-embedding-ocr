@@ -44,17 +44,27 @@ class TesseractRecognizer(RecognitionEngine):
             # data contains 'text' and 'conf'
             confidences = [
                 float(c)
-                for c, t in zip(data.get("conf", []), data.get("text", []), strict=False)
+                for c, t in zip(
+                    data.get("conf", []), data.get("text", []), strict=False
+                )
                 if str(c).strip() not in ("-1", "") and str(t).strip()
             ]
-            raw_text = pytesseract.image_to_string(pil_img, lang=self.lang, config=self.config)
+            raw_text = pytesseract.image_to_string(
+                pil_img, lang=self.lang, config=self.config
+            )
             cleaned_text = raw_text.strip().replace("\n", "").replace("\r", "")
 
-            avg_conf = (sum(confidences) / len(confidences) / 100.0) if confidences else (0.8 if cleaned_text else 0.0)
+            avg_conf = (
+                (sum(confidences) / len(confidences) / 100.0)
+                if confidences
+                else (0.8 if cleaned_text else 0.0)
+            )
             avg_conf = max(0.0, min(1.0, avg_conf))
 
             return RecognitionResult(text=cleaned_text, confidence=avg_conf)
         except Exception:
             # Fallback on raw string
-            raw_text = pytesseract.image_to_string(pil_img, lang=self.lang, config=self.config).strip()
+            raw_text = pytesseract.image_to_string(
+                pil_img, lang=self.lang, config=self.config
+            ).strip()
             return RecognitionResult(text=raw_text, confidence=0.5 if raw_text else 0.0)

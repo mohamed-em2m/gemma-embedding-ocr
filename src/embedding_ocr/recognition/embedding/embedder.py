@@ -115,7 +115,9 @@ class EmbeddingGemma2:
             device=self._device,
         )
 
-    def embed_images(self, images: list[np.ndarray], use_cache: bool = True) -> np.ndarray:
+    def embed_images(
+        self, images: list[np.ndarray], use_cache: bool = True
+    ) -> np.ndarray:
         """Embed a list of numpy image arrays (H, W, 3) uint8.
 
         Converts to PIL.Image internally; model handles preprocessing.

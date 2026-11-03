@@ -87,6 +87,7 @@ class PrototypeDB:
         }
         meta_file = path.with_suffix(".labels.json")
         import json
+
         meta_file.write_text(json.dumps(meta, indent=2))
 
     def load_cache(self, path: Path | str) -> None:
@@ -97,6 +98,7 @@ class PrototypeDB:
             msg = f"Prototype metadata file {meta_file} not found."
             raise FileNotFoundError(msg)
         import json
+
         meta = json.loads(meta_file.read_text())
         self.classes = meta.get("classes", self.classes)
         self.fonts = meta.get("fonts", self.fonts)
@@ -104,7 +106,9 @@ class PrototypeDB:
         self.font_size = meta.get("font_size", self.font_size)
         self.labels = meta.get("labels", [])
 
-    def search(self, query_embeddings: np.ndarray, top_k: int = 20) -> tuple[np.ndarray, list[list[str]]]:
+    def search(
+        self, query_embeddings: np.ndarray, top_k: int = 20
+    ) -> tuple[np.ndarray, list[list[str]]]:
         """Search nearest prototypes for query embeddings.
 
         Args:

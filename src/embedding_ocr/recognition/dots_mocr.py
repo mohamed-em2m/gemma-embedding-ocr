@@ -15,7 +15,7 @@ directly.
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, cast
 
 import numpy as np
 import torch
@@ -87,10 +87,11 @@ class DotsMOCRRecognizer(RecognitionEngine):
             cache_position: torch.Tensor | None = None,
             **kwargs: Any,
         ) -> dict[str, Any]:
+            input_ids_long = cast(torch.LongTensor, input_ids.long())
             try:
                 return orig_prepare(
                     model_self,
-                    input_ids,
+                    input_ids_long,
                     cache_position=cache_position,
                     **kwargs,
                 )
@@ -98,10 +99,12 @@ class DotsMOCRRecognizer(RecognitionEngine):
                 if "NoneType" in str(exc) and "subscriptable" in str(exc):
                     # Fallback when cache_position was None
                     seq_len = input_ids.shape[1]
-                    fallback_pos = torch.arange(seq_len, device=input_ids.device)
+                    fallback_pos = torch.arange(
+                        seq_len, device=input_ids.device, dtype=torch.long
+                    )
                     return orig_prepare(
                         model_self,
-                        input_ids,
+                        input_ids_long,
                         cache_position=fallback_pos,
                         **kwargs,
                     )
@@ -158,7 +161,7 @@ class DotsMOCRRecognizer(RecognitionEngine):
             inputs.pop("mm_token_type_ids", None)
 
         with torch.no_grad():
-            output = self._model.generate(
+            output = cast(Any, self._model).generate(
                 **inputs,
                 max_new_tokens=self.max_new_tokens,
                 eos_token_id=[151643, 151673],

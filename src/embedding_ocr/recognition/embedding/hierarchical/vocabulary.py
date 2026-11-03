@@ -11,9 +11,9 @@ Builds and caches text embeddings and candidate indices.
 from __future__ import annotations
 
 import json
+from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Sequence
 
 import numpy as np
 
@@ -85,12 +85,16 @@ class EmbeddingVocabulary:
                 continue
 
             decoded = tokenizer.decode([tid])
+            if isinstance(decoded, list):
+                decoded = "".join(decoded)
             clean = decoded.strip()
             if not clean:
                 continue
 
             # Pure Latin ASCII printable tokens
-            if not all(c.isascii() and (c.isalnum() or c in "-_'.,:;!?") for c in clean):
+            if not all(
+                c.isascii() and (c.isalnum() or c in "-_'.,:;!?") for c in clean
+            ):
                 continue
 
             if len(clean) == 1:
@@ -113,19 +117,19 @@ class EmbeddingVocabulary:
         if extra_lexicon:
             for word in extra_lexicon:
                 clean_w = word.strip()
-                if clean_w and clean_w not in words_dict and clean_w not in chars_dict:
+                if clean_w and clean_w not in chars_dict:
                     words_dict[clean_w] = VocabToken(
                         text=clean_w,
-                        token_id=-1,  # multi-token / custom word
+                        token_id=-1,  # priority extra word
                         raw_token=f"\u2581{clean_w}",
                         category="word",
                     )
 
-        # Truncate to desired candidate budget for efficiency
+        # Truncate to desired candidate budget for efficiency (prioritizing custom/extra words)
         word_list = list(words_dict.values())
         if max_words and len(word_list) > max_words:
-            # Sort by token_id (most frequent in tokenizer are lower IDs)
-            word_list.sort(key=lambda t: (t.token_id if t.token_id >= 0 else 999999))
+            # Sort: priority extra words first (token_id == -1), then by token frequency
+            word_list.sort(key=lambda t: -100 if t.token_id == -1 else t.token_id)
             word_list = word_list[:max_words]
 
         subword_list = list(subwords_dict.values())
@@ -184,26 +188,41 @@ class EmbeddingVocabulary:
             index.build(vectors, np.arange(len(tokens)))
             setattr(self, attr_name, index)
 
-    def search_words(self, query_embs: np.ndarray, top_k: int = 10) -> tuple[np.ndarray, list[list[VocabToken]]]:
+    def search_words(
+        self, query_embs: np.ndarray, top_k: int = 10
+    ) -> tuple[np.ndarray, list[list[VocabToken]]]:
         """Search nearest word candidates."""
         if self.word_index is None:
             raise RuntimeError("Word index is not built.")
         sims, idxs = self.word_index.search(query_embs, top_k)
-        tokens = [[self._word_lookup[i] for i in row if i in self._word_lookup] for row in idxs]
+        tokens = [
+            [self._word_lookup[i] for i in row if i in self._word_lookup]
+            for row in idxs
+        ]
         return sims, tokens
 
-    def search_subwords(self, query_embs: np.ndarray, top_k: int = 10) -> tuple[np.ndarray, list[list[VocabToken]]]:
+    def search_subwords(
+        self, query_embs: np.ndarray, top_k: int = 10
+    ) -> tuple[np.ndarray, list[list[VocabToken]]]:
         """Search nearest subword candidates."""
         if self.subword_index is None:
             raise RuntimeError("Subword index is not built.")
         sims, idxs = self.subword_index.search(query_embs, top_k)
-        tokens = [[self._subword_lookup[i] for i in row if i in self._subword_lookup] for row in idxs]
+        tokens = [
+            [self._subword_lookup[i] for i in row if i in self._subword_lookup]
+            for row in idxs
+        ]
         return sims, tokens
 
-    def search_chars(self, query_embs: np.ndarray, top_k: int = 10) -> tuple[np.ndarray, list[list[VocabToken]]]:
+    def search_chars(
+        self, query_embs: np.ndarray, top_k: int = 10
+    ) -> tuple[np.ndarray, list[list[VocabToken]]]:
         """Search nearest char candidates."""
         if self.char_index is None:
             raise RuntimeError("Char index is not built.")
         sims, idxs = self.char_index.search(query_embs, top_k)
-        tokens = [[self._char_lookup[i] for i in row if i in self._char_lookup] for row in idxs]
+        tokens = [
+            [self._char_lookup[i] for i in row if i in self._char_lookup]
+            for row in idxs
+        ]
         return sims, tokens

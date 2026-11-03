@@ -28,7 +28,9 @@ class VisualWordSegmenter:
             gray = cv2.cvtColor(image, cv2.COLOR_RGB2GRAY)
         else:
             gray = image.copy()
-        _, binary = cv2.threshold(gray, self.binarize_thresh, 255, cv2.THRESH_BINARY_INV)
+        _, binary = cv2.threshold(
+            gray, self.binarize_thresh, 255, cv2.THRESH_BINARY_INV
+        )
         return binary
 
     def extract_word_boxes(self, image: np.ndarray) -> list[tuple[int, int, int, int]]:
@@ -43,7 +45,9 @@ class VisualWordSegmenter:
         binary = self.binarize(image)
         h_img, w_img = binary.shape
 
-        num_labels, labels, stats, centroids = cv2.connectedComponentsWithStats(binary, connectivity=8)
+        num_labels, labels, stats, centroids = cv2.connectedComponentsWithStats(
+            binary, connectivity=8
+        )
 
         components: list[tuple[int, int, int, int]] = []
         for i in range(1, num_labels):
@@ -80,7 +84,9 @@ class VisualWordSegmenter:
         space_threshold = max(7.0, 0.35 * max(typical_w, typical_h * 0.4))
         if len(gaps) >= 2:
             sorted_gaps = sorted(gaps)
-            diffs = [sorted_gaps[k + 1] - sorted_gaps[k] for k in range(len(sorted_gaps) - 1)]
+            diffs = [
+                sorted_gaps[k + 1] - sorted_gaps[k] for k in range(len(sorted_gaps) - 1)
+            ]
             max_jump_idx = int(np.argmax(diffs))
             jump_size = diffs[max_jump_idx]
             cand = (sorted_gaps[max_jump_idx] + sorted_gaps[max_jump_idx + 1]) / 2.0
@@ -102,12 +108,14 @@ class VisualWordSegmenter:
                 # Add light padding
                 px = 2
                 py = 2
-                word_boxes.append((
-                    max(0, min_x - px),
-                    max(0, min_y - py),
-                    min(w_img - min_x, max_x - min_x + 2 * px),
-                    min(h_img - min_y, max_y - min_y + 2 * py),
-                ))
+                word_boxes.append(
+                    (
+                        max(0, min_x - px),
+                        max(0, min_y - py),
+                        min(w_img - min_x, max_x - min_x + 2 * px),
+                        min(h_img - min_y, max_y - min_y + 2 * py),
+                    )
+                )
                 cur_group = [components[i]]
             else:
                 cur_group.append(components[i])
@@ -119,12 +127,14 @@ class VisualWordSegmenter:
             max_y = max(c[1] + c[3] for c in cur_group)
             px = 2
             py = 2
-            word_boxes.append((
-                max(0, min_x - px),
-                max(0, min_y - py),
-                min(w_img - min_x, max_x - min_x + 2 * px),
-                min(h_img - min_y, max_y - min_y + 2 * py),
-            ))
+            word_boxes.append(
+                (
+                    max(0, min_x - px),
+                    max(0, min_y - py),
+                    min(w_img - min_x, max_x - min_x + 2 * px),
+                    min(h_img - min_y, max_y - min_y + 2 * py),
+                )
+            )
 
         return word_boxes
 

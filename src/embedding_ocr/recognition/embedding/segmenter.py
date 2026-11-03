@@ -16,7 +16,9 @@ class SegmentedCharacter:
     bbox: tuple[int, int, int, int]  # x, y, w, h within original crop
     aspect_ratio: float  # h / w
     relative_height: float  # h / line_height
-    is_space_before: bool = False  # True if inter-character spacing indicates a word boundary
+    is_space_before: bool = (
+        False  # True if inter-character spacing indicates a word boundary
+    )
     relative_top: float = 0.0  # y / line_height (0.0 = top of line)
     relative_bottom: float = 1.0  # (y + h) / line_height (1.0 = bottom of line)
 
@@ -53,10 +55,14 @@ class CharacterSegmenter:
         h_img, w_img = gray.shape
 
         # Binarize (black text on white background)
-        _, binary = cv2.threshold(gray, self.binarize_thresh, 255, cv2.THRESH_BINARY_INV)
+        _, binary = cv2.threshold(
+            gray, self.binarize_thresh, 255, cv2.THRESH_BINARY_INV
+        )
 
         # Connected components with stats
-        num_labels, labels, stats, centroids = cv2.connectedComponentsWithStats(binary, connectivity=8)
+        num_labels, labels, stats, centroids = cv2.connectedComponentsWithStats(
+            binary, connectivity=8
+        )
 
         components: list[tuple[int, int, int, int]] = []
         for i in range(1, num_labels):
@@ -91,14 +97,20 @@ class CharacterSegmenter:
         # Dynamic space threshold:
         # If text has multiple words, gaps exhibit a bimodal distribution
         # (small intra-word character spacing vs large inter-word spacing).
-        space_threshold = max(8.0, self.space_ratio_thresh * max(typical_w, typical_h * 0.4))
+        space_threshold = max(
+            8.0, self.space_ratio_thresh * max(typical_w, typical_h * 0.4)
+        )
         if len(gaps) >= 3:
             sorted_gaps = sorted(gaps)
             # Find largest gap jump between small gaps and large gaps
-            diffs = [sorted_gaps[k + 1] - sorted_gaps[k] for k in range(len(sorted_gaps) - 1)]
+            diffs = [
+                sorted_gaps[k + 1] - sorted_gaps[k] for k in range(len(sorted_gaps) - 1)
+            ]
             max_jump_idx = int(np.argmax(diffs))
             jump_size = diffs[max_jump_idx]
-            candidate_thresh = (sorted_gaps[max_jump_idx] + sorted_gaps[max_jump_idx + 1]) / 2.0
+            candidate_thresh = (
+                sorted_gaps[max_jump_idx] + sorted_gaps[max_jump_idx + 1]
+            ) / 2.0
             # If the jump is distinct (at least 4px and candidate threshold is reasonable)
             if jump_size >= 4.0 and 6.0 <= candidate_thresh <= typical_w * 1.5:
                 space_threshold = candidate_thresh
@@ -120,7 +132,9 @@ class CharacterSegmenter:
             new_w = max(1, int(round(w * scale)))
             new_h = max(1, int(round(h * scale)))
 
-            resized_char = cv2.resize(char_crop, (new_w, new_h), interpolation=cv2.INTER_AREA)
+            resized_char = cv2.resize(
+                char_crop, (new_w, new_h), interpolation=cv2.INTER_AREA
+            )
 
             start_x = (self.target_size - new_w) // 2
             start_y = (self.target_size - new_h) // 2

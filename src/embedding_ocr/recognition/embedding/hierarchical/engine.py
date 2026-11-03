@@ -13,9 +13,15 @@ import numpy as np
 
 from embedding_ocr.recognition.base import RecognitionEngine, RecognitionResult
 from embedding_ocr.recognition.embedding.embedder import Embedder
-from embedding_ocr.recognition.embedding.hierarchical.craft_detector import CraftWordDetector
-from embedding_ocr.recognition.embedding.hierarchical.segmentation import VisualWordSegmenter
-from embedding_ocr.recognition.embedding.hierarchical.vocabulary import EmbeddingVocabulary, VocabToken
+from embedding_ocr.recognition.embedding.hierarchical.craft_detector import (
+    CraftWordDetector,
+)
+from embedding_ocr.recognition.embedding.hierarchical.segmentation import (
+    VisualWordSegmenter,
+)
+from embedding_ocr.recognition.embedding.hierarchical.vocabulary import (
+    EmbeddingVocabulary,
+)
 
 
 class HierarchicalWordRecognizer(RecognitionEngine):
@@ -65,9 +71,12 @@ class HierarchicalWordRecognizer(RecognitionEngine):
 
     def _hash_crop(self, crop: np.ndarray) -> bytes:
         import hashlib
+
         return hashlib.md5(crop.tobytes()).digest()
 
-    def recognize_word_crop(self, word_crop: np.ndarray, depth: int = 0) -> tuple[str, float]:
+    def recognize_word_crop(
+        self, word_crop: np.ndarray, depth: int = 0
+    ) -> tuple[str, float]:
         """Recognize a single word or subword crop hierarchically."""
         h, w = word_crop.shape[:2]
         if w < 6 or h < 6:
@@ -89,6 +98,16 @@ class HierarchicalWordRecognizer(RecognitionEngine):
                 sim2 = float(sims[0][1])
                 margin = sim1 - sim2
 
+                # Case normalization check: if top1 and top2 are the same word in different case (e.g. system vs System),
+                # compute margin against the next truly different word candidate.
+                if top1_tok.text.lower() == tokens[0][1].text.lower():
+                    for alt_tok, alt_sim in zip(
+                        tokens[0][2:], sims[0][2:], strict=False
+                    ):
+                        if alt_tok.text.lower() != top1_tok.text.lower():
+                            margin = sim1 - float(alt_sim)
+                            break
+
                 if sim1 >= self.min_word_sim and margin >= self.min_word_margin:
                     self.stats["full_word_hits"] += 1
                     result = (top1_tok.text, sim1)
@@ -104,6 +123,14 @@ class HierarchicalWordRecognizer(RecognitionEngine):
                 sim2 = float(sims[0][1])
                 margin = sim1 - sim2
 
+                if top1_tok.text.lower() == tokens[0][1].text.lower():
+                    for alt_tok, alt_sim in zip(
+                        tokens[0][2:], sims[0][2:], strict=False
+                    ):
+                        if alt_tok.text.lower() != top1_tok.text.lower():
+                            margin = sim1 - float(alt_sim)
+                            break
+
                 # Accept subword if high confidence or reached narrow region
                 if sim1 >= self.min_subword_sim and margin >= self.min_subword_margin:
                     self.stats["subword_fallbacks"] += 1
@@ -118,8 +145,12 @@ class HierarchicalWordRecognizer(RecognitionEngine):
 
             # Ensure valid cut progress
             if cut_x >= 12 and (w - cut_x) >= 12:
-                left_text, left_conf = self.recognize_word_crop(left_crop, depth=depth + 1)
-                right_text, right_conf = self.recognize_word_crop(right_crop, depth=depth + 1)
+                left_text, left_conf = self.recognize_word_crop(
+                    left_crop, depth=depth + 1
+                )
+                right_text, right_conf = self.recognize_word_crop(
+                    right_crop, depth=depth + 1
+                )
 
                 if left_text and right_text and left_text != "?" and right_text != "?":
                     combined_text = left_text + right_text

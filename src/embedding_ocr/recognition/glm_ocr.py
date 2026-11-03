@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Any, cast
+
 import numpy as np
 import torch
 from PIL import Image
@@ -20,11 +22,15 @@ class GLMOCRRecognizer(RecognitionEngine):
     ) -> None:
         from transformers import AutoModelForImageTextToText, AutoProcessor
 
-        resolved_device = "cuda" if device == "auto" and torch.cuda.is_available() else device
+        resolved_device = (
+            "cuda" if device == "auto" and torch.cuda.is_available() else device
+        )
         if resolved_device == "auto":
             resolved_device = "cpu"
-        resolved_dtype = torch_dtype if torch_dtype is not None else (
-            torch.bfloat16 if resolved_device == "cuda" else torch.float32
+        resolved_dtype = (
+            torch_dtype
+            if torch_dtype is not None
+            else (torch.bfloat16 if resolved_device == "cuda" else torch.float32)
         )
 
         self.device = resolved_device
@@ -65,7 +71,7 @@ class GLMOCRRecognizer(RecognitionEngine):
         ).to(self.device)
 
         with torch.no_grad():
-            output = self.model.generate(**inputs, max_new_tokens=128)
+            output = cast(Any, self.model).generate(**inputs, max_new_tokens=128)
 
         text = self.processor.decode(output[0], skip_special_tokens=True).strip()
         # Clean potential prompt echoes
