@@ -23,7 +23,11 @@ Unlike synthetic printed benchmarks where models achieved near-perfect CER, the 
 | Recognizer | Primary Word Norm CER (%) | Word Raw CER (%) | Word Norm Acc (%) | Word Raw Acc (%) | Norm WER (%) | Avg Latency (ms) |
 | :--- | :---: | :---: | :---: | :---: | :---: | :---: |
 | **GLM-OCR** (`zai-org/GLM-OCR`) | **5.73%** | **6.17%** | **84.0%** | **82.0%** | **18.00%** | 1,144.3 |
-| **Hierarchical EmbeddingOCR (768D)** | **84.14%** | **91.19%** | **32.0%** | **20.0%** | **104.00%** | 2,516.5 |
+| **Hierarchical Multi-Font (768D)** *(Solution 1)* | **62.11%** | **62.11%** | **40.0%** | **40.0%** | **90.00%** | 1,760.6 |
+| **Hierarchical Baseline (768D)** *(Single Font)* | **84.14%** | **91.19%** | **32.0%** | **20.0%** | **104.00%** | 2,516.5 |
+
+> **Key Result:** Implementing **Solution 1 (Multi-Font Visual Prototypes)** dropped Normalized CER by **-22.03 percentage points** (from **84.14% down to 62.11%**), increased word recognition accuracy to **40.0%**, and improved average latency by ~30% (1,760 ms vs 2,516 ms).
+
 
 ---
 

@@ -75,13 +75,18 @@ _See [`docs/benchmark_word_ocr_vs_glm.md`](docs/benchmark_word_ocr_vs_glm.md) fo
 | Recognizer | Primary Word Norm CER | Word Raw CER | Word Norm Acc | Norm WER | Latency / Word |
 | :--- | :---: | :---: | :---: | :---: | :---: |
 | **GLM-OCR** (`zai-org/GLM-OCR`) | **5.73%** | **6.17%** | **84.0%** | **18.00%** | 1,144.3 ms |
-| **Hierarchical EmbeddingOCR (768D)** | **84.14%** | **91.19%** | **32.0%** | **104.00%** | 2,516.5 ms |
+| **Hierarchical Multi-Font (768D)** *(Solution 1)* | **62.11%** | **62.11%** | **40.0%** | **90.00%** | 1,760.6 ms |
+| **Hierarchical Baseline (768D)** *(Single Font)* | **84.14%** | **91.19%** | **32.0%** | **104.00%** | 2,516.5 ms |
 
 _See [`docs/iam_handwriting_benchmark_report.md`](docs/iam_handwriting_benchmark_report.md) for full analysis._
 
 **Key Takeaways:**
-1. **IAM Handwriting breaks the 100% memorization ceiling:** GLM-OCR drops to 84% accuracy with misreads on ligatures (`"an"` $\to$ `"am"`, `"It"` $\to$ `"Itr"`).
-2. **EmbeddingOCR Domain Gap:** Hierarchical EmbeddingOCR retains 32% accuracy on distinct word shapes (`"little"`, `"happened"`, `"exhausted"`), but experiences a domain gap on cursive handwriting because its prototype index is currently built from digital typographic fonts. Cursive prototype indexing or contrastive fine-tuning is required for handwriting.
+1. **Multi-Font Handwriting Prototypes (Solution 1) Win:** Multi-font rendering (`DancingScript`, `KaushanScript`, `SteveHand`, `Kristi`) with max-similarity aggregation reduced Normalized CER from **84.14% to 62.11%** (-22.03 pp) and lifted word accuracy to **40.0%**.
+2. **GLM-OCR Handwriting Comparison:** Autoregressive GLM-OCR drops to 84% accuracy with ligature errors (`"an"` $\to$ `"am"`, `"It"` $\to$ `"Itr"`).
+3. **Next Improvement Horizons:**
+   - **Solution 2**: Deslanting / shear angle normalization and Otsu binarization.
+   - **Solution 3**: Vision-tower LoRA fine-tuning on IAM handwriting crops.
+
 
 ### Generative OCR VLM comparison
 

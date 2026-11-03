@@ -1,172 +1,172 @@
 {
-  "GLM-OCR": {
+  "Hierarchical_MultiFont_768D": {
     "metrics": {
-      "primary_norm_cer": 0.05726872246696035,
-      "raw_cer": 0.06167400881057269,
-      "norm_wer": 0.18,
-      "raw_wer": 0.2,
-      "norm_accuracy": 0.84,
-      "raw_accuracy": 0.82
+      "primary_norm_cer": 0.6211453744493393,
+      "raw_cer": 0.6211453744493393,
+      "norm_wer": 0.9,
+      "raw_wer": 0.9,
+      "norm_accuracy": 0.4,
+      "raw_accuracy": 0.4
     },
-    "avg_latency_ms": 1144.255783059998,
+    "avg_latency_ms": 1760.6299539600877,
     "samples": [
       {
         "id": 0,
         "gt": "little",
         "pred": "little",
-        "confidence": 0.9,
+        "confidence": 0.902590274810791,
         "norm_match": true,
         "raw_match": true
       },
       {
         "id": 1,
         "gt": "always",
-        "pred": "always",
-        "confidence": 0.9,
-        "norm_match": true,
-        "raw_match": true
+        "pred": "always 'll",
+        "confidence": 0.8601618409156799,
+        "norm_match": false,
+        "raw_match": false
       },
       {
         "id": 2,
         "gt": "It",
-        "pred": "Itr",
-        "confidence": 0.9,
+        "pred": "It 'll",
+        "confidence": 0.893696129322052,
         "norm_match": false,
         "raw_match": false
       },
       {
         "id": 3,
         "gt": "endeavour",
-        "pred": "endeavour",
-        "confidence": 0.9,
-        "norm_match": true,
-        "raw_match": true
+        "pred": "end oseOolos ra",
+        "confidence": 0.8726214319467545,
+        "norm_match": false,
+        "raw_match": false
       },
       {
         "id": 4,
         "gt": "For",
-        "pred": "For",
-        "confidence": 0.9,
-        "norm_match": true,
-        "raw_match": true
+        "pred": "ctolpp",
+        "confidence": 0.8437856584787369,
+        "norm_match": false,
+        "raw_match": false
       },
       {
         "id": 5,
         "gt": "in",
-        "pred": "in",
-        "confidence": 0.9,
-        "norm_match": true,
-        "raw_match": true
+        "pred": "'ll 'll",
+        "confidence": 0.8429630398750305,
+        "norm_match": false,
+        "raw_match": false
       },
       {
         "id": 6,
         "gt": "happened",
         "pred": "happened",
-        "confidence": 0.9,
+        "confidence": 0.9667155742645264,
         "norm_match": true,
         "raw_match": true
       },
       {
         "id": 7,
         "gt": "an",
-        "pred": "am",
-        "confidence": 0.9,
+        "pred": "olol",
+        "confidence": 0.8744608163833618,
         "norm_match": false,
         "raw_match": false
       },
       {
         "id": 8,
         "gt": "new",
-        "pred": "new",
-        "confidence": 0.9,
-        "norm_match": true,
-        "raw_match": true
+        "pred": "mem",
+        "confidence": 0.8944870829582214,
+        "norm_match": false,
+        "raw_match": false
       },
       {
         "id": 9,
         "gt": "which",
-        "pred": "which",
-        "confidence": 0.9,
-        "norm_match": true,
-        "raw_match": true
+        "pred": "ri",
+        "confidence": 0.8782861828804016,
+        "norm_match": false,
+        "raw_match": false
       },
       {
         "id": 10,
         "gt": "man",
-        "pred": "ma",
-        "confidence": 0.9,
+        "pred": "im",
+        "confidence": 0.8822234869003296,
         "norm_match": false,
         "raw_match": false
       },
       {
         "id": 11,
         "gt": "the",
-        "pred": "the",
-        "confidence": 0.9,
-        "norm_match": true,
-        "raw_match": true
+        "pred": "'Nve",
+        "confidence": 0.8808628469705582,
+        "norm_match": false,
+        "raw_match": false
       },
       {
         "id": 12,
         "gt": "familiar",
-        "pred": "family has",
-        "confidence": 0.9,
-        "norm_match": false,
-        "raw_match": false
+        "pred": "familiar",
+        "confidence": 0.8905767798423767,
+        "norm_match": true,
+        "raw_match": true
       },
       {
         "id": 13,
         "gt": "exhausted",
         "pred": "exhausted",
-        "confidence": 0.9,
+        "confidence": 0.9587303400039673,
         "norm_match": true,
         "raw_match": true
       },
       {
         "id": 14,
         "gt": "in",
-        "pred": "in",
-        "confidence": 0.9,
-        "norm_match": true,
-        "raw_match": true
+        "pred": "os 'll",
+        "confidence": 0.836207926273346,
+        "norm_match": false,
+        "raw_match": false
       },
       {
         "id": 15,
         "gt": "mile",
         "pred": "mile",
-        "confidence": 0.9,
+        "confidence": 0.9181677103042603,
         "norm_match": true,
         "raw_match": true
       },
       {
         "id": 16,
         "gt": "was",
-        "pred": "was",
-        "confidence": 0.9,
-        "norm_match": true,
-        "raw_match": true
+        "pred": "wh 'll",
+        "confidence": 0.8842123746871948,
+        "norm_match": false,
+        "raw_match": false
       },
       {
         "id": 17,
         "gt": "example",
         "pred": "example",
-        "confidence": 0.9,
+        "confidence": 0.9079352617263794,
         "norm_match": true,
         "raw_match": true
       },
       {
         "id": 18,
         "gt": "be",
-        "pred": "be",
-        "confidence": 0.9,
-        "norm_match": true,
-        "raw_match": true
+        "pred": "te",
+        "confidence": 0.9085577726364136,
+        "norm_match": false,
+        "raw_match": false
       },
       {
         "id": 19,
         "gt": "populations",
         "pred": "populations",
-        "confidence": 0.9,
+        "confidence": 0.9226478338241577,
         "norm_match": true,
         "raw_match": true
       },
@@ -174,7 +174,7 @@
         "id": 20,
         "gt": "compared",
         "pred": "compared",
-        "confidence": 0.9,
+        "confidence": 0.9419658184051514,
         "norm_match": true,
         "raw_match": true
       },
@@ -182,135 +182,135 @@
         "id": 21,
         "gt": "two",
         "pred": "two",
-        "confidence": 0.9,
+        "confidence": 0.9255049824714661,
         "norm_match": true,
         "raw_match": true
       },
       {
         "id": 22,
         "gt": "House",
-        "pred": "house",
-        "confidence": 0.9,
-        "norm_match": true,
+        "pred": "The",
+        "confidence": 0.8820309638977051,
+        "norm_match": false,
         "raw_match": false
       },
       {
         "id": 23,
         "gt": "tending",
-        "pred": "tending",
-        "confidence": 0.9,
-        "norm_match": true,
-        "raw_match": true
+        "pred": "ter ol",
+        "confidence": 0.8705590963363647,
+        "norm_match": false,
+        "raw_match": false
       },
       {
         "id": 24,
         "gt": "all",
         "pred": "all",
-        "confidence": 0.9,
+        "confidence": 0.9057254791259766,
         "norm_match": true,
         "raw_match": true
       },
       {
         "id": 25,
         "gt": "found",
-        "pred": "found",
-        "confidence": 0.9,
-        "norm_match": true,
-        "raw_match": true
+        "pred": "form",
+        "confidence": 0.8900390863418579,
+        "norm_match": false,
+        "raw_match": false
       },
       {
         "id": 26,
         "gt": "she",
-        "pred": "sho",
-        "confidence": 0.9,
+        "pred": "sh ol2",
+        "confidence": 0.9076879769563675,
         "norm_match": false,
         "raw_match": false
       },
       {
         "id": 27,
         "gt": "the",
-        "pred": "the",
-        "confidence": 0.9,
-        "norm_match": true,
-        "raw_match": true
+        "pred": "te",
+        "confidence": 0.8908562660217285,
+        "norm_match": false,
+        "raw_match": false
       },
       {
         "id": 28,
         "gt": "of",
-        "pred": "of",
-        "confidence": 0.9,
-        "norm_match": true,
-        "raw_match": true
+        "pred": "olld",
+        "confidence": 0.901409387588501,
+        "norm_match": false,
+        "raw_match": false
       },
       {
         "id": 29,
         "gt": "various",
-        "pred": "various",
-        "confidence": 0.9,
-        "norm_match": true,
-        "raw_match": true
+        "pred": "av 'll ol 'll",
+        "confidence": 0.8640274554491043,
+        "norm_match": false,
+        "raw_match": false
       },
       {
         "id": 30,
         "gt": "told",
-        "pred": "hold",
-        "confidence": 0.9,
-        "norm_match": false,
-        "raw_match": false
+        "pred": "told",
+        "confidence": 0.902693510055542,
+        "norm_match": true,
+        "raw_match": true
       },
       {
         "id": 31,
         "gt": "of",
         "pred": "of",
-        "confidence": 0.9,
+        "confidence": 0.9080942869186401,
         "norm_match": true,
         "raw_match": true
       },
       {
         "id": 32,
         "gt": "'ll",
-        "pred": "11.",
-        "confidence": 0.9,
+        "pred": "os 'll",
+        "confidence": 0.8601076006889343,
         "norm_match": false,
         "raw_match": false
       },
       {
         "id": 33,
         "gt": "Delaney",
-        "pred": "Delaney",
-        "confidence": 0.9,
-        "norm_match": true,
-        "raw_match": true
-      },
-      {
-        "id": 34,
-        "gt": "rushed",
-        "pred": "rusked",
-        "confidence": 0.9,
+        "pred": "Delaney 'll",
+        "confidence": 0.8913717865943909,
         "norm_match": false,
         "raw_match": false
       },
       {
-        "id": 35,
-        "gt": "they",
-        "pred": "they",
-        "confidence": 0.9,
+        "id": 34,
+        "gt": "rushed",
+        "pred": "rushed",
+        "confidence": 0.8587238788604736,
         "norm_match": true,
         "raw_match": true
       },
       {
+        "id": 35,
+        "gt": "they",
+        "pred": "any",
+        "confidence": 0.8555034399032593,
+        "norm_match": false,
+        "raw_match": false
+      },
+      {
         "id": 36,
         "gt": "for",
-        "pred": "for",
-        "confidence": 0.9,
-        "norm_match": true,
-        "raw_match": true
+        "pred": "ld-os0essessra'",
+        "confidence": 0.8792294338345528,
+        "norm_match": false,
+        "raw_match": false
       },
       {
         "id": 37,
         "gt": "the",
         "pred": "the",
-        "confidence": 0.9,
+        "confidence": 0.9450024962425232,
         "norm_match": true,
         "raw_match": true
       },
@@ -318,7 +318,7 @@
         "id": 38,
         "gt": "you",
         "pred": "you",
-        "confidence": 0.9,
+        "confidence": 0.923842191696167,
         "norm_match": true,
         "raw_match": true
       },
@@ -326,23 +326,23 @@
         "id": 39,
         "gt": "her",
         "pred": "her",
-        "confidence": 0.9,
+        "confidence": 0.9508528113365173,
         "norm_match": true,
         "raw_match": true
       },
       {
         "id": 40,
         "gt": "the",
-        "pred": "the",
-        "confidence": 0.9,
-        "norm_match": true,
-        "raw_match": true
+        "pred": "Y'th",
+        "confidence": 0.9014390259981155,
+        "norm_match": false,
+        "raw_match": false
       },
       {
         "id": 41,
         "gt": "for",
         "pred": "for",
-        "confidence": 0.9,
+        "confidence": 0.9162784218788147,
         "norm_match": true,
         "raw_match": true
       },
@@ -350,7 +350,7 @@
         "id": 42,
         "gt": "expenditure",
         "pred": "expenditure",
-        "confidence": 0.9,
+        "confidence": 0.8538857698440552,
         "norm_match": true,
         "raw_match": true
       },
@@ -358,468 +358,55 @@
         "id": 43,
         "gt": "of",
         "pred": "of",
-        "confidence": 0.9,
+        "confidence": 0.9594969749450684,
         "norm_match": true,
         "raw_match": true
       },
       {
         "id": 44,
         "gt": "genera",
-        "pred": "genera",
-        "confidence": 0.9,
-        "norm_match": true,
-        "raw_match": true
-      },
-      {
-        "id": 45,
-        "gt": "the",
-        "pred": "the",
-        "confidence": 0.9,
-        "norm_match": true,
-        "raw_match": true
-      },
-      {
-        "id": 46,
-        "gt": "Mr.",
-        "pred": "Mr.",
-        "confidence": 0.9,
-        "norm_match": true,
-        "raw_match": true
-      },
-      {
-        "id": 47,
-        "gt": "can",
-        "pred": "can",
-        "confidence": 0.9,
-        "norm_match": true,
-        "raw_match": true
-      },
-      {
-        "id": 48,
-        "gt": "something",
-        "pred": "something",
-        "confidence": 0.9,
-        "norm_match": true,
-        "raw_match": true
-      },
-      {
-        "id": 49,
-        "gt": "is",
-        "pred": "is",
-        "confidence": 0.9,
-        "norm_match": true,
-        "raw_match": true
-      }
-    ]
-  },
-  "Hierarchical_EmbeddingOCR_768D": {
-    "metrics": {
-      "primary_norm_cer": 0.8414096916299559,
-      "raw_cer": 0.9118942731277533,
-      "norm_wer": 1.04,
-      "raw_wer": 1.16,
-      "norm_accuracy": 0.32,
-      "raw_accuracy": 0.2
-    },
-    "avg_latency_ms": 2516.544984180109,
-    "samples": [
-      {
-        "id": 0,
-        "gt": "little",
-        "pred": "little",
-        "confidence": 0.7446606755256653,
-        "norm_match": true,
-        "raw_match": true
-      },
-      {
-        "id": 1,
-        "gt": "always",
-        "pred": "always Sh",
-        "confidence": 0.7297539412975311,
-        "norm_match": false,
-        "raw_match": false
-      },
-      {
-        "id": 2,
-        "gt": "It",
-        "pred": "ik ,.",
-        "confidence": 0.7178632616996765,
-        "norm_match": false,
-        "raw_match": false
-      },
-      {
-        "id": 3,
-        "gt": "endeavour",
-        "pred": ",S..Z,ringLE vo ';",
-        "confidence": 0.7389752914508184,
-        "norm_match": false,
-        "raw_match": false
-      },
-      {
-        "id": 4,
-        "gt": "For",
-        "pred": "hor",
-        "confidence": 0.7282770872116089,
-        "norm_match": false,
-        "raw_match": false
-      },
-      {
-        "id": 5,
-        "gt": "in",
-        "pred": "I .,",
-        "confidence": 0.7337407171726227,
-        "norm_match": false,
-        "raw_match": false
-      },
-      {
-        "id": 6,
-        "gt": "happened",
-        "pred": "happened",
-        "confidence": 0.7882156372070312,
-        "norm_match": true,
-        "raw_match": true
-      },
-      {
-        "id": 7,
-        "gt": "an",
-        "pred": "Em",
-        "confidence": 0.7385664582252502,
-        "norm_match": false,
-        "raw_match": false
-      },
-      {
-        "id": 8,
-        "gt": "new",
-        "pred": "';.,Qu,,,ring",
-        "confidence": 0.7172506079077721,
-        "norm_match": false,
-        "raw_match": false
-      },
-      {
-        "id": 9,
-        "gt": "which",
-        "pred": "Ch",
-        "confidence": 0.7503912448883057,
-        "norm_match": false,
-        "raw_match": false
-      },
-      {
-        "id": 10,
-        "gt": "man",
-        "pred": ".';ringZ",
-        "confidence": 0.7279861122369766,
-        "norm_match": false,
-        "raw_match": false
-      },
-      {
-        "id": 11,
-        "gt": "the",
-        "pred": "HE",
-        "confidence": 0.7370808124542236,
-        "norm_match": false,
-        "raw_match": false
-      },
-      {
-        "id": 12,
-        "gt": "familiar",
-        "pred": "fam",
-        "confidence": 0.7289453744888306,
-        "norm_match": false,
-        "raw_match": false
-      },
-      {
-        "id": 13,
-        "gt": "exhausted",
-        "pred": "exhausted",
-        "confidence": 0.7838364839553833,
-        "norm_match": true,
-        "raw_match": true
-      },
-      {
-        "id": 14,
-        "gt": "in",
-        "pred": "., ';",
-        "confidence": 0.737239271402359,
-        "norm_match": false,
-        "raw_match": false
-      },
-      {
-        "id": 15,
-        "gt": "mile",
-        "pred": "mile",
-        "confidence": 0.7743515968322754,
-        "norm_match": true,
-        "raw_match": true
-      },
-      {
-        "id": 16,
-        "gt": "was",
-        "pred": "';,A S",
-        "confidence": 0.7469354942440987,
-        "norm_match": false,
-        "raw_match": false
-      },
-      {
-        "id": 17,
-        "gt": "example",
-        "pred": "example",
-        "confidence": 0.7527587413787842,
-        "norm_match": true,
-        "raw_match": true
-      },
-      {
-        "id": 18,
-        "gt": "be",
-        "pred": "Be",
-        "confidence": 0.7247632741928101,
-        "norm_match": true,
-        "raw_match": false
-      },
-      {
-        "id": 19,
-        "gt": "populations",
-        "pred": "populations",
-        "confidence": 0.8007875084877014,
-        "norm_match": true,
-        "raw_match": true
-      },
-      {
-        "id": 20,
-        "gt": "compared",
-        "pred": "compared",
-        "confidence": 0.7856546640396118,
-        "norm_match": true,
-        "raw_match": true
-      },
-      {
-        "id": 21,
-        "gt": "two",
-        "pred": "two",
-        "confidence": 0.7551620006561279,
-        "norm_match": true,
-        "raw_match": true
-      },
-      {
-        "id": 22,
-        "gt": "House",
-        "pred": "T.,';ude",
-        "confidence": 0.7365580722689629,
-        "norm_match": false,
-        "raw_match": false
-      },
-      {
-        "id": 23,
-        "gt": "tending",
-        "pred": "ten ';",
-        "confidence": 0.7388930320739746,
-        "norm_match": false,
-        "raw_match": false
-      },
-      {
-        "id": 24,
-        "gt": "all",
-        "pred": "all",
-        "confidence": 0.7374017238616943,
-        "norm_match": true,
-        "raw_match": true
-      },
-      {
-        "id": 25,
-        "gt": "found",
-        "pred": "fo",
-        "confidence": 0.7229773998260498,
-        "norm_match": false,
-        "raw_match": false
-      },
-      {
-        "id": 26,
-        "gt": "she",
-        "pred": "Sh Qu",
-        "confidence": 0.760586678981781,
-        "norm_match": false,
-        "raw_match": false
-      },
-      {
-        "id": 27,
-        "gt": "the",
-        "pred": "';",
-        "confidence": 0.7314484715461731,
-        "norm_match": false,
-        "raw_match": false
-      },
-      {
-        "id": 28,
-        "gt": "of",
-        "pred": "Ch",
-        "confidence": 0.7230724096298218,
-        "norm_match": false,
-        "raw_match": false
-      },
-      {
-        "id": 29,
-        "gt": "various",
-        "pred": ".';.,,';I ., alpha .,",
-        "confidence": 0.7379796039313078,
-        "norm_match": false,
-        "raw_match": false
-      },
-      {
-        "id": 30,
-        "gt": "told",
-        "pred": "held",
-        "confidence": 0.761576771736145,
-        "norm_match": false,
-        "raw_match": false
-      },
-      {
-        "id": 31,
-        "gt": "of",
-        "pred": "Of",
-        "confidence": 0.7594541311264038,
-        "norm_match": true,
-        "raw_match": false
-      },
-      {
-        "id": 32,
-        "gt": "'ll",
-        "pred": "., ';",
-        "confidence": 0.7409702241420746,
-        "norm_match": false,
-        "raw_match": false
-      },
-      {
-        "id": 33,
-        "gt": "Delaney",
-        "pred": "Delaney .....",
-        "confidence": 0.7629161328077316,
-        "norm_match": false,
-        "raw_match": false
-      },
-      {
-        "id": 34,
-        "gt": "rushed",
-        "pred": "penX.,,;';....,.,",
-        "confidence": 0.7197689898312092,
-        "norm_match": false,
-        "raw_match": false
-      },
-      {
-        "id": 35,
-        "gt": "they",
-        "pred": "';';",
-        "confidence": 0.7473742663860321,
-        "norm_match": false,
-        "raw_match": false
-      },
-      {
-        "id": 36,
-        "gt": "for",
-        "pred": "Br",
-        "confidence": 0.7554135322570801,
-        "norm_match": false,
-        "raw_match": false
-      },
-      {
-        "id": 37,
-        "gt": "the",
-        "pred": "The",
-        "confidence": 0.786324679851532,
-        "norm_match": true,
-        "raw_match": false
-      },
-      {
-        "id": 38,
-        "gt": "you",
-        "pred": "You",
-        "confidence": 0.7597270011901855,
-        "norm_match": true,
-        "raw_match": false
-      },
-      {
-        "id": 39,
-        "gt": "her",
-        "pred": "her",
-        "confidence": 0.7890943884849548,
-        "norm_match": true,
-        "raw_match": true
-      },
-      {
-        "id": 40,
-        "gt": "the",
-        "pred": "L,Ch",
-        "confidence": 0.7252952754497528,
-        "norm_match": false,
-        "raw_match": false
-      },
-      {
-        "id": 41,
-        "gt": "for",
-        "pred": "For",
-        "confidence": 0.7465229034423828,
-        "norm_match": true,
-        "raw_match": false
-      },
-      {
-        "id": 42,
-        "gt": "expenditure",
-        "pred": "exp",
-        "confidence": 0.7217761278152466,
-        "norm_match": false,
-        "raw_match": false
-      },
-      {
-        "id": 43,
-        "gt": "of",
-        "pred": "ring.F.",
-        "confidence": 0.7268812656402588,
-        "norm_match": false,
-        "raw_match": false
-      },
-      {
-        "id": 44,
-        "gt": "genera",
-        "pred": "gen ';",
-        "confidence": 0.7542840242385864,
+        "pred": "genera ol",
+        "confidence": 0.8611435890197754,
         "norm_match": false,
         "raw_match": false
       },
       {
         "id": 45,
         "gt": "the",
-        "pred": "Ch",
-        "confidence": 0.7586039304733276,
+        "pred": "lel",
+        "confidence": 0.9203691780567169,
         "norm_match": false,
         "raw_match": false
       },
       {
         "id": 46,
         "gt": "Mr.",
-        "pred": "practice ,",
-        "confidence": 0.70993772149086,
+        "pred": "'ll .",
+        "confidence": 0.8818366229534149,
         "norm_match": false,
         "raw_match": false
       },
       {
         "id": 47,
         "gt": "can",
-        "pred": "Can",
-        "confidence": 0.7463313937187195,
+        "pred": "can",
+        "confidence": 0.8805904388427734,
         "norm_match": true,
-        "raw_match": false
+        "raw_match": true
       },
       {
         "id": 48,
         "gt": "something",
-        "pred": "'; ., Ch ';",
-        "confidence": 0.73984794318676,
+        "pred": "'ll es te osos",
+        "confidence": 0.8405466377735138,
         "norm_match": false,
         "raw_match": false
       },
       {
         "id": 49,
         "gt": "is",
-        "pred": ". heart",
-        "confidence": 0.7330525517463684,
+        "pred": "'ll es",
+        "confidence": 0.8182768821716309,
         "norm_match": false,
         "raw_match": false
       }
