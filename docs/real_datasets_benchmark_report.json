@@ -1,0 +1,622 @@
+{
+  "GLM-OCR": {
+    "num_samples": 60,
+    "exact_accuracy": 0.8,
+    "case_insensitive_accuracy": 1.0,
+    "cer": 0.146875,
+    "wer": 0.2,
+    "avg_latency_ms": 775.5603853500136,
+    "samples": [
+      {
+        "gt": "DOOR",
+        "pred": "door",
+        "match": true
+      },
+      {
+        "gt": "THE",
+        "pred": "THE",
+        "match": true
+      },
+      {
+        "gt": "THE",
+        "pred": "THE",
+        "match": true
+      },
+      {
+        "gt": "TRIPLE",
+        "pred": "triple",
+        "match": true
+      },
+      {
+        "gt": "THE",
+        "pred": "THE",
+        "match": true
+      },
+      {
+        "gt": "AUTO",
+        "pred": "AUTO",
+        "match": true
+      },
+      {
+        "gt": "MAGIC",
+        "pred": "MAGIC",
+        "match": true
+      },
+      {
+        "gt": "BILLIARDS",
+        "pred": "BILLIARDS",
+        "match": true
+      },
+      {
+        "gt": "FIRST",
+        "pred": "FIRST",
+        "match": true
+      },
+      {
+        "gt": "SOUTH",
+        "pred": "SOUTH",
+        "match": true
+      },
+      {
+        "gt": "MARKET",
+        "pred": "MARKET",
+        "match": true
+      },
+      {
+        "gt": "MEAT",
+        "pred": "MEAT",
+        "match": true
+      },
+      {
+        "gt": "MICHOACANA",
+        "pred": "MICHOACANA",
+        "match": true
+      },
+      {
+        "gt": "TAQUERIA",
+        "pred": "TAQUERIA",
+        "match": true
+      },
+      {
+        "gt": "TAQUERIA",
+        "pred": "TAQUERIA",
+        "match": true
+      },
+      {
+        "gt": "MOTIF",
+        "pred": "MOTIF",
+        "match": true
+      },
+      {
+        "gt": "RESTAURANT",
+        "pred": "RESTAURANT",
+        "match": true
+      },
+      {
+        "gt": "CLUB",
+        "pred": "CLUB",
+        "match": true
+      },
+      {
+        "gt": "AND",
+        "pred": "AND",
+        "match": true
+      },
+      {
+        "gt": "SOUTH",
+        "pred": "South",
+        "match": true
+      },
+      {
+        "gt": "FIRST",
+        "pred": "First",
+        "match": true
+      },
+      {
+        "gt": "COLORADO",
+        "pred": "Colorado",
+        "match": true
+      },
+      {
+        "gt": "DAILY",
+        "pred": "Daily",
+        "match": true
+      },
+      {
+        "gt": "COLLEGE",
+        "pred": "COLLEGE",
+        "match": true
+      },
+      {
+        "gt": "EVEREST",
+        "pred": "EVEREST",
+        "match": true
+      },
+      {
+        "gt": "ALLEN",
+        "pred": "Allen",
+        "match": true
+      },
+      {
+        "gt": "HESS",
+        "pred": "HESS",
+        "match": true
+      },
+      {
+        "gt": "CENTER",
+        "pred": "Center",
+        "match": true
+      },
+      {
+        "gt": "JAPANESE",
+        "pred": "JAPANESE",
+        "match": true
+      },
+      {
+        "gt": "RESTAURANT",
+        "pred": "RESTAURANT",
+        "match": true
+      },
+      {
+        "gt": "WYNDHAM",
+        "pred": "WYNDHAM",
+        "match": true
+      },
+      {
+        "gt": "HOTEL",
+        "pred": "HOTEL",
+        "match": true
+      },
+      {
+        "gt": "UNITED",
+        "pred": "UNITED",
+        "match": true
+      },
+      {
+        "gt": "STATES",
+        "pred": "STATES",
+        "match": true
+      },
+      {
+        "gt": "MINT",
+        "pred": "MINT",
+        "match": true
+      },
+      {
+        "gt": "PUFF",
+        "pred": "PUFF",
+        "match": true
+      },
+      {
+        "gt": "STUFF",
+        "pred": "STUFF",
+        "match": true
+      },
+      {
+        "gt": "BICYCLE",
+        "pred": "BICYCLE",
+        "match": true
+      },
+      {
+        "gt": "EXPRESS",
+        "pred": "EXPRESS",
+        "match": true
+      },
+      {
+        "gt": "BANK",
+        "pred": "Bank",
+        "match": true
+      },
+      {
+        "gt": "THE",
+        "pred": "The",
+        "match": true
+      },
+      {
+        "gt": "MOSSER",
+        "pred": "MOSSER",
+        "match": true
+      },
+      {
+        "gt": "THE",
+        "pred": "The",
+        "match": true
+      },
+      {
+        "gt": "MOSSER",
+        "pred": "MOSSER",
+        "match": true
+      },
+      {
+        "gt": "THE",
+        "pred": "The",
+        "match": true
+      },
+      {
+        "gt": "MOSSER",
+        "pred": "MOSSER",
+        "match": true
+      },
+      {
+        "gt": "SIMON",
+        "pred": "SIMON",
+        "match": true
+      },
+      {
+        "gt": "SAN",
+        "pred": "SAN",
+        "match": true
+      },
+      {
+        "gt": "JOSE",
+        "pred": "JOSE",
+        "match": true
+      },
+      {
+        "gt": "MUSEUM",
+        "pred": "MUSEUM",
+        "match": true
+      },
+      {
+        "gt": "ART",
+        "pred": "ART",
+        "match": true
+      },
+      {
+        "gt": "SAN",
+        "pred": "SAN",
+        "match": true
+      },
+      {
+        "gt": "JOSE",
+        "pred": "JOSE",
+        "match": true
+      },
+      {
+        "gt": "MUSEUM",
+        "pred": "MUSEUM",
+        "match": true
+      },
+      {
+        "gt": "ART",
+        "pred": "ART",
+        "match": true
+      },
+      {
+        "gt": "MUSEUM",
+        "pred": "MUSEUM",
+        "match": true
+      },
+      {
+        "gt": "CITY",
+        "pred": "CITY",
+        "match": true
+      },
+      {
+        "gt": "LIGHTS",
+        "pred": "LIGHTS",
+        "match": true
+      },
+      {
+        "gt": "CITY",
+        "pred": "CITY",
+        "match": true
+      },
+      {
+        "gt": "LIGHTS",
+        "pred": "LIGHTS",
+        "match": true
+      }
+    ]
+  },
+  "Hierarchical_EmbeddingOCR_768D": {
+    "num_samples": 60,
+    "exact_accuracy": 0.08333333333333333,
+    "case_insensitive_accuracy": 0.5,
+    "cer": 0.90625,
+    "wer": 0.9333333333333333,
+    "avg_latency_ms": 983.4574216666398,
+    "samples": [
+      {
+        "gt": "DOOR",
+        "pred": "door",
+        "match": true
+      },
+      {
+        "gt": "THE",
+        "pred": "THE",
+        "match": true
+      },
+      {
+        "gt": "THE",
+        "pred": "THE",
+        "match": true
+      },
+      {
+        "gt": "TRIPLE",
+        "pred": "triple",
+        "match": true
+      },
+      {
+        "gt": "THE",
+        "pred": "THE",
+        "match": true
+      },
+      {
+        "gt": "AUTO",
+        "pred": "AUTO",
+        "match": true
+      },
+      {
+        "gt": "MAGIC",
+        "pred": "Mag",
+        "match": false
+      },
+      {
+        "gt": "BILLIARDS",
+        "pred": "bil",
+        "match": false
+      },
+      {
+        "gt": "FIRST",
+        "pred": "First",
+        "match": true
+      },
+      {
+        "gt": "SOUTH",
+        "pred": "South",
+        "match": true
+      },
+      {
+        "gt": "MARKET",
+        "pred": "market",
+        "match": true
+      },
+      {
+        "gt": "MEAT",
+        "pred": "meat",
+        "match": true
+      },
+      {
+        "gt": "MICHOACANA",
+        "pred": "Mich",
+        "match": false
+      },
+      {
+        "gt": "TAQUERIA",
+        "pred": "quer",
+        "match": false
+      },
+      {
+        "gt": "TAQUERIA",
+        "pred": "quer",
+        "match": false
+      },
+      {
+        "gt": "MOTIF",
+        "pred": "Mot",
+        "match": false
+      },
+      {
+        "gt": "RESTAURANT",
+        "pred": "RESurANT",
+        "match": false
+      },
+      {
+        "gt": "CLUB",
+        "pred": "Cl",
+        "match": false
+      },
+      {
+        "gt": "AND",
+        "pred": "ATND",
+        "match": false
+      },
+      {
+        "gt": "SOUTH",
+        "pred": "v",
+        "match": false
+      },
+      {
+        "gt": "FIRST",
+        "pred": "purple Foot",
+        "match": false
+      },
+      {
+        "gt": "COLORADO",
+        "pred": "Colorado",
+        "match": true
+      },
+      {
+        "gt": "DAILY",
+        "pred": "Day",
+        "match": false
+      },
+      {
+        "gt": "COLLEGE",
+        "pred": "College",
+        "match": true
+      },
+      {
+        "gt": "EVEREST",
+        "pred": "ever",
+        "match": false
+      },
+      {
+        "gt": "ALLEN",
+        "pred": "Allen",
+        "match": true
+      },
+      {
+        "gt": "HESS",
+        "pred": "hes",
+        "match": false
+      },
+      {
+        "gt": "CENTER",
+        "pred": "center",
+        "match": true
+      },
+      {
+        "gt": "JAPANESE",
+        "pred": "Japanese",
+        "match": true
+      },
+      {
+        "gt": "RESTAURANT",
+        "pred": "Restaurant",
+        "match": true
+      },
+      {
+        "gt": "WYNDHAM",
+        "pred": "ingham",
+        "match": false
+      },
+      {
+        "gt": "HOTEL",
+        "pred": "Hom",
+        "match": false
+      },
+      {
+        "gt": "UNITED",
+        "pred": "----------itted",
+        "match": false
+      },
+      {
+        "gt": "STATES",
+        "pred": "states",
+        "match": true
+      },
+      {
+        "gt": "MINT",
+        "pred": "mint",
+        "match": true
+      },
+      {
+        "gt": "PUFF",
+        "pred": "Buf",
+        "match": false
+      },
+      {
+        "gt": "STUFF",
+        "pred": "stuff",
+        "match": true
+      },
+      {
+        "gt": "BICYCLE",
+        "pred": "bicycle",
+        "match": true
+      },
+      {
+        "gt": "EXPRESS",
+        "pred": "Express",
+        "match": true
+      },
+      {
+        "gt": "BANK",
+        "pred": "d",
+        "match": false
+      },
+      {
+        "gt": "THE",
+        "pred": "'''",
+        "match": false
+      },
+      {
+        "gt": "MOSSER",
+        "pred": "Colasser",
+        "match": false
+      },
+      {
+        "gt": "THE",
+        "pred": "k",
+        "match": false
+      },
+      {
+        "gt": "MOSSER",
+        "pred": "qasser",
+        "match": false
+      },
+      {
+        "gt": "THE",
+        "pred": "THE",
+        "match": true
+      },
+      {
+        "gt": "MOSSER",
+        "pred": "rowser",
+        "match": false
+      },
+      {
+        "gt": "SIMON",
+        "pred": "Simon",
+        "match": true
+      },
+      {
+        "gt": "SAN",
+        "pred": "San",
+        "match": true
+      },
+      {
+        "gt": "JOSE",
+        "pred": "Jose",
+        "match": true
+      },
+      {
+        "gt": "MUSEUM",
+        "pred": "useum",
+        "match": false
+      },
+      {
+        "gt": "ART",
+        "pred": "ATrt",
+        "match": false
+      },
+      {
+        "gt": "SAN",
+        "pred": "San",
+        "match": true
+      },
+      {
+        "gt": "JOSE",
+        "pred": "Jose",
+        "match": true
+      },
+      {
+        "gt": "MUSEUM",
+        "pred": "useum",
+        "match": false
+      },
+      {
+        "gt": "ART",
+        "pred": "'''",
+        "match": false
+      },
+      {
+        "gt": "MUSEUM",
+        "pred": "useum",
+        "match": false
+      },
+      {
+        "gt": "CITY",
+        "pred": "ClTY",
+        "match": false
+      },
+      {
+        "gt": "LIGHTS",
+        "pred": "lights",
+        "match": true
+      },
+      {
+        "gt": "CITY",
+        "pred": "City",
+        "match": true
+      },
+      {
+        "gt": "LIGHTS",
+        "pred": "lights",
+        "match": true
+      }
+    ]
+  }
+}
