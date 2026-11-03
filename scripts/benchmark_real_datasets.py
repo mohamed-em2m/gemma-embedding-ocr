@@ -23,7 +23,6 @@ import jiwer
 import numpy as np
 import torch
 from datasets import load_dataset
-from PIL import Image
 
 from embedding_ocr.recognition.embedding.embedder import EmbeddingGemma2
 from embedding_ocr.recognition.embedding.hierarchical import (
@@ -65,7 +64,9 @@ def evaluate_dataset(
             case_insensitive_matches += 1
 
         if i < 8 or i % 25 == 0:
-            print(f"[{i+1}/{len(samples)}] GT: '{gt:<12}' | Pred: '{pred:<12}' | Match: {pred.lower() == gt.lower()} ({latencies[-1]:.1f}ms)")
+            print(
+                f"[{i + 1}/{len(samples)}] GT: '{gt:<12}' | Pred: '{pred:<12}' | Match: {pred.lower() == gt.lower()} ({latencies[-1]:.1f}ms)"
+            )
 
     cer = jiwer.cer(ground_truths, predictions)
     wer = jiwer.wer(ground_truths, predictions)
@@ -87,19 +88,25 @@ def evaluate_dataset(
         "avg_latency_ms": float(np.mean(latencies)),
         "samples": [
             {"gt": gt, "pred": pred, "match": pred.lower() == gt.lower()}
-            for gt, pred in zip(ground_truths, predictions)
+            for gt, pred in zip(ground_truths, predictions, strict=False)
         ],
     }
 
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--num-samples", type=int, default=100, help="Number of real crops per dataset")
-    parser.add_argument("--out", type=str, default="docs/real_datasets_benchmark_report.json")
+    parser.add_argument(
+        "--num-samples", type=int, default=100, help="Number of real crops per dataset"
+    )
+    parser.add_argument(
+        "--out", type=str, default="docs/real_datasets_benchmark_report.json"
+    )
     args = parser.parse_args()
 
     # Load SVT and SVTP datasets
-    print(f"Streaming {args.num_samples} real crops from Bekhouche/SVT_STR and Bekhouche/SVTP_STR...")
+    print(
+        f"Streaming {args.num_samples} real crops from Bekhouche/SVT_STR and Bekhouche/SVTP_STR..."
+    )
     svt_ds = load_dataset("Bekhouche/SVT_STR", split="test", streaming=True)
     svtp_ds = load_dataset("Bekhouche/SVTP_STR", split="test", streaming=True)
 
@@ -120,7 +127,9 @@ def main():
                 break
 
     combined_real_samples = svt_samples + svtp_samples
-    print(f"Total real hard benchmark crops assembled: {len(combined_real_samples)} ({len(svt_samples)} SVT + {len(svtp_samples)} SVTP)")
+    print(
+        f"Total real hard benchmark crops assembled: {len(combined_real_samples)} ({len(svt_samples)} SVT + {len(svtp_samples)} SVTP)"
+    )
 
     all_vocab_lexicon = list(set([s["text"] for s in combined_real_samples]))
 

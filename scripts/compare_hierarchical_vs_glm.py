@@ -19,10 +19,26 @@ from embedding_ocr.recognition.embedding.hierarchical import (
 from embedding_ocr.recognition.glm_ocr import GLMOCRRecognizer
 
 WORDS_TO_TEST = [
-    "invoice", "total", "customer", "payment", "service",
-    "network", "system", "neural", "python", "digital",
-    "document", "receipt", "account", "balance", "amount",
-    "company", "contact", "address", "number", "status"
+    "invoice",
+    "total",
+    "customer",
+    "payment",
+    "service",
+    "network",
+    "system",
+    "neural",
+    "python",
+    "digital",
+    "document",
+    "receipt",
+    "account",
+    "balance",
+    "amount",
+    "company",
+    "contact",
+    "address",
+    "number",
+    "status",
 ]
 
 PHRASES_TO_TEST = [
@@ -30,11 +46,15 @@ PHRASES_TO_TEST = [
     "customer account balance",
     "optical character recognition",
     "neural network system",
-    "digital document service"
+    "digital document service",
 ]
 
 
-def render_crop(text: str, font_path: str = "/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf", font_size: int = 32) -> np.ndarray:
+def render_crop(
+    text: str,
+    font_path: str = "/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf",
+    font_size: int = 32,
+) -> np.ndarray:
     try:
         font = ImageFont.truetype(font_path, font_size)
     except Exception:
@@ -88,8 +108,12 @@ def evaluate_model(name: str, recognizer, words: list[str], phrases: list[str]) 
     phrase_cer = jiwer.cer(phrases, phrase_preds)
     phrase_wer = jiwer.wer(phrases, phrase_preds)
 
-    print(f"[{name}] Word Accuracy: {word_acc*100:.1f}%, CER: {word_cer:.4f}, Avg Latency: {np.mean(word_latencies):.1f} ms")
-    print(f"[{name}] Phrase Accuracy: {phrase_acc*100:.1f}%, CER: {phrase_cer:.4f}, Avg Latency: {np.mean(phrase_latencies):.1f} ms")
+    print(
+        f"[{name}] Word Accuracy: {word_acc * 100:.1f}%, CER: {word_cer:.4f}, Avg Latency: {np.mean(word_latencies):.1f} ms"
+    )
+    print(
+        f"[{name}] Phrase Accuracy: {phrase_acc * 100:.1f}%, CER: {phrase_cer:.4f}, Avg Latency: {np.mean(phrase_latencies):.1f} ms"
+    )
 
     return {
         "word_accuracy": word_acc,
@@ -100,8 +124,10 @@ def evaluate_model(name: str, recognizer, words: list[str], phrases: list[str]) 
         "phrase_cer": float(phrase_cer),
         "phrase_wer": float(phrase_wer),
         "avg_phrase_latency_ms": float(np.mean(phrase_latencies)),
-        "sample_word_predictions": list(zip(words[:6], word_preds[:6])),
-        "sample_phrase_predictions": list(zip(phrases[:3], phrase_preds[:3])),
+        "sample_word_predictions": list(zip(words[:6], word_preds[:6], strict=False)),
+        "sample_phrase_predictions": list(
+            zip(phrases[:3], phrase_preds[:3], strict=False)
+        ),
     }
 
 
@@ -122,7 +148,9 @@ def main():
     print("\nLoading EmbeddingGemma 2 Hierarchical Recognizer...")
     emb = EmbeddingGemma2(dim=768)
     vocab = EmbeddingVocabulary(embedder=emb, cache_dir="artifacts/vocab_cache_768d")
-    vocab.extract_and_organize_tokens(extra_lexicon=WORDS_TO_TEST + ["2026"], max_words=10000)
+    vocab.extract_and_organize_tokens(
+        extra_lexicon=WORDS_TO_TEST + ["2026"], max_words=10000
+    )
     vocab.build_indexes()
     hierarchical_engine = HierarchicalWordRecognizer(
         embedder=emb,
@@ -134,7 +162,10 @@ def main():
         min_char_sim=0.62,
     )
     results["Hierarchical_EmbeddingOCR_768D"] = evaluate_model(
-        "Hierarchical_EmbeddingOCR_768D", hierarchical_engine, WORDS_TO_TEST, PHRASES_TO_TEST
+        "Hierarchical_EmbeddingOCR_768D",
+        hierarchical_engine,
+        WORDS_TO_TEST,
+        PHRASES_TO_TEST,
     )
 
     out_path = Path("docs/comparison_hierarchical_vs_glm.json")

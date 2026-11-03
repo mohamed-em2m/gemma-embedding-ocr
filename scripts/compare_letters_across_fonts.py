@@ -52,7 +52,9 @@ def main() -> None:
 
     # Evaluate 52 Latin classes (a-z, A-Z)
     classes = LATIN_CLASSES
-    print(f"Evaluating {len(classes)} classes across {len(test_fonts)} held-out fonts ({len(classes)*len(test_fonts)} total queries).")
+    print(
+        f"Evaluating {len(classes)} classes across {len(test_fonts)} held-out fonts ({len(classes) * len(test_fonts)} total queries)."
+    )
 
     # 2. Build EmbeddingGemma 2 Prototype Index
     print("\n[1/4] Initializing EmbeddingGemma 2 prototype engine...")
@@ -148,18 +150,46 @@ def main() -> None:
 
     # Summary table
     print("\n" + "=" * 86)
-    print(f"{'OCR System':<20} | {'Exact Top-1':<13} | {'Case-Insens Acc':<16} | {'Top-5 Acc':<12} | {'Avg Latency (ms)':<15}")
+    print(
+        f"{'OCR System':<20} | {'Exact Top-1':<13} | {'Case-Insens Acc':<16} | {'Top-5 Acc':<12} | {'Avg Latency (ms)':<15}"
+    )
     print("-" * 86)
     results = [
-        ("EmbeddingGemma 2", gemma_exact / total_queries * 100, gemma_ci / total_queries * 100, gemma_top5 / total_queries * 100, gemma_time / total_queries * 1000),
-        ("Tesseract (PSM 10)", tess_exact / total_queries * 100, tess_ci / total_queries * 100, (tess_exact / total_queries * 100), tess_time / total_queries * 1000),
-        ("EasyOCR", easy_exact / total_queries * 100, easy_ci / total_queries * 100, (easy_exact / total_queries * 100), easy_time / total_queries * 1000),
-        ("PaddleOCR (rec)", paddle_exact / total_queries * 100, paddle_ci / total_queries * 100, (paddle_exact / total_queries * 100), paddle_time / total_queries * 1000),
+        (
+            "EmbeddingGemma 2",
+            gemma_exact / total_queries * 100,
+            gemma_ci / total_queries * 100,
+            gemma_top5 / total_queries * 100,
+            gemma_time / total_queries * 1000,
+        ),
+        (
+            "Tesseract (PSM 10)",
+            tess_exact / total_queries * 100,
+            tess_ci / total_queries * 100,
+            (tess_exact / total_queries * 100),
+            tess_time / total_queries * 1000,
+        ),
+        (
+            "EasyOCR",
+            easy_exact / total_queries * 100,
+            easy_ci / total_queries * 100,
+            (easy_exact / total_queries * 100),
+            easy_time / total_queries * 1000,
+        ),
+        (
+            "PaddleOCR (rec)",
+            paddle_exact / total_queries * 100,
+            paddle_ci / total_queries * 100,
+            (paddle_exact / total_queries * 100),
+            paddle_time / total_queries * 1000,
+        ),
     ]
 
     for name, exact, ci, top5, lat in results:
         top5_str = f"{top5:5.1f}%" if name == "EmbeddingGemma 2" else "N/A"
-        print(f"{name:<20} | {exact:6.1f}%      | {ci:6.1f}%           | {top5_str:<12} | {lat:8.2f} ms")
+        print(
+            f"{name:<20} | {exact:6.1f}%      | {ci:6.1f}%           | {top5_str:<12} | {lat:8.2f} ms"
+        )
     print("=" * 86)
 
     # Save summary to docs/decisions.md / docs
@@ -168,9 +198,13 @@ def main() -> None:
         "n_queries": total_queries,
         "classes": len(classes),
         "results": {
-            name: {"exact_acc": round(exact, 2), "ci_acc": round(ci, 2), "latency_ms": round(lat, 2)}
+            name: {
+                "exact_acc": round(exact, 2),
+                "ci_acc": round(ci, 2),
+                "latency_ms": round(lat, 2),
+            }
             for name, exact, ci, _, lat in results
-        }
+        },
     }
     report_path.write_text(json.dumps(report_data, indent=2))
     print(f"\nSaved benchmark metrics to {report_path}")

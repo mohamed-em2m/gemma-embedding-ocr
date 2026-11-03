@@ -25,10 +25,46 @@ def main() -> None:
 
     # Sample test set: subset of letters across upper and lower case
     test_chars = [
-        "A", "B", "C", "D", "E", "F", "G", "H", "I", "J",
-        "a", "b", "c", "d", "e", "f", "g", "h", "i", "j",
-        "K", "L", "M", "N", "O", "P", "Q", "R", "S", "T",
-        "k", "l", "m", "n", "o", "p", "q", "r", "s", "t",
+        "A",
+        "B",
+        "C",
+        "D",
+        "E",
+        "F",
+        "G",
+        "H",
+        "I",
+        "J",
+        "a",
+        "b",
+        "c",
+        "d",
+        "e",
+        "f",
+        "g",
+        "h",
+        "i",
+        "j",
+        "K",
+        "L",
+        "M",
+        "N",
+        "O",
+        "P",
+        "Q",
+        "R",
+        "S",
+        "T",
+        "k",
+        "l",
+        "m",
+        "n",
+        "o",
+        "p",
+        "q",
+        "r",
+        "s",
+        "t",
     ]
 
     font_path = "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"
@@ -40,11 +76,18 @@ def main() -> None:
     }
 
     results: dict[str, dict[str, int | float]] = {
-        name: {"exact_match": 0, "case_insensitive": 0, "total": len(test_chars), "time_sec": 0.0}
+        name: {
+            "exact_match": 0,
+            "case_insensitive": 0,
+            "total": len(test_chars),
+            "time_sec": 0.0,
+        }
         for name in engines
     }
 
-    print(f"\nEvaluating on {len(test_chars)} synthetic glyph images rendered with DejaVuSans...")
+    print(
+        f"\nEvaluating on {len(test_chars)} synthetic glyph images rendered with DejaVuSans..."
+    )
 
     for char in test_chars:
         pil_img = render_glyph(char, font_path=font_path, canvas_size=64, font_size=44)
@@ -64,14 +107,18 @@ def main() -> None:
                 results[name]["case_insensitive"] += 1
 
     print("\n" + "=" * 68)
-    print(f"{'Engine':<12} | {'Exact Acc':<12} | {'Case-Insens Acc':<16} | {'Avg Latency (ms)':<15}")
+    print(
+        f"{'Engine':<12} | {'Exact Acc':<12} | {'Case-Insens Acc':<16} | {'Avg Latency (ms)':<15}"
+    )
     print("-" * 68)
     for name, stat in results.items():
         total = int(stat["total"])
         exact_acc = (int(stat["exact_match"]) / total) * 100
         ci_acc = (int(stat["case_insensitive"]) / total) * 100
         avg_lat = (float(stat["time_sec"]) / total) * 1000
-        print(f"{name:<12} | {exact_acc:6.1f}%      | {ci_acc:6.1f}%           | {avg_lat:8.2f} ms")
+        print(
+            f"{name:<12} | {exact_acc:6.1f}%      | {ci_acc:6.1f}%           | {avg_lat:8.2f} ms"
+        )
     print("=" * 68)
 
 

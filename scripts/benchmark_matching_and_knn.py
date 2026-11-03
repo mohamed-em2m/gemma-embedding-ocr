@@ -161,14 +161,41 @@ def main() -> None:
 
     # --- Summary Table ---
     print("\n" + "=" * 85)
-    print(f"{'Method / Matching Strategy':<35} | {'Exact Top-1':<12} | {'Case-Insens':<12} | {'Latency (ms)':<12}")
+    print(
+        f"{'Method / Matching Strategy':<35} | {'Exact Top-1':<12} | {'Case-Insens':<12} | {'Latency (ms)':<12}"
+    )
     print("-" * 85)
     benchmarks = [
-        ("Pixel NCC Template Match", ncc_correct / total * 100, ncc_ci / total * 100, ncc_time),
-        ("Structural Similarity (SSIM)", ssim_correct / total * 100, ssim_ci / total * 100, ssim_time),
-        ("EmbeddingGemma (1-NN)", k1_correct / total * 100, k1_ci / total * 100, gemma_embed_lat),
-        ("EmbeddingGemma (k-NN, k=5 weighted)", k5_correct / total * 100, k5_ci / total * 100, gemma_embed_lat),
-        ("EmbeddingGemma (Max-Agg + Matcher)", matcher_correct / total * 100, matcher_ci / total * 100, gemma_embed_lat),
+        (
+            "Pixel NCC Template Match",
+            ncc_correct / total * 100,
+            ncc_ci / total * 100,
+            ncc_time,
+        ),
+        (
+            "Structural Similarity (SSIM)",
+            ssim_correct / total * 100,
+            ssim_ci / total * 100,
+            ssim_time,
+        ),
+        (
+            "EmbeddingGemma (1-NN)",
+            k1_correct / total * 100,
+            k1_ci / total * 100,
+            gemma_embed_lat,
+        ),
+        (
+            "EmbeddingGemma (k-NN, k=5 weighted)",
+            k5_correct / total * 100,
+            k5_ci / total * 100,
+            gemma_embed_lat,
+        ),
+        (
+            "EmbeddingGemma (Max-Agg + Matcher)",
+            matcher_correct / total * 100,
+            matcher_ci / total * 100,
+            gemma_embed_lat,
+        ),
     ]
 
     for name, exact, ci, lat in benchmarks:

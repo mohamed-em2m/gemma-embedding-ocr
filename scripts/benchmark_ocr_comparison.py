@@ -47,9 +47,22 @@ def main() -> None:
     font_path = "/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf"
 
     test_words = [
-        "HELLO", "World", "OpenCode", "Gemma", "OCR", "DeepMind",
-        "Python", "Vector", "FAISS", "Embedding", "Latin", "Accuracy",
-        "Speed", "Tesseract", "Paddle", "Benchmark"
+        "HELLO",
+        "World",
+        "OpenCode",
+        "Gemma",
+        "OCR",
+        "DeepMind",
+        "Python",
+        "Vector",
+        "FAISS",
+        "Embedding",
+        "Latin",
+        "Accuracy",
+        "Speed",
+        "Tesseract",
+        "Paddle",
+        "Benchmark",
     ]
 
     print("\n1. Initializing Conventional OCR Engines...")
@@ -67,7 +80,12 @@ def main() -> None:
     }
 
     stats: dict[str, dict[str, int | float]] = {
-        name: {"exact": 0, "case_insens": 0, "total_time": 0.0, "count": len(test_words)}
+        name: {
+            "exact": 0,
+            "case_insens": 0,
+            "total_time": 0.0,
+            "count": len(test_words),
+        }
         for name in engines
     }
 
@@ -87,18 +105,24 @@ def main() -> None:
                 stats[name]["case_insens"] += 1
 
     print("\n" + "=" * 70)
-    print(f"{'Engine':<15} | {'Exact Acc':<12} | {'Case-Insens Acc':<16} | {'Avg Latency (ms)':<15}")
+    print(
+        f"{'Engine':<15} | {'Exact Acc':<12} | {'Case-Insens Acc':<16} | {'Avg Latency (ms)':<15}"
+    )
     print("-" * 70)
     for name, st in stats.items():
         cnt = int(st["count"])
         exact_acc = (int(st["exact"]) / cnt) * 100
         ci_acc = (int(st["case_insens"]) / cnt) * 100
         lat_ms = (float(st["total_time"]) / cnt) * 1000
-        print(f"{name:<15} | {exact_acc:6.1f}%      | {ci_acc:6.1f}%           | {lat_ms:8.2f} ms")
+        print(
+            f"{name:<15} | {exact_acc:6.1f}%      | {ci_acc:6.1f}%           | {lat_ms:8.2f} ms"
+        )
     print("=" * 70)
 
     print("\n3. Comparison with EmbeddingGemma 2 (from Phase 0 Feasibility Study):")
-    print("   - EmbeddingGemma 2 Single-character Top-1 across fonts: 91.0% (768d), 91.7% (512d)")
+    print(
+        "   - EmbeddingGemma 2 Single-character Top-1 across fonts: 91.0% (768d), 91.7% (512d)"
+    )
     print("   - Case-insensitive Top-1 across fonts: ~99.4%")
     print("   - Average embedding latency (batch 1): ~6.9 ms (GPU)")
     print("=" * 70)

@@ -179,7 +179,9 @@ class NCCPredictor:
     name = "Pixel NCC Template Match"
 
     def __init__(self, gallery_images: list[np.ndarray], gallery_labels: list[str]):
-        self.gallery_grays = [cv2.cvtColor(im, cv2.COLOR_RGB2GRAY) for im in gallery_images]
+        self.gallery_grays = [
+            cv2.cvtColor(im, cv2.COLOR_RGB2GRAY) for im in gallery_images
+        ]
         self.gallery_labels = gallery_labels
 
     def predict(
@@ -190,7 +192,9 @@ class NCCPredictor:
             q_gray = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
             best_score = -1.0
             best_label = ""
-            for t_gray, label in zip(self.gallery_grays, self.gallery_labels, strict=False):
+            for t_gray, label in zip(
+                self.gallery_grays, self.gallery_labels, strict=False
+            ):
                 res = cv2.matchTemplate(q_gray, t_gray, cv2.TM_CCOEFF_NORMED)
                 score = float(res[0][0])
                 if score > best_score:
@@ -209,7 +213,9 @@ class SSIMPredictor:
         from skimage.metrics import structural_similarity as ssim_fn
 
         self.ssim_fn = ssim_fn
-        self.gallery_grays = [cv2.cvtColor(im, cv2.COLOR_RGB2GRAY) for im in gallery_images]
+        self.gallery_grays = [
+            cv2.cvtColor(im, cv2.COLOR_RGB2GRAY) for im in gallery_images
+        ]
         self.gallery_labels = gallery_labels
 
     def predict(
@@ -220,7 +226,9 @@ class SSIMPredictor:
             q_gray = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
             best_score = -2.0
             best_label = ""
-            for t_gray, label in zip(self.gallery_grays, self.gallery_labels, strict=False):
+            for t_gray, label in zip(
+                self.gallery_grays, self.gallery_labels, strict=False
+            ):
                 score = float(self.ssim_fn(q_gray, t_gray))
                 if score > best_score:
                     best_score = score
@@ -281,7 +289,9 @@ class GemmaPredictor:
             if self.strategy == "1nn":
                 predictions.append(labs_i[0])
             elif self.strategy == "knn":
-                weights: collections.defaultdict[str, float] = collections.defaultdict(float)
+                weights: collections.defaultdict[str, float] = collections.defaultdict(
+                    float
+                )
                 for s, l_char in zip(sims_i[:5], labs_i[:5], strict=False):
                     weights[l_char] += max(0.0, float(s))
                 best_char = max(weights.items(), key=lambda kv: kv[1])[0]
@@ -433,12 +443,16 @@ def evaluate(
         if extracted.lower() == label.lower():
             result.extracted_case_insensitive += 1
         if cleaned != label and len(result.errors) < 20:
-            result.errors.append({"target": label, "prediction": cleaned, "raw": raw[:100]})
+            result.errors.append(
+                {"target": label, "prediction": cleaned, "raw": raw[:100]}
+            )
 
     return result
 
 
-def write_reports(results: list[EngineResult], n_queries: int, output_prefix: Path) -> None:
+def write_reports(
+    results: list[EngineResult], n_queries: int, output_prefix: Path
+) -> None:
     payload = {
         "n_queries": n_queries,
         "results": [r.as_dict() for r in results],
@@ -560,13 +574,19 @@ def main() -> None:
     test_fonts = args.test_fonts
 
     if (not index_fonts or not test_fonts) and args.font_list_file.exists():
-        raw_fonts = [line.strip() for line in args.font_list_file.read_text().splitlines() if line.strip() and not line.startswith("#")]
+        raw_fonts = [
+            line.strip()
+            for line in args.font_list_file.read_text().splitlines()
+            if line.strip() and not line.startswith("#")
+        ]
         valid_fonts = [p for p in raw_fonts if Path(p).exists()]
         if valid_fonts:
             if not index_fonts:
                 index_fonts = valid_fonts[: args.num_index_fonts]
             if not test_fonts:
-                test_fonts = valid_fonts[args.num_index_fonts : args.num_index_fonts + args.num_test_fonts]
+                test_fonts = valid_fonts[
+                    args.num_index_fonts : args.num_index_fonts + args.num_test_fonts
+                ]
 
     if not index_fonts:
         index_fonts = DEFAULT_INDEX_FONTS
@@ -579,8 +599,12 @@ def main() -> None:
     print("=" * 80)
     print("UNIFIED OCR BENCHMARK: Classical CV, EmbeddingGemma, Traditional OCR & VLMs")
     print("=" * 80)
-    print(f"Index Prototype Fonts ({len(args.index_fonts)}): {[Path(f).name for f in args.index_fonts[:5]]}...")
-    print(f"Test Held-Out Fonts   ({len(args.test_fonts)}): {[Path(f).name for f in args.test_fonts[:5]]}...")
+    print(
+        f"Index Prototype Fonts ({len(args.index_fonts)}): {[Path(f).name for f in args.index_fonts[:5]]}..."
+    )
+    print(
+        f"Test Held-Out Fonts   ({len(args.test_fonts)}): {[Path(f).name for f in args.test_fonts[:5]]}..."
+    )
 
     images, labels, relative_heights = render_queries(
         args.test_fonts, classes, args.limit
@@ -625,7 +649,11 @@ def main() -> None:
             elif name == "ssim":
                 predictor = SSIMPredictor(gallery_images, gallery_labels)
             elif name in ("gemma", "gemma-1nn", "gemma-knn"):
-                strategy = "matcher" if name == "gemma" else ("1nn" if name == "gemma-1nn" else "knn")
+                strategy = (
+                    "matcher"
+                    if name == "gemma"
+                    else ("1nn" if name == "gemma-1nn" else "knn")
+                )
                 predictor = GemmaPredictor(
                     index_fonts=args.index_fonts,
                     classes=classes,

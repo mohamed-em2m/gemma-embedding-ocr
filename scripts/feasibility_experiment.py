@@ -9,9 +9,7 @@ Tests:
 from __future__ import annotations
 
 import json
-import time
 from pathlib import Path
-from typing import Any
 
 import numpy as np
 from PIL import Image, ImageDraw, ImageFont
@@ -38,7 +36,9 @@ def render_text_crop(
 
     img = Image.new("RGB", (max(w, 20), max(h, 20)), color=(255, 255, 255))
     draw = ImageDraw.Draw(img)
-    draw.text((padding_x - bbox[0], padding_y - bbox[1]), text, font=font, fill=(0, 0, 0))
+    draw.text(
+        (padding_x - bbox[0], padding_y - bbox[1]), text, font=font, fill=(0, 0, 0)
+    )
     return np.array(img, dtype=np.uint8)
 
 
@@ -47,9 +47,38 @@ def run_feasibility():
     emb = EmbeddingGemma2(dim=768)
 
     # 1. Test Characters
-    test_chars = ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J",
-                  "a", "b", "c", "d", "e", "f", "g", "h", "i", "j",
-                  "0", "1", "2", "3", "4", "5", "6", "7", "8", "9"]
+    test_chars = [
+        "A",
+        "B",
+        "C",
+        "D",
+        "E",
+        "F",
+        "G",
+        "H",
+        "I",
+        "J",
+        "a",
+        "b",
+        "c",
+        "d",
+        "e",
+        "f",
+        "g",
+        "h",
+        "i",
+        "j",
+        "0",
+        "1",
+        "2",
+        "3",
+        "4",
+        "5",
+        "6",
+        "7",
+        "8",
+        "9",
+    ]
 
     print("\n--- Experiment 1: Character Image-to-Text Matching ---")
     char_images = [render_text_crop(c) for c in test_chars]
@@ -67,8 +96,8 @@ def run_feasibility():
         top1_char = test_chars[top_indices[0]]
         top3_chars = [test_chars[idx] for idx in top_indices[:3]]
 
-        is_top1 = (top1_char == c)
-        is_top3 = (c in top3_chars)
+        is_top1 = top1_char == c
+        is_top3 = c in top3_chars
         if is_top1:
             top1_correct += 1
         if is_top3:
@@ -76,20 +105,48 @@ def run_feasibility():
 
     char_top1_acc = top1_correct / len(test_chars)
     char_top3_acc = top3_correct / len(test_chars)
-    print(f"Character Image->Text Top-1 Accuracy: {char_top1_acc * 100:.1f}% ({top1_correct}/{len(test_chars)})")
-    print(f"Character Image->Text Top-3 Accuracy: {char_top3_acc * 100:.1f}% ({top3_correct}/{len(test_chars)})")
+    print(
+        f"Character Image->Text Top-1 Accuracy: {char_top1_acc * 100:.1f}% ({top1_correct}/{len(test_chars)})"
+    )
+    print(
+        f"Character Image->Text Top-3 Accuracy: {char_top3_acc * 100:.1f}% ({top3_correct}/{len(test_chars)})"
+    )
 
     # 2. Test Words
     print("\n--- Experiment 2: Word Image-to-Text Matching ---")
     test_words = [
-        "invoice", "total", "payment", "customer", "receipt",
-        "system", "network", "python", "neural", "gemma",
-        "embedding", "recognition", "digital", "document", "optical"
+        "invoice",
+        "total",
+        "payment",
+        "customer",
+        "receipt",
+        "system",
+        "network",
+        "python",
+        "neural",
+        "gemma",
+        "embedding",
+        "recognition",
+        "digital",
+        "document",
+        "optical",
     ]
     distractor_words = [
-        "invoices", "totally", "payments", "custom", "receive",
-        "systems", "networking", "pythonic", "neuron", "gamma",
-        "embedded", "recognize", "digit", "documentation", "optics"
+        "invoices",
+        "totally",
+        "payments",
+        "custom",
+        "receive",
+        "systems",
+        "networking",
+        "pythonic",
+        "neuron",
+        "gamma",
+        "embedded",
+        "recognize",
+        "digit",
+        "documentation",
+        "optics",
     ]
     all_lexicon = list(set(test_words + distractor_words))
 
@@ -120,12 +177,18 @@ def run_feasibility():
         if target in top3_list:
             word_top3 += 1
 
-        print(f"Target: {target:<12} Top-1: {top1_w:<12} (sim={sim1:.4f}, margin={margin:+.4f}) Top-2: {top2_w:<12} (sim={sim2:.4f})")
+        print(
+            f"Target: {target:<12} Top-1: {top1_w:<12} (sim={sim1:.4f}, margin={margin:+.4f}) Top-2: {top2_w:<12} (sim={sim2:.4f})"
+        )
 
     word_top1_acc = word_top1 / len(test_words)
     word_top3_acc = word_top3 / len(test_words)
-    print(f"\nWord Image->Text Top-1 Accuracy: {word_top1_acc * 100:.1f}% ({word_top1}/{len(test_words)})")
-    print(f"Word Image->Text Top-3 Accuracy: {word_top3_acc * 100:.1f}% ({word_top3}/{len(test_words)})")
+    print(
+        f"\nWord Image->Text Top-1 Accuracy: {word_top1_acc * 100:.1f}% ({word_top1}/{len(test_words)})"
+    )
+    print(
+        f"Word Image->Text Top-3 Accuracy: {word_top3_acc * 100:.1f}% ({word_top3}/{len(test_words)})"
+    )
     print(f"Mean top-1 vs top-2 margin: {np.mean(margins):.4f}")
 
     # 3. Test Subword Splitting Feasibility
@@ -146,7 +209,9 @@ def run_feasibility():
             cand_labels = [part, full_w, "other", parts[0], parts[1]]
             p_sims = (p_img_emb @ p_txt_embs.T)[0]
             best_idx = np.argmax(p_sims)
-            print(f"  Part crop '{part}' matched '{cand_labels[best_idx]}' with sim {p_sims[best_idx]:.4f}")
+            print(
+                f"  Part crop '{part}' matched '{cand_labels[best_idx]}' with sim {p_sims[best_idx]:.4f}"
+            )
 
     results = {
         "char_top1_acc": char_top1_acc,

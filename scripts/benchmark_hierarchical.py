@@ -23,28 +23,67 @@ import numpy as np
 from PIL import Image, ImageDraw, ImageFont
 
 from embedding_ocr.recognition.embedding.embedder import EmbeddingGemma2
-from embedding_ocr.recognition.embedding.hierarchical.engine import HierarchicalWordRecognizer
-from embedding_ocr.recognition.embedding.hierarchical.segmentation import VisualWordSegmenter
-from embedding_ocr.recognition.embedding.hierarchical.vocabulary import EmbeddingVocabulary
+from embedding_ocr.recognition.embedding.hierarchical.engine import (
+    HierarchicalWordRecognizer,
+)
+from embedding_ocr.recognition.embedding.hierarchical.vocabulary import (
+    EmbeddingVocabulary,
+)
 
 # Evaluation words: Known common words, multi-token compound words, and unseen / rare words
 EVAL_KNOWN_WORDS = [
-    "invoice", "total", "customer", "payment", "service",
-    "network", "system", "neural", "python", "digital",
-    "document", "receipt", "account", "balance", "amount",
-    "company", "contact", "address", "number", "status",
-    "report", "project", "product", "machine", "learning",
-    "vision", "database", "market", "client", "office"
+    "invoice",
+    "total",
+    "customer",
+    "payment",
+    "service",
+    "network",
+    "system",
+    "neural",
+    "python",
+    "digital",
+    "document",
+    "receipt",
+    "account",
+    "balance",
+    "amount",
+    "company",
+    "contact",
+    "address",
+    "number",
+    "status",
+    "report",
+    "project",
+    "product",
+    "machine",
+    "learning",
+    "vision",
+    "database",
+    "market",
+    "client",
+    "office",
 ]
 
 EVAL_COMPOUND_WORDS = [
-    "network", "payment", "customer", "invoice", "receipt",
-    "digital", "document", "optical", "system", "neural",
+    "network",
+    "payment",
+    "customer",
+    "invoice",
+    "receipt",
+    "digital",
+    "document",
+    "optical",
+    "system",
+    "neural",
 ]
 
 EVAL_UNKNOWN_WORDS = [
-    "supercalifragilistic", "microgradient", "counterproposal",
-    "neurovector", "subsegmentation", "polymodal"
+    "supercalifragilistic",
+    "microgradient",
+    "counterproposal",
+    "neurovector",
+    "subsegmentation",
+    "polymodal",
 ]
 
 SAMPLE_PHRASES = [
@@ -74,7 +113,9 @@ def render_test_crop(
 
     img = Image.new("RGB", (max(w, 20), max(h, 20)), color=(255, 255, 255))
     draw = ImageDraw.Draw(img)
-    draw.text((padding_x - bbox[0], padding_y - bbox[1]), text, font=font, fill=(0, 0, 0))
+    draw.text(
+        (padding_x - bbox[0], padding_y - bbox[1]), text, font=font, fill=(0, 0, 0)
+    )
     return np.array(img, dtype=np.uint8)
 
 
@@ -139,22 +180,26 @@ def evaluate_engine(
         "phrase_wer": float(phrase_wer),
         "avg_phrase_latency_ms": float(np.mean(phrase_latencies)),
         "telemetry": dict(engine.stats),
-        "sample_predictions": list(zip(words[:8], predictions[:8])),
+        "sample_predictions": list(zip(words[:8], predictions[:8], strict=False)),
     }
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Hierarchical Word Recognition Benchmark")
+    parser = argparse.ArgumentParser(
+        description="Hierarchical Word Recognition Benchmark"
+    )
     parser.add_argument("--dims", nargs="+", type=int, default=[768, 512, 256])
-    parser.add_argument("--out", type=str, default="docs/hierarchical_benchmark_report.json")
+    parser.add_argument(
+        "--out", type=str, default="docs/hierarchical_benchmark_report.json"
+    )
     args = parser.parse_args()
 
     results_all_dims = {}
 
     for dim in args.dims:
-        print(f"\n=======================================================")
+        print("\n=======================================================")
         print(f"Evaluating Hierarchical Word Recognition with dim={dim}D")
-        print(f"=======================================================")
+        print("=======================================================")
 
         emb = EmbeddingGemma2(dim=dim)
         vocab = EmbeddingVocabulary(
@@ -168,7 +213,9 @@ def main():
             max_words=10000,
             max_subwords=5000,
         )
-        print(f"Tokens: {len(vocab.word_tokens)} words, {len(vocab.subword_tokens)} subwords, {len(vocab.char_tokens)} chars")
+        print(
+            f"Tokens: {len(vocab.word_tokens)} words, {len(vocab.subword_tokens)} subwords, {len(vocab.char_tokens)} chars"
+        )
 
         print("Building FAISS candidate indexes...")
         vocab.build_indexes()
@@ -207,8 +254,12 @@ def main():
 
         print(f"\nResults for {dim}D:")
         print(f"  Exact Word Accuracy: {eval_metrics['word_accuracy'] * 100:.1f}%")
-        print(f"  Word CER: {eval_metrics['word_cer']:.4f} | WER: {eval_metrics['word_wer']:.4f}")
-        print(f"  Phrase Word Boundary Acc: {eval_metrics['phrase_boundary_accuracy'] * 100:.1f}%")
+        print(
+            f"  Word CER: {eval_metrics['word_cer']:.4f} | WER: {eval_metrics['word_wer']:.4f}"
+        )
+        print(
+            f"  Phrase Word Boundary Acc: {eval_metrics['phrase_boundary_accuracy'] * 100:.1f}%"
+        )
         print(f"  Latency per word: {eval_metrics['avg_word_latency_ms']:.2f} ms")
         print(f"  Telemetry: {eval_metrics['telemetry']}")
 

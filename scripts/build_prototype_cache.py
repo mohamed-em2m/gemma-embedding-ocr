@@ -20,13 +20,17 @@ from embedding_ocr.recognition.embedding.prototypes import PrototypeDB
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Build and persist clean multi-font prototype index.")
+    parser = argparse.ArgumentParser(
+        description="Build and persist clean multi-font prototype index."
+    )
     parser.add_argument(
         "--font-catalog",
         type=Path,
         default=Path("data/standard_clean_fonts.txt"),
     )
-    parser.add_argument("--num-fonts", type=int, default=25, help="Number of clean fonts to include.")
+    parser.add_argument(
+        "--num-fonts", type=int, default=25, help="Number of clean fonts to include."
+    )
     parser.add_argument("--dim", type=int, default=768, choices=[768, 512, 256, 128])
     parser.add_argument("--device", default="auto")
     parser.add_argument(
@@ -74,8 +78,12 @@ def main() -> None:
     save_path = args.output_dir / f"clean_alnum_{args.dim}d"
     proto_db.save(save_path)
 
-    print(f"\nBuilt {total_prototypes} prototypes in {build_time:.2f}s ({build_time / total_prototypes * 1000.0:.1f}ms/item).")
-    print(f"Persisted to: {save_path.with_suffix('.faiss')} and {save_path.with_suffix('.labels.json')}")
+    print(
+        f"\nBuilt {total_prototypes} prototypes in {build_time:.2f}s ({build_time / total_prototypes * 1000.0:.1f}ms/item)."
+    )
+    print(
+        f"Persisted to: {save_path.with_suffix('.faiss')} and {save_path.with_suffix('.labels.json')}"
+    )
     print("Ready for zero-latency instant loading across all OCR benchmarks!")
 
 

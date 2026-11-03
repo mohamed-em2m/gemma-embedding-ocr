@@ -77,19 +77,30 @@ def render_text_line(
 
     img = Image.new("RGB", (w, h), color=(255, 255, 255))
     draw = ImageDraw.Draw(img)
-    draw.text((padding_x - bbox[0], padding_y - bbox[1]), text, font=font, fill=(0, 0, 0))
+    draw.text(
+        (padding_x - bbox[0], padding_y - bbox[1]), text, font=font, fill=(0, 0, 0)
+    )
     return np.array(img, dtype=np.uint8)
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="End-to-end word and line OCR benchmark.")
-    parser.add_argument("--num-samples", type=int, default=15, help="Number of text phrases to evaluate.")
+    parser = argparse.ArgumentParser(
+        description="End-to-end word and line OCR benchmark."
+    )
+    parser.add_argument(
+        "--num-samples",
+        type=int,
+        default=15,
+        help="Number of text phrases to evaluate.",
+    )
     parser.add_argument(
         "--font-catalog",
         type=Path,
         default=Path("data/standard_clean_fonts.txt"),
     )
-    parser.add_argument("--gemma-dim", type=int, default=768, choices=[768, 512, 256, 128])
+    parser.add_argument(
+        "--gemma-dim", type=int, default=768, choices=[768, 512, 256, 128]
+    )
     parser.add_argument("--device", default="auto")
     parser.add_argument("--cache-prototypes", action="store_true", default=True)
     return parser.parse_args()
@@ -113,8 +124,12 @@ def main() -> None:
     ]
     index_fonts = all_fonts[:5]
     test_fonts = all_fonts[5:15]
-    print(f"Indexed Prototype Fonts ({len(index_fonts)}): {[Path(f).name for f in index_fonts]}")
-    print(f"Held-Out Test Fonts    ({len(test_fonts)}): {[Path(f).name for f in test_fonts[:5]]}...")
+    print(
+        f"Indexed Prototype Fonts ({len(index_fonts)}): {[Path(f).name for f in index_fonts]}"
+    )
+    print(
+        f"Held-Out Test Fonts    ({len(test_fonts)}): {[Path(f).name for f in test_fonts[:5]]}..."
+    )
 
     # 2. Build or load prototype DB
     embedder = EmbeddingGemma2(dim=args.gemma_dim, device=args.device)
@@ -122,12 +137,18 @@ def main() -> None:
     proto_db = PrototypeDB(embedder=embedder, index=index, classes=ALPHANUMERIC_CLASSES)
 
     cache_path = Path(f"artifacts/prototypes/clean_{args.gemma_dim}d")
-    if args.cache_prototypes and cache_path.with_suffix(".faiss").exists() and cache_path.with_suffix(".labels.json").exists():
+    if (
+        args.cache_prototypes
+        and cache_path.with_suffix(".faiss").exists()
+        and cache_path.with_suffix(".labels.json").exists()
+    ):
         print(f"Loading cached prototypes from {cache_path}...")
         proto_db.index = FaissIndex.load(cache_path)
         proto_db.load_cache(cache_path)
     else:
-        print("Rendering and embedding prototype gallery (5 fonts x 62 alphanumeric classes)...")
+        print(
+            "Rendering and embedding prototype gallery (5 fonts x 62 alphanumeric classes)..."
+        )
         proto_db.build_from_fonts(index_fonts)
         if args.cache_prototypes:
             proto_db.save(cache_path)
@@ -146,7 +167,7 @@ def main() -> None:
     # 4. Generate test queries (words and phrases)
     targets: list[str] = []
     test_images: list[np.ndarray] = []
-    
+
     test_pool = SAMPLE_PHRASES + SAMPLE_WORDS
     for i in range(args.num_samples):
         text = test_pool[i % len(test_pool)]
@@ -155,7 +176,9 @@ def main() -> None:
         targets.append(text)
         test_images.append(img)
 
-    print(f"\nEvaluating {len(test_images)} synthetic word & line images across held-out fonts...")
+    print(
+        f"\nEvaluating {len(test_images)} synthetic word & line images across held-out fonts..."
+    )
 
     # 5. Run Recognition
     predictions: list[str] = []
@@ -177,8 +200,12 @@ def main() -> None:
     # 6. Compute standard OCR metrics
     cer = jiwer.cer(targets, predictions)
     wer = jiwer.wer(targets, predictions)
-    exact_match = sum(p == t for p, t in zip(predictions, targets, strict=True)) / len(targets)
-    case_insens_match = sum(p.lower() == t.lower() for p, t in zip(predictions, targets, strict=True)) / len(targets)
+    exact_match = sum(p == t for p, t in zip(predictions, targets, strict=True)) / len(
+        targets
+    )
+    case_insens_match = sum(
+        p.lower() == t.lower() for p, t in zip(predictions, targets, strict=True)
+    ) / len(targets)
     avg_latency = float(np.mean(latencies))
 
     print("\n" + "=" * 80)
