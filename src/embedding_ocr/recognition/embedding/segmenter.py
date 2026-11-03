@@ -75,9 +75,33 @@ class CharacterSegmenter:
         # Sort left to right
         components.sort(key=lambda c: c[0])
 
-        # Estimate average character width and typical gap for space detection
-        typical_w = np.median([c[2] for c in components]) if components else 20.0
-        typical_h = np.median([c[3] for c in components]) if components else 30.0
+        # Estimate average character width and gap distribution
+        widths = [c[2] for c in components]
+        heights = [c[3] for c in components]
+        typical_w = float(np.median(widths)) if widths else 20.0
+        typical_h = float(np.median(heights)) if heights else 30.0
+
+        # Compute adjacent inter-character gaps
+        gaps: list[float] = []
+        for i in range(1, len(components)):
+            prev_x, _, prev_w, _ = components[i - 1]
+            curr_x = components[i][0]
+            gaps.append(float(curr_x - (prev_x + prev_w)))
+
+        # Dynamic space threshold:
+        # If text has multiple words, gaps exhibit a bimodal distribution
+        # (small intra-word character spacing vs large inter-word spacing).
+        space_threshold = max(8.0, self.space_ratio_thresh * max(typical_w, typical_h * 0.4))
+        if len(gaps) >= 3:
+            sorted_gaps = sorted(gaps)
+            # Find largest gap jump between small gaps and large gaps
+            diffs = [sorted_gaps[k + 1] - sorted_gaps[k] for k in range(len(sorted_gaps) - 1)]
+            max_jump_idx = int(np.argmax(diffs))
+            jump_size = diffs[max_jump_idx]
+            candidate_thresh = (sorted_gaps[max_jump_idx] + sorted_gaps[max_jump_idx + 1]) / 2.0
+            # If the jump is distinct (at least 4px and candidate threshold is reasonable)
+            if jump_size >= 4.0 and 6.0 <= candidate_thresh <= typical_w * 1.5:
+                space_threshold = candidate_thresh
 
         segmented_chars: list[SegmentedCharacter] = []
         for idx, (x, y, w, h) in enumerate(components):
@@ -86,10 +110,8 @@ class CharacterSegmenter:
             # Detect if there is a space before this component (word break)
             is_space_before = False
             if idx > 0:
-                prev_x, prev_y, prev_w, prev_h = components[idx - 1]
-                gap = x - (prev_x + prev_w)
-                # If gap is significantly larger than regular letter-spacing
-                if gap > max(8.0, self.space_ratio_thresh * max(typical_w, typical_h * 0.4)):
+                gap = gaps[idx - 1]
+                if gap >= space_threshold:
                     is_space_before = True
 
             # Fit into target_size x target_size canvas maintaining aspect ratio
