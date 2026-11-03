@@ -1,0 +1,290 @@
+{
+  "768D": {
+    "known_words": {
+      "word_accuracy": 0.6333333333333333,
+      "word_cer": 0.48756218905472637,
+      "word_wer": 0.7666666666666667,
+      "avg_word_latency_ms": 1255.9306643333227,
+      "phrase_boundary_accuracy": 1.0,
+      "phrase_cer": 0.45689655172413796,
+      "phrase_wer": 0.8,
+      "avg_phrase_latency_ms": 3282.8383610000396,
+      "telemetry": {
+        "total_words": 45,
+        "full_word_hits": 16,
+        "subword_fallbacks": 38,
+        "char_fallbacks": 1,
+        "unresolved_fallbacks": 0
+      },
+      "sample_predictions": [
+        [
+          "invoice",
+          "ince"
+        ],
+        [
+          "total",
+          "Total"
+        ],
+        [
+          "customer",
+          "------------"
+        ],
+        [
+          "payment",
+          "PayMENT"
+        ],
+        [
+          "service",
+          "ServICE"
+        ],
+        [
+          "network",
+          "Network"
+        ],
+        [
+          "system",
+          "ScysTem"
+        ],
+        [
+          "neural",
+          "eENural"
+        ]
+      ]
+    },
+    "unknown_words": {
+      "word_accuracy": 0.0,
+      "word_cer": 0.8192771084337349,
+      "word_wer": 1.0,
+      "avg_word_latency_ms": 1551.0178803333474,
+      "phrase_boundary_accuracy": 0.0,
+      "phrase_cer": 0.0,
+      "phrase_wer": 0.0,
+      "avg_phrase_latency_ms": NaN,
+      "telemetry": {
+        "total_words": 6,
+        "full_word_hits": 3,
+        "subword_fallbacks": 5,
+        "char_fallbacks": 1,
+        "unresolved_fallbacks": 0
+      },
+      "sample_predictions": [
+        [
+          "supercalifragilistic",
+          "'''"
+        ],
+        [
+          "microgradient",
+          "------------"
+        ],
+        [
+          "counterproposal",
+          "contr"
+        ],
+        [
+          "neurovector",
+          "NT.uroVector"
+        ],
+        [
+          "subsegmentation",
+          "'''"
+        ],
+        [
+          "polymodal",
+          "Poly"
+        ]
+      ]
+    }
+  },
+  "512D": {
+    "known_words": {
+      "word_accuracy": 0.6,
+      "word_cer": 0.43781094527363185,
+      "word_wer": 0.8,
+      "avg_word_latency_ms": 1283.9276152333089,
+      "phrase_boundary_accuracy": 1.0,
+      "phrase_cer": 0.5258620689655172,
+      "phrase_wer": 0.8,
+      "avg_phrase_latency_ms": 4031.0846417999987,
+      "telemetry": {
+        "total_words": 45,
+        "full_word_hits": 18,
+        "subword_fallbacks": 38,
+        "char_fallbacks": 2,
+        "unresolved_fallbacks": 0
+      },
+      "sample_predictions": [
+        [
+          "invoice",
+          "ince"
+        ],
+        [
+          "total",
+          "Total"
+        ],
+        [
+          "customer",
+          "------------"
+        ],
+        [
+          "payment",
+          "payments"
+        ],
+        [
+          "service",
+          "ServICE"
+        ],
+        [
+          "network",
+          "Network"
+        ],
+        [
+          "system",
+          "systemTem"
+        ],
+        [
+          "neural",
+          "Ch3ural"
+        ]
+      ]
+    },
+    "unknown_words": {
+      "word_accuracy": 0.0,
+      "word_cer": 0.8433734939759037,
+      "word_wer": 1.0,
+      "avg_word_latency_ms": 997.6703019999604,
+      "phrase_boundary_accuracy": 0.0,
+      "phrase_cer": 0.0,
+      "phrase_wer": 0.0,
+      "avg_phrase_latency_ms": NaN,
+      "telemetry": {
+        "total_words": 6,
+        "full_word_hits": 4,
+        "subword_fallbacks": 3,
+        "char_fallbacks": 0,
+        "unresolved_fallbacks": 0
+      },
+      "sample_predictions": [
+        [
+          "supercalifragilistic",
+          "'''"
+        ],
+        [
+          "microgradient",
+          "'''"
+        ],
+        [
+          "counterproposal",
+          "contr"
+        ],
+        [
+          "neurovector",
+          "NEVector"
+        ],
+        [
+          "subsegmentation",
+          "'''"
+        ],
+        [
+          "polymodal",
+          "Poly"
+        ]
+      ]
+    }
+  },
+  "256D": {
+    "known_words": {
+      "word_accuracy": 0.5666666666666667,
+      "word_cer": 0.5074626865671642,
+      "word_wer": 0.9,
+      "avg_word_latency_ms": 1497.4028102666807,
+      "phrase_boundary_accuracy": 1.0,
+      "phrase_cer": 0.5775862068965517,
+      "phrase_wer": 1.0,
+      "avg_phrase_latency_ms": 3225.7528570000886,
+      "telemetry": {
+        "total_words": 45,
+        "full_word_hits": 17,
+        "subword_fallbacks": 40,
+        "char_fallbacks": 2,
+        "unresolved_fallbacks": 0
+      },
+      "sample_predictions": [
+        [
+          "invoice",
+          "Bill"
+        ],
+        [
+          "total",
+          "Total"
+        ],
+        [
+          "customer",
+          "------------"
+        ],
+        [
+          "payment",
+          "Pay"
+        ],
+        [
+          "service",
+          "ServICE"
+        ],
+        [
+          "network",
+          "Network"
+        ],
+        [
+          "system",
+          "System"
+        ],
+        [
+          "neural",
+          "eral"
+        ]
+      ]
+    },
+    "unknown_words": {
+      "word_accuracy": 0.0,
+      "word_cer": 0.9036144578313253,
+      "word_wer": 1.0,
+      "avg_word_latency_ms": 996.8924284999806,
+      "phrase_boundary_accuracy": 0.0,
+      "phrase_cer": 0.0,
+      "phrase_wer": 0.0,
+      "avg_phrase_latency_ms": NaN,
+      "telemetry": {
+        "total_words": 6,
+        "full_word_hits": 3,
+        "subword_fallbacks": 4,
+        "char_fallbacks": 0,
+        "unresolved_fallbacks": 0
+      },
+      "sample_predictions": [
+        [
+          "supercalifragilistic",
+          "------------"
+        ],
+        [
+          "microgradient",
+          "'''"
+        ],
+        [
+          "counterproposal",
+          "counterocial"
+        ],
+        [
+          "neurovector",
+          "----------------"
+        ],
+        [
+          "subsegmentation",
+          "'''"
+        ],
+        [
+          "polymodal",
+          "Poly"
+        ]
+      ]
+    }
+  }
+}

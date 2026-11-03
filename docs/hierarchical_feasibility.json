@@ -1,0 +1,7 @@
+{
+  "char_top1_acc": 0.6333333333333333,
+  "char_top3_acc": 1.0,
+  "word_top1_acc": 1.0,
+  "word_top3_acc": 1.0,
+  "mean_margin": 0.034122284253438315
+}
