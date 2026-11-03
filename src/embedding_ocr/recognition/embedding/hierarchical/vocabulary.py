@@ -10,15 +10,70 @@ Builds and caches text embeddings and candidate indices.
 
 from __future__ import annotations
 
+import hashlib
 import json
 from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
 import numpy as np
+from PIL import Image, ImageDraw, ImageFont
 
 from embedding_ocr.recognition.embedding.embedder import Embedder
 from embedding_ocr.recognition.embedding.index import FaissIndex, VectorIndex
+
+DEFAULT_HANDWRITING_FONTS = [
+    "/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf",
+    "/usr/share/fonts/opentype/dancingscript/DancingScript-Regular.otf",
+    "/usr/share/fonts/opentype/kaushanscript/KaushanScript-Regular.otf",
+    "/usr/share/fonts/truetype/sjfonts/SteveHand.ttf",
+    "/usr/share/fonts/truetype/kristi/Kristi.ttf",
+]
+
+
+def render_prototype_image(
+    text: str,
+    font_path: str,
+    font_size: int = 36,
+    shear: float = 0.0,
+    pad: int = 12,
+) -> np.ndarray:
+    """Render a text string as a synthetic image prototype.
+
+    Args:
+        text: Text string to render.
+        font_path: Path to .ttf or .otf font.
+        font_size: Font size in pt.
+        shear: Horizontal slant angle tangent (e.g. 0.2 for italic slant).
+        pad: Padding in pixels.
+
+    Returns:
+        RGB numpy array (H, W, 3) of uint8.
+    """
+    font: ImageFont.ImageFont | ImageFont.FreeTypeFont
+    try:
+        font = ImageFont.truetype(font_path, font_size)
+    except Exception:
+        font = ImageFont.load_default()
+
+    bbox = font.getbbox(text)
+    w = max(1, int(bbox[2] - bbox[0]))
+    h = max(1, int(bbox[3] - bbox[1]))
+    img = Image.new("RGB", (w + pad * 2, h + pad * 2), (255, 255, 255))
+    draw = ImageDraw.Draw(img)
+    draw.text((pad - bbox[0], pad - bbox[1]), text, fill=(0, 0, 0), font=font)
+
+    if abs(shear) > 1e-4:
+        # Affine transform for horizontal slant: x_src = x_tgt - shear * y_tgt
+        matrix = (1, -shear, 0, 0, 1, 0)
+        img = img.transform(
+            img.size,
+            Image.Transform.AFFINE,
+            matrix,
+            Image.Resampling.BILINEAR,
+            fillcolor=(255, 255, 255),
+        )
+    return np.array(img, dtype=np.uint8)
 
 
 @dataclass(frozen=True)
@@ -39,11 +94,21 @@ class EmbeddingVocabulary:
         embedder: Embedder,
         tokenizer_name: str = "google/embeddinggemma-2",
         cache_dir: str | Path = "artifacts/vocab_cache",
+        prototype_fonts: list[str] | None = None,
+        use_visual_prototypes: bool = False,
+        slant_angles: list[float] | None = None,
     ) -> None:
         self.embedder = embedder
         self.tokenizer_name = tokenizer_name
         self.cache_dir = Path(cache_dir)
         self.cache_dir.mkdir(parents=True, exist_ok=True)
+        self.prototype_fonts = (
+            prototype_fonts
+            if prototype_fonts is not None
+            else [f for f in DEFAULT_HANDWRITING_FONTS if Path(f).exists()]
+        )
+        self.use_visual_prototypes = use_visual_prototypes
+        self.slant_angles = slant_angles or [0.0]
 
         self.word_tokens: list[VocabToken] = []
         self.subword_tokens: list[VocabToken] = []
@@ -74,7 +139,7 @@ class EmbeddingVocabulary:
         subwords_dict: dict[str, VocabToken] = {}
         chars_dict: dict[str, VocabToken] = {}
 
-        # 1. Process tokenizer vocabulary
+        # 1. Direct fast string parse on SentencePiece tokens without individual decode overhead
         for token, tid in vocab.items():
             if (
                 tid in special_ids
@@ -84,10 +149,10 @@ class EmbeddingVocabulary:
             ):
                 continue
 
-            decoded = tokenizer.decode([tid])
-            if isinstance(decoded, list):
-                decoded = "".join(decoded)
-            clean = decoded.strip()
+            # Strip SentencePiece space markers: ' ', '▁' (U+2581)
+            clean = token.lstrip(
+                " \u2581\u2582\u2583\u2584\u2585\u2586\u2587\u2588\u2580\u2591\u2592\u2593"
+            )
             if not clean:
                 continue
 
@@ -151,36 +216,100 @@ class EmbeddingVocabulary:
         self._char_lookup = {i: tok for i, tok in enumerate(self.char_tokens)}
 
     def build_indexes(self, force_recompute: bool = False) -> None:
-        """Precompute and cache text embeddings and build FAISS indices for all tiers."""
+        """Precompute and cache embeddings and build FAISS indices for all tiers.
+
+        If `use_visual_prototypes` is True, renders prototypes across the configured
+        `prototype_fonts` and `slant_angles`, embedding images instead of pure text strings.
+        Maps multiple prototype vectors back to the corresponding token candidates.
+        """
         categories = [
-            ("words", self.word_tokens, "word_index"),
-            ("subwords", self.subword_tokens, "subword_index"),
-            ("chars", self.char_tokens, "char_index"),
+            ("words", self.word_tokens, "word_index", "_word_lookup"),
+            ("subwords", self.subword_tokens, "subword_index", "_subword_lookup"),
+            ("chars", self.char_tokens, "char_index", "_char_lookup"),
         ]
 
-        for cat_name, tokens, attr_name in categories:
-            emb_file = self.cache_dir / f"{cat_name}_emb_{self.embedder.dim}d.npy"
-            meta_file = self.cache_dir / f"{cat_name}_meta.json"
+        # Signature hash to identify visual font configurations
+        mode_tag = "visual" if self.use_visual_prototypes else "text"
+        fonts_hash = hashlib.md5(
+            "".join(self.prototype_fonts + [str(s) for s in self.slant_angles]).encode()
+        ).hexdigest()[:8]
 
-            if not force_recompute and emb_file.exists() and meta_file.exists():
+        for cat_name, tokens, attr_name, lookup_attr in categories:
+            emb_file = (
+                self.cache_dir
+                / f"{cat_name}_{mode_tag}_{fonts_hash}_{self.embedder.dim}d.npy"
+            )
+            meta_file = self.cache_dir / f"{cat_name}_{mode_tag}_{fonts_hash}_meta.json"
+            mapping_file = (
+                self.cache_dir / f"{cat_name}_{mode_tag}_{fonts_hash}_map.json"
+            )
+
+            if (
+                not force_recompute
+                and emb_file.exists()
+                and meta_file.exists()
+                and mapping_file.exists()
+            ):
                 cached_meta = json.loads(meta_file.read_text())
                 if len(cached_meta) == len(tokens) and all(
                     cached_meta[i].get("text") == tokens[i].text
                     for i in range(len(tokens))
                 ):
                     vectors = np.load(emb_file)
+                    id_mapping = json.loads(mapping_file.read_text())
+                    # Reconstruct lookup table for vector indices
+                    proto_lookup: dict[int, VocabToken] = {}
+                    for v_idx_str, t_idx in id_mapping.items():
+                        proto_lookup[int(v_idx_str)] = tokens[t_idx]
+                    setattr(self, lookup_attr, proto_lookup)
+
                     index = FaissIndex(dim=self.embedder.dim)
-                    index.build(vectors, np.arange(len(tokens)))
+                    index.build(vectors, np.arange(len(vectors)))
                     setattr(self, attr_name, index)
                     continue
 
-            # Embed candidate texts
-            texts = [tok.text for tok in tokens]
-            if not texts:
+            if not tokens:
                 continue
 
-            vectors = self.embedder.embed_texts(texts)
+            active_id_mapping: dict[str, int] = {}
+            active_proto_lookup: dict[int, VocabToken] = {}
+
+            if not self.use_visual_prototypes:
+                # 1. Standard text-only embedding
+                texts = [tok.text for tok in tokens]
+                vectors = self.embedder.embed_texts(texts)
+                for i, tok in enumerate(tokens):
+                    active_id_mapping[str(i)] = i
+                    active_proto_lookup[i] = tok
+            else:
+                # 2. Multi-font visual prototypes
+                all_images: list[np.ndarray] = []
+                img_token_indices: list[int] = []
+
+                for t_idx, tok in enumerate(tokens):
+                    for font_p in self.prototype_fonts:
+                        for slant in self.slant_angles:
+                            img = render_prototype_image(
+                                tok.text, font_path=font_p, shear=slant
+                            )
+                            all_images.append(img)
+                            img_token_indices.append(t_idx)
+
+                # Batch embed visual prototype images
+                batch_size = 64
+                embs_list: list[np.ndarray] = []
+                for b_start in range(0, len(all_images), batch_size):
+                    batch_imgs = all_images[b_start : b_start + batch_size]
+                    batch_embs = self.embedder.embed_images(batch_imgs)
+                    embs_list.append(batch_embs)
+                vectors = np.vstack(embs_list)
+
+                for v_idx, t_idx in enumerate(img_token_indices):
+                    active_id_mapping[str(v_idx)] = t_idx
+                    active_proto_lookup[v_idx] = tokens[t_idx]
+
             np.save(emb_file, vectors)
+            mapping_file.write_text(json.dumps(active_id_mapping))
 
             # Save metadata
             meta = [
@@ -189,45 +318,91 @@ class EmbeddingVocabulary:
             ]
             meta_file.write_text(json.dumps(meta, indent=2))
 
+            setattr(self, lookup_attr, active_proto_lookup)
             index = FaissIndex(dim=self.embedder.dim)
-            index.build(vectors, np.arange(len(tokens)))
+            index.build(vectors, np.arange(len(vectors)))
             setattr(self, attr_name, index)
+
+    def _aggregate_search_results(
+        self,
+        sims: np.ndarray,
+        idxs: np.ndarray,
+        lookup: dict[int, VocabToken],
+        top_k: int,
+    ) -> tuple[np.ndarray, list[list[VocabToken]]]:
+        """Aggregate multiple prototype hits per token text using max-similarity."""
+        agg_sims_list: list[list[float]] = []
+        agg_tokens_list: list[list[VocabToken]] = []
+
+        for row_sims, row_idxs in zip(sims, idxs, strict=False):
+            seen_texts: dict[str, tuple[float, VocabToken]] = {}
+            for s, idx in zip(row_sims, row_idxs, strict=False):
+                if idx not in lookup:
+                    continue
+                tok = lookup[idx]
+                sim_val = float(s)
+                # Keep max similarity per token text
+                if tok.text not in seen_texts or sim_val > seen_texts[tok.text][0]:
+                    seen_texts[tok.text] = (sim_val, tok)
+
+            # Sort by descending similarity
+            sorted_candidates = sorted(
+                seen_texts.values(), key=lambda item: item[0], reverse=True
+            )[:top_k]
+
+            agg_sims_list.append([sc[0] for sc in sorted_candidates])
+            agg_tokens_list.append([sc[1] for sc in sorted_candidates])
+
+        return np.array(agg_sims_list, dtype=np.float32), agg_tokens_list
 
     def search_words(
         self, query_embs: np.ndarray, top_k: int = 10
     ) -> tuple[np.ndarray, list[list[VocabToken]]]:
-        """Search nearest word candidates."""
+        """Search nearest word candidates with max-per-class aggregation."""
         if self.word_index is None:
             raise RuntimeError("Word index is not built.")
-        sims, idxs = self.word_index.search(query_embs, top_k)
-        tokens = [
-            [self._word_lookup[i] for i in row if i in self._word_lookup]
-            for row in idxs
-        ]
-        return sims, tokens
+        # Retrieve more raw hits to ensure top_k distinct classes after aggregation
+        raw_k = min(
+            top_k * len(self.prototype_fonts) * len(self.slant_angles)
+            if self.use_visual_prototypes
+            else top_k,
+            50,
+        )
+        sims, idxs = self.word_index.search(query_embs, raw_k)
+        return self._aggregate_search_results(
+            sims, idxs, self._word_lookup, top_k=top_k
+        )
 
     def search_subwords(
         self, query_embs: np.ndarray, top_k: int = 10
     ) -> tuple[np.ndarray, list[list[VocabToken]]]:
-        """Search nearest subword candidates."""
+        """Search nearest subword candidates with max-per-class aggregation."""
         if self.subword_index is None:
             raise RuntimeError("Subword index is not built.")
-        sims, idxs = self.subword_index.search(query_embs, top_k)
-        tokens = [
-            [self._subword_lookup[i] for i in row if i in self._subword_lookup]
-            for row in idxs
-        ]
-        return sims, tokens
+        raw_k = min(
+            top_k * len(self.prototype_fonts) * len(self.slant_angles)
+            if self.use_visual_prototypes
+            else top_k,
+            50,
+        )
+        sims, idxs = self.subword_index.search(query_embs, raw_k)
+        return self._aggregate_search_results(
+            sims, idxs, self._subword_lookup, top_k=top_k
+        )
 
     def search_chars(
         self, query_embs: np.ndarray, top_k: int = 10
     ) -> tuple[np.ndarray, list[list[VocabToken]]]:
-        """Search nearest char candidates."""
+        """Search nearest char candidates with max-per-class aggregation."""
         if self.char_index is None:
             raise RuntimeError("Char index is not built.")
-        sims, idxs = self.char_index.search(query_embs, top_k)
-        tokens = [
-            [self._char_lookup[i] for i in row if i in self._char_lookup]
-            for row in idxs
-        ]
-        return sims, tokens
+        raw_k = min(
+            top_k * len(self.prototype_fonts) * len(self.slant_angles)
+            if self.use_visual_prototypes
+            else top_k,
+            50,
+        )
+        sims, idxs = self.char_index.search(query_embs, raw_k)
+        return self._aggregate_search_results(
+            sims, idxs, self._char_lookup, top_k=top_k
+        )

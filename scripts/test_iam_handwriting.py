@@ -132,6 +132,30 @@ def main():
     parser.add_argument("--gemma-dim", type=int, default=768)
     parser.add_argument("--skip-glm", action="store_true")
     parser.add_argument("--skip-embedding", action="store_true")
+    parser.add_argument(
+        "--use-visual-prototypes",
+        action="store_true",
+        help="Render multi-font handwriting prototypes for vocabulary candidates.",
+    )
+    parser.add_argument(
+        "--slant-angles",
+        type=float,
+        nargs="+",
+        default=[0.0],
+        help="Slant shear angles for synthetic prototype generation.",
+    )
+    parser.add_argument(
+        "--max-words",
+        type=int,
+        default=500,
+        help="Max vocabulary words to index.",
+    )
+    parser.add_argument(
+        "--max-subwords",
+        type=int,
+        default=300,
+        help="Max vocabulary subwords to index.",
+    )
     args = parser.parse_args()
 
     print(
@@ -166,24 +190,37 @@ def main():
         embedder = EmbeddingGemma2(dim=args.gemma_dim, device="cuda")
 
         print("Building Hierarchical Vocabulary for IAM evaluation...")
+        cache_sub = (
+            "vocab_cache_iam_multifont"
+            if args.use_visual_prototypes
+            else "artifacts/vocab_cache_iam"
+        )
         vocab = EmbeddingVocabulary(
-            embedder=embedder, cache_dir="artifacts/vocab_cache_iam"
+            embedder=embedder,
+            cache_dir=Path("artifacts") / cache_sub,
+            use_visual_prototypes=args.use_visual_prototypes,
+            slant_angles=args.slant_angles,
         )
         vocab.extract_and_organize_tokens(
-            max_words=2000,
-            max_subwords=1500,
+            max_words=args.max_words,
+            max_subwords=args.max_subwords,
             extra_lexicon=[s["text"] for s in valid_samples],
         )
         vocab.build_indexes(force_recompute=False)
 
+        engine_name = (
+            f"Hierarchical_MultiFont_{args.gemma_dim}D"
+            if args.use_visual_prototypes
+            else f"Hierarchical_EmbeddingOCR_{args.gemma_dim}D"
+        )
         hier_engine = HierarchicalWordRecognizer(
             embedder=embedder,
             vocabulary=vocab,
-            min_word_sim=0.72,
+            min_word_sim=0.70 if args.use_visual_prototypes else 0.72,
             min_word_margin=0.005,
         )
-        results[f"Hierarchical_EmbeddingOCR_{args.gemma_dim}D"] = evaluate_model(
-            f"Hierarchical_EmbeddingOCR_{args.gemma_dim}D",
+        results[engine_name] = evaluate_model(
+            engine_name,
             hier_engine,
             valid_samples,
         )
