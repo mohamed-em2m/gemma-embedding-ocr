@@ -51,6 +51,9 @@ class EmbeddingRecognizer(RecognitionEngine):
         confidences: list[float] = []
 
         for i, seg in enumerate(segments):
+            if seg.is_space_before and recognized_chars:
+                recognized_chars.append(" ")
+
             match = self.matcher.match_character(
                 similarities=sims[i],
                 labels=retrieved_labels[i],

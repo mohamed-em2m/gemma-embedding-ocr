@@ -36,11 +36,11 @@ class DummyEmbedder:
 
 
 def test_character_segmenter() -> None:
-    # Render two separated letters 'A B'
-    img = Image.new("RGB", (120, 50), color=(255, 255, 255))
+    # Render two separated letters 'A B' with a gap
+    img = Image.new("RGB", (140, 50), color=(255, 255, 255))
     draw = ImageDraw.Draw(img)
     draw.rectangle([10, 10, 30, 40], fill=(0, 0, 0))
-    draw.rectangle([60, 10, 80, 40], fill=(0, 0, 0))
+    draw.rectangle([70, 10, 90, 40], fill=(0, 0, 0))
 
     segmenter = CharacterSegmenter()
     segments = segmenter.segment(np.array(img))
@@ -48,6 +48,8 @@ def test_character_segmenter() -> None:
     assert len(segments) == 2
     assert segments[0].bbox[0] < segments[1].bbox[0]
     assert segments[0].image.shape == (64, 64, 3)
+    assert not segments[0].is_space_before
+    assert segments[1].is_space_before
 
 
 def test_prototype_matcher_case_resolution() -> None:
@@ -75,11 +77,13 @@ def test_embedding_recognizer_end_to_end() -> None:
     index.build(vecs, np.arange(3))
 
     recognizer = EmbeddingRecognizer(prototype_db=db)
-    test_img = np.full((50, 100, 3), 255, dtype=np.uint8)
+    test_img = np.full((50, 140, 3), 255, dtype=np.uint8)
     test_img[10:40, 15:35] = 0
-    test_img[10:40, 55:75] = 0
+    test_img[10:40, 75:95] = 0
 
     res = recognizer.recognize(test_img)
     assert isinstance(res, RecognitionResult)
-    assert len(res.text) == 2
+    # 2 letters + 1 space in between
+    assert len(res.text) == 3
+    assert res.text[1] == " "
     assert 0.0 <= res.confidence <= 1.0

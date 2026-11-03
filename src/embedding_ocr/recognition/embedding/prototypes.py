@@ -73,6 +73,37 @@ class PrototypeDB:
         int_labels = np.arange(len(labels))
         self.index.build(embeddings, int_labels)
 
+    def save(self, path: Path | str) -> None:
+        """Persist prototype index and metadata to disk."""
+        path = Path(path)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        self.index.save(path)
+        meta = {
+            "classes": self.classes,
+            "fonts": self.fonts,
+            "canvas_size": self.canvas_size,
+            "font_size": self.font_size,
+            "labels": self.labels,
+        }
+        meta_file = path.with_suffix(".labels.json")
+        import json
+        meta_file.write_text(json.dumps(meta, indent=2))
+
+    def load_cache(self, path: Path | str) -> None:
+        """Load prototype labels from disk metadata corresponding to saved index."""
+        path = Path(path)
+        meta_file = path.with_suffix(".labels.json")
+        if not meta_file.exists():
+            msg = f"Prototype metadata file {meta_file} not found."
+            raise FileNotFoundError(msg)
+        import json
+        meta = json.loads(meta_file.read_text())
+        self.classes = meta.get("classes", self.classes)
+        self.fonts = meta.get("fonts", self.fonts)
+        self.canvas_size = meta.get("canvas_size", self.canvas_size)
+        self.font_size = meta.get("font_size", self.font_size)
+        self.labels = meta.get("labels", [])
+
     def search(self, query_embeddings: np.ndarray, top_k: int = 20) -> tuple[np.ndarray, list[list[str]]]:
         """Search nearest prototypes for query embeddings.
 

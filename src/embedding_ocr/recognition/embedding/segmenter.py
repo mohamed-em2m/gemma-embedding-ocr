@@ -16,6 +16,7 @@ class SegmentedCharacter:
     bbox: tuple[int, int, int, int]  # x, y, w, h within original crop
     aspect_ratio: float  # h / w
     relative_height: float  # h / line_height
+    is_space_before: bool = False  # True if inter-character spacing indicates a word boundary
 
 
 class CharacterSegmenter:
@@ -26,10 +27,12 @@ class CharacterSegmenter:
         target_size: int = 64,
         padding: int = 10,
         binarize_thresh: int = 180,
+        space_ratio_thresh: float = 0.45,
     ) -> None:
         self.target_size = target_size
         self.padding = padding
         self.binarize_thresh = binarize_thresh
+        self.space_ratio_thresh = space_ratio_thresh
 
     def segment(self, image: np.ndarray) -> list[SegmentedCharacter]:
         """Segment an input word/line image into individual character crops.
@@ -70,9 +73,22 @@ class CharacterSegmenter:
         # Sort left to right
         components.sort(key=lambda c: c[0])
 
+        # Estimate average character width and typical gap for space detection
+        typical_w = np.median([c[2] for c in components]) if components else 20.0
+        typical_h = np.median([c[3] for c in components]) if components else 30.0
+
         segmented_chars: list[SegmentedCharacter] = []
-        for x, y, w, h in components:
+        for idx, (x, y, w, h) in enumerate(components):
             char_crop = gray[y : y + h, x : x + w]
+
+            # Detect if there is a space before this component (word break)
+            is_space_before = False
+            if idx > 0:
+                prev_x, prev_y, prev_w, prev_h = components[idx - 1]
+                gap = x - (prev_x + prev_w)
+                # If gap is significantly larger than regular letter-spacing
+                if gap > max(8.0, self.space_ratio_thresh * max(typical_w, typical_h * 0.4)):
+                    is_space_before = True
 
             # Fit into target_size x target_size canvas maintaining aspect ratio
             canvas = np.full((self.target_size, self.target_size), 255, dtype=np.uint8)
@@ -98,6 +114,7 @@ class CharacterSegmenter:
                     bbox=(x, y, w, h),
                     aspect_ratio=aspect,
                     relative_height=rel_h,
+                    is_space_before=is_space_before,
                 )
             )
 
