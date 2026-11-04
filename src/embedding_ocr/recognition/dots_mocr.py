@@ -11,10 +11,20 @@ here is a plain transcription instruction.  Pass ``prompt`` to override it.
 is not installed, the adapter falls back to ``apply_chat_template`` with
 tokenization, which works with processors that accept multimodal content
 directly.
+
+``flash_attn`` is **not** required: we inject a dummy shim into ``sys.modules``
+before the remote modeling code is first imported so that the conditional
+``check_imports`` / ``is_flash_attn_available`` checks in the HF-remote code
+see the package as present, and then override the actual attention backend to
+``"sdpa"`` (or ``"eager"`` on CPU) in both the config and in
+``from_pretrained``.  The shim is a no-op module; none of its symbols are
+called at inference time when SDPA is selected.
 """
 
 from __future__ import annotations
 
+import sys
+import types
 from typing import Any, cast
 
 import numpy as np
@@ -22,6 +32,31 @@ import torch
 from PIL import Image
 
 from embedding_ocr.recognition.base import RecognitionEngine, RecognitionResult
+
+
+def _ensure_flash_attn_shim() -> None:
+    """Insert a minimal no-op ``flash_attn`` shim so that HF remote-code that
+    gates itself with ``check_imports("flash_attn")`` or
+    ``is_flash_attn_available()`` does not raise ImportError.
+
+    The shim is a *stub only*; the actual attention backend used at runtime
+    is ``sdpa`` / ``eager``, never the real flash_attn ops.
+    """
+    if "flash_attn" in sys.modules:
+        return  # already present (real or shim)
+    shim = types.ModuleType("flash_attn")
+    shim.__version__ = "2.0.0.stub"  # type: ignore[attr-defined]
+    # Provide the sub-modules and symbols that transformers probes
+    for sub in (
+        "flash_attn.flash_attn_interface",
+        "flash_attn.bert_padding",
+        "flash_attn.ops",
+        "flash_attn.ops.fused_dense",
+        "flash_attn.layers",
+        "flash_attn.layers.rotary",
+    ):
+        sys.modules[sub] = types.ModuleType(sub)
+    sys.modules["flash_attn"] = shim
 
 _DEFAULT_PROMPT = "Output the single character in this image."
 
@@ -44,6 +79,10 @@ class DotsMOCRRecognizer(RecognitionEngine):
             prompt: Instruction sent alongside the image.
             max_new_tokens: Generation budget per crop.
         """
+        # Insert flash_attn shim BEFORE any transformers import that may trigger
+        # remote modeling code; the actual backend is overridden to sdpa/eager below.
+        _ensure_flash_attn_shim()
+
         from transformers import AutoConfig, AutoModelForCausalLM, AutoProcessor
 
         self.prompt = prompt
@@ -54,15 +93,18 @@ class DotsMOCRRecognizer(RecognitionEngine):
         if self._device == "auto":
             self._device = "cpu"
 
+        # Use sdpa on CUDA (fastest without real flash_attn), eager on CPU.
+        attn_impl = "sdpa" if self._device == "cuda" else "eager"
+
         dtype = torch.bfloat16 if self._device == "cuda" else torch.float32
         config = AutoConfig.from_pretrained(model_id, trust_remote_code=True)
         if hasattr(config, "vision_config"):
             if isinstance(config.vision_config, dict):
-                config.vision_config["attn_implementation"] = "sdpa"
+                config.vision_config["attn_implementation"] = attn_impl
             else:
-                config.vision_config.attn_implementation = "sdpa"
+                config.vision_config.attn_implementation = attn_impl
         if hasattr(config, "_attn_implementation"):
-            config._attn_implementation = "sdpa"
+            config._attn_implementation = attn_impl
 
         self._processor = AutoProcessor.from_pretrained(
             model_id, trust_remote_code=True
@@ -70,10 +112,10 @@ class DotsMOCRRecognizer(RecognitionEngine):
         self._model = AutoModelForCausalLM.from_pretrained(
             model_id,
             config=config,
-            dtype=dtype,
+            torch_dtype=dtype,
             device_map=self._device,
             trust_remote_code=True,
-            attn_implementation="sdpa",
+            attn_implementation=attn_impl,
         )
         self._model.eval()
 

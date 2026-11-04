@@ -16,11 +16,18 @@ from embedding_ocr.recognition.base import RecognitionEngine, RecognitionResult
 class PaddleRecognizer(RecognitionEngine):
     """Adapter for PaddleOCR recognition."""
 
-    def __init__(self, model_name: str = "en_PP-OCRv4_mobile_rec") -> None:
+    def __init__(
+        self,
+        model_name: str = "en_PP-OCRv4_mobile_rec",
+        use_gpu: bool = False,
+        device: str | None = None,
+    ) -> None:
         """Initialize PaddleOCR text recognition model.
 
         Args:
             model_name: Recognition model name (default "en_PP-OCRv4_mobile_rec").
+            use_gpu: Unused legacy kwarg kept for call-site compatibility.
+            device: Unused legacy kwarg kept for call-site compatibility.
         """
         self.model = create_model(model_name=model_name)
 
