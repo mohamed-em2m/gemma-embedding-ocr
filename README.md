@@ -96,27 +96,49 @@ _See [`docs/iam_handwriting_benchmark_report.md`](docs/iam_handwriting_benchmark
 | Key | Model | Backend |
 |-----|-------|---------|
 | `gemma` | `google/embeddinggemma-2` | FAISS prototype matching |
+| `siglip` | `google/siglip-so400m-patch14-384` | FAISS prototype matching (same pipeline) |
+| `jina` | `jinaai/jina-embeddings-v4` | FAISS prototype matching (same pipeline) |
 | `lighton` | `lightonai/LightOnOCR-3-0.8B` | Transformers (`Qwen3_5ForConditionalGeneration`) |
-| `dots` | `dots-studio/dots.mocr` | Transformers (`trust_remote_code=True`) |
-| `oxr` | `SoMarkAI/OXR-1.0` | OpenAI-compatible local vLLM server |
+| `surya` | `datalab-to/surya-ocr-2.5` | `surya-ocr` package (vLLM / llama.cpp) |
+| `oxr` | `SoMarkAI/OXR-1.0` | SoMark `/parse/sync` API or OpenAI-compatible vLLM |
+| `dots` | `dots-studio/dots.mocr` | Transformers (`trust_remote_code=True`, opt-in) |
+
+The embedding models (`gemma`, `siglip`, `jina`) all run through the **same**
+prototype-rendering, FAISS `IndexFlatIP`, per-class max aggregation and
+case-resolution matcher, so the comparison isolates the embedder.
 
 ```bash
-# Run everything; unavailable engines are reported, not fatal
+# Run the default engines; unavailable engines are reported, not fatal
 uv run python scripts/compare_new_ocr_models.py
 
-# Quick smoke test / subset
-uv run python scripts/compare_new_ocr_models.py --engines gemma lighton --limit 52
+# Compare embedders only at their native dimensions
+uv run python scripts/compare_new_ocr_models.py --engines gemma siglip jina
 
-# OXR is served separately (model card ships an out-of-tree vLLM plugin)
+# Matryoshka / truncation sweep (each adapter re-normalizes after slicing)
 uv run python scripts/compare_new_ocr_models.py \
-    --engines oxr --oxr-base-url http://127.0.0.1:8080/v1
+    --engines gemma siglip jina --gemma-dim 256 --siglip-dim 256 --jina-dim 256
+
+# Quick smoke test / subset
+uv run python scripts/compare_new_ocr_models.py --engines gemma siglip --limit 52
+
+# Surya (optional dependency; auto-spawns a vLLM or llama.cpp backend)
+uv sync --extra surya
+uv run python scripts/compare_new_ocr_models.py --engines surya
+
+# OXR: free API by default, or point at a local server
+uv run python scripts/compare_new_ocr_models.py \
+    --engines oxr --oxr-base-url https://free-oxr.somark.ai/api/v1
+uv run python scripts/compare_new_ocr_models.py \
+    --engines oxr --oxr-base-url http://127.0.0.1:8000/v1 --oxr-backend parse
+uv run python scripts/compare_new_ocr_models.py \
+    --engines oxr --oxr-base-url http://127.0.0.1:8080/v1 --oxr-backend chat
 ```
 
-Results are written to `docs/new_ocr_models_comparison.{json,md}`. `dots`
-optionally uses `qwen_vl_utils` when installed; otherwise it falls back to the
-processor's chat template. The exact single-glyph prompt for `dots` and OXR is
-**unverified** (both are document-parsing models), so override them with
-`--dots-prompt` / `--oxr-prompt` when tuning.
+Results are written to `docs/new_ocr_models_comparison.{json,md}`. `dots` is
+opt-in (`--engines all` includes it) because its remote modeling code needs a
+flash_attn compatibility shim; select it explicitly only when needed. The
+exact single-glyph prompt for the document-parsing models is **unverified**, so
+override it with `--dots-prompt` / `--oxr-prompt` when tuning.
 
 ---
 

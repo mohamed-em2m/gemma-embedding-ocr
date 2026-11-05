@@ -44,12 +44,42 @@ def _ensure_flash_attn_shim() -> None:
     """
     if "flash_attn" in sys.modules:
         return  # already present (real or shim)
+
+    def _unsupported(*args: object, **kwargs: object) -> None:
+        msg = "flash_attn CUDA kernels are not compiled; use SDPA attention."
+        raise NotImplementedError(msg)
+
     shim = types.ModuleType("flash_attn")
     shim.__version__ = "2.0.0.stub"  # type: ignore[attr-defined]
-    # Provide the sub-modules and symbols that transformers probes
+    for symbol in (
+        "flash_attn_func",
+        "flash_attn_varlen_func",
+        "flash_attn_qkvpacked_func",
+        "flash_attn_kvpacked_func",
+        "flash_attn_varlen_qkvpacked_func",
+        "flash_attn_varlen_kvpacked_func",
+    ):
+        setattr(shim, symbol, _unsupported)
+
+    interface = types.ModuleType("flash_attn.flash_attn_interface")
+    for symbol in (
+        "flash_attn_func",
+        "flash_attn_varlen_func",
+        "flash_attn_qkvpacked_func",
+        "flash_attn_kvpacked_func",
+        "flash_attn_varlen_qkvpacked_func",
+        "flash_attn_varlen_kvpacked_func",
+    ):
+        setattr(interface, symbol, _unsupported)
+    sys.modules["flash_attn.flash_attn_interface"] = interface
+
+    bert_padding = types.ModuleType("flash_attn.bert_padding")
+    for symbol in ("index_first_axis", "unpad_input", "pad_input"):
+        setattr(bert_padding, symbol, _unsupported)
+    sys.modules["flash_attn.bert_padding"] = bert_padding
+
+    # Provide the remaining sub-modules that transformers probes
     for sub in (
-        "flash_attn.flash_attn_interface",
-        "flash_attn.bert_padding",
         "flash_attn.ops",
         "flash_attn.ops.fused_dense",
         "flash_attn.layers",
@@ -57,6 +87,7 @@ def _ensure_flash_attn_shim() -> None:
     ):
         sys.modules[sub] = types.ModuleType(sub)
     sys.modules["flash_attn"] = shim
+
 
 _DEFAULT_PROMPT = "Output the single character in this image."
 

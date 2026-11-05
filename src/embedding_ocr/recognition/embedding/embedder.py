@@ -103,7 +103,9 @@ class EmbeddingGemma2:
             self._device = device
 
         # Lazy import to avoid requiring ST at module import time
-        from sentence_transformers import SentenceTransformer  # type: ignore[import-untyped]
+        from sentence_transformers import (
+            SentenceTransformer,  # type: ignore[import-untyped]
+        )
 
         model_kwargs: dict[str, object] = {}
         if self._device == "cuda":
@@ -177,3 +179,235 @@ class EmbeddingGemma2:
             show_progress_bar=False,
         )
         return result.astype(np.float32)
+
+
+def _to_numpy(value: object) -> np.ndarray:
+    """Convert a torch tensor / array-like to a float32 numpy array."""
+    import torch
+
+    if isinstance(value, torch.Tensor):
+        return value.detach().cpu().float().numpy()
+    return np.asarray(value, dtype=np.float32)
+
+
+def _truncate_and_normalize(vectors: np.ndarray, dim: int) -> np.ndarray:
+    """Apply Matryoshka truncation and L2 re-normalization.
+
+    Args:
+        vectors: Array of shape (n, native_dim).
+        dim: Active dimension to keep.
+
+    Returns:
+        Float32 array of shape (n, dim) with unit L2 norm.
+    """
+    array = np.asarray(vectors, dtype=np.float32)
+    if array.ndim == 1:
+        array = array[None, :]
+    if dim < array.shape[1]:
+        array = array[:, :dim]
+    norms = np.linalg.norm(array, axis=1, keepdims=True)
+    return array / np.maximum(norms, 1e-12)
+
+
+class SiglipEmbedder:
+    """SigLIP SO400M image/text embedder via transformers.
+
+    Model: ``google/siglip-so400m-patch14-384``.  SigLIP natively produces
+    1152-d embeddings; Matryoshka truncation is not part of its training, but
+    slicing + re-normalizing is exposed for size comparisons.
+
+    Note:
+        SigLIP uses separate image and text towers trained with a sigmoid
+        contrastive loss.  Cross-modal retrieval works, but it is not trained
+        with a Matryoshka objective, so truncated dimensions are approximate.
+    """
+
+    name = "google/siglip-so400m-patch14-384"
+    native_dim = 1152
+
+    def __init__(
+        self,
+        dim: int = 1152,
+        device: str = "auto",
+        batch_size: int = 16,
+        dtype: str = "float32",
+        model_id: str | None = None,
+    ) -> None:
+        """Load the processor and model.
+
+        Args:
+            dim: Active embedding dimension (<= 1152).
+            device: ``auto`` selects CUDA when available, else CPU.
+            batch_size: Images/texts per forward pass.
+            dtype: ``float32`` or ``bfloat16`` (GPU recommended).
+            model_id: Override the Hugging Face model id.
+        """
+        if dim <= 0 or dim > self.native_dim:
+            msg = f"dim must be in [1, {self.native_dim}]; got {dim}"
+            raise ValueError(msg)
+
+        import torch
+        from transformers import AutoModel, AutoProcessor
+
+        if model_id is not None:
+            self.name = model_id
+        self.dim = dim
+        self.batch_size = batch_size
+        self._device = (
+            "cuda" if device == "auto" and torch.cuda.is_available() else device
+        )
+        if self._device == "auto":
+            self._device = "cpu"
+        torch_dtype = torch.bfloat16 if dtype == "bfloat16" else torch.float32
+
+        self._processor = AutoProcessor.from_pretrained(self.name)
+        self._model = (
+            AutoModel.from_pretrained(self.name, torch_dtype=torch_dtype)
+            .to(self._device)
+            .eval()
+        )
+
+    def _features_to_numpy(self, features: object) -> np.ndarray:
+        array = _to_numpy(features)
+        return _truncate_and_normalize(array, self.dim)
+
+    def embed_images(self, images: list[np.ndarray]) -> np.ndarray:
+        """Embed uint8 (H, W, 3) images into (n, dim) unit vectors."""
+        import torch
+        from PIL import Image
+
+        if not images:
+            return np.empty((0, self.dim), dtype=np.float32)
+
+        batches: list[np.ndarray] = []
+        for start in range(0, len(images), self.batch_size):
+            batch = [
+                Image.fromarray(img).convert("RGB")
+                for img in images[start : start + self.batch_size]
+            ]
+            inputs = self._processor(images=batch, return_tensors="pt").to(self._device)
+            with torch.no_grad():
+                features = self._model.get_image_features(**inputs)
+            batches.append(self._features_to_numpy(features))
+        return np.concatenate(batches, axis=0).astype(np.float32)
+
+    def embed_texts(self, texts: list[str]) -> np.ndarray:
+        """Embed text strings into (n, dim) unit vectors."""
+        import torch
+
+        if not texts:
+            return np.empty((0, self.dim), dtype=np.float32)
+
+        batches: list[np.ndarray] = []
+        for start in range(0, len(texts), self.batch_size):
+            batch = texts[start : start + self.batch_size]
+            inputs = self._processor(
+                text=batch,
+                padding="max_length",
+                truncation=True,
+                return_tensors="pt",
+            ).to(self._device)
+            with torch.no_grad():
+                features = self._model.get_text_features(**inputs)
+            batches.append(self._features_to_numpy(features))
+        return np.concatenate(batches, axis=0).astype(np.float32)
+
+
+class JinaEmbeddingsV4:
+    """Jina Embeddings v4 multimodal embedder via transformers.
+
+    Model: ``jinaai/jina-embeddings-v4`` (Qwen2.5-VL-3B base).  Dense
+    embeddings are 2048-d, Matryoshka-truncatable to 1024/512/256/128.
+
+    The model card requires ``transformers>=4.52`` and ``peft>=0.15.2``; the
+    remote code exposes ``encode_text`` and ``encode_image``.  ``flash_attn``
+    is optional and never forced here.
+    """
+
+    name = "jinaai/jina-embeddings-v4"
+    native_dim = 2048
+    matryoshka_dims = (128, 256, 512, 1024, 2048)
+
+    def __init__(
+        self,
+        dim: int = 2048,
+        device: str = "auto",
+        batch_size: int = 8,
+        dtype: str = "bfloat16",
+        task: str = "retrieval",
+        text_prompt: str = "passage",
+        model_id: str | None = None,
+    ) -> None:
+        """Load the model.
+
+        Args:
+            dim: Active embedding dimension; one of 128, 256, 512, 1024, 2048.
+            device: ``auto`` selects CUDA when available, else CPU.
+            batch_size: Images/texts per forward pass.
+            dtype: ``bfloat16`` (default) or ``float32``.
+            task: ``retrieval``, ``text-matching`` or ``code``.
+            text_prompt: Prompt name for text encoding (``passage``/``query``).
+            model_id: Override the Hugging Face model id.
+        """
+        if dim not in self.matryoshka_dims:
+            msg = f"dim must be one of {self.matryoshka_dims} for Jina v4; got {dim}"
+            raise ValueError(msg)
+
+        import torch
+        from transformers import AutoModel
+
+        if model_id is not None:
+            self.name = model_id
+        self.dim = dim
+        self.batch_size = batch_size
+        self.task = task
+        self.text_prompt = text_prompt
+        self._device = (
+            "cuda" if device == "auto" and torch.cuda.is_available() else device
+        )
+        if self._device == "auto":
+            self._device = "cpu"
+        torch_dtype = torch.bfloat16 if dtype == "bfloat16" else torch.float32
+
+        self._model = AutoModel.from_pretrained(
+            self.name,
+            trust_remote_code=True,
+            torch_dtype=torch_dtype,
+        )
+        self._model.to(self._device)
+        self._model.eval()
+
+    def _encode(self, method: str, **kwargs: object) -> np.ndarray:
+        """Call a remote ``encode_*`` method with truncate_dim when supported."""
+        encoder = getattr(self._model, method)
+        try:
+            result = encoder(truncate_dim=self.dim, return_numpy=True, **kwargs)
+        except TypeError:
+            result = encoder(**kwargs)
+        return _truncate_and_normalize(_to_numpy(result), self.dim)
+
+    def embed_images(self, images: list[np.ndarray]) -> np.ndarray:
+        """Embed uint8 (H, W, 3) images into (n, dim) unit vectors."""
+        from PIL import Image
+
+        if not images:
+            return np.empty((0, self.dim), dtype=np.float32)
+        pil_images = [Image.fromarray(img).convert("RGB") for img in images]
+        return self._encode(
+            "encode_image",
+            images=pil_images,
+            task=self.task,
+            batch_size=self.batch_size,
+        )
+
+    def embed_texts(self, texts: list[str]) -> np.ndarray:
+        """Embed text strings into (n, dim) unit vectors."""
+        if not texts:
+            return np.empty((0, self.dim), dtype=np.float32)
+        return self._encode(
+            "encode_text",
+            texts=texts,
+            task=self.task,
+            prompt_name=self.text_prompt,
+            batch_size=self.batch_size,
+        )

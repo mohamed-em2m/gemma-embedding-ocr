@@ -4,19 +4,22 @@ Evaluated algorithms & engines:
 1. Classical CV:
    * ``ncc``       - Normalized Cross-Correlation Template Matching
    * ``ssim``      - Structural Similarity Index (SSIM)
-2. Visual Embedding (EmbeddingGemma 2):
+2. Visual Embedding (EmbeddingGemma 2, SigLIP SO400M, Jina v4):
    * ``gemma``     - EmbeddingGemma 2 + Prototype Matcher (Max-Agg + Height Cue)
    * ``gemma-1nn`` - EmbeddingGemma 2 (1-NN Vector Search)
    * ``gemma-knn`` - EmbeddingGemma 2 (5-NN Distance-Weighted Vote)
+   * ``siglip``    - SigLIP SO400M + Prototype Matcher
+   * ``jina``      - Jina Embeddings v4 + Prototype Matcher
 3. Conventional OCR:
    * ``tesseract`` - Tesseract OCR engine (pytesseract)
    * ``easyocr``   - EasyOCR (PyTorch CRAFT + CRNN)
    * ``paddle``    - PaddleOCR (PP-OCRv4)
 4. New Generative OCR VLMs:
    * ``lighton``   - LightOnOCR-3-0.8B (Transformers)
-   * ``dots``      - dots-studio/dots.mocr (Transformers + SDPA)
+   * ``surya``     - datalab-to/surya-ocr-2.5 (surya-ocr package)
+   * ``dots``      - dots-studio/dots.mocr (Transformers + SDPA, opt-in)
    * ``glm``       - zai-org/GLM-OCR (Transformers)
-   * ``oxr``       - SoMarkAI/OXR-1.0 (OpenAI/vLLM HTTP server)
+   * ``oxr``       - SoMarkAI/OXR-1.0 (SoMark parse API / OpenAI-compatible)
 
 Usage:
     uv run python scripts/benchmark_all_ocr_models.py --help
@@ -64,16 +67,20 @@ ALL_ENGINES = (
     "gemma",
     "gemma-1nn",
     "gemma-knn",
+    "siglip",
+    "jina",
     "ncc",
     "ssim",
     "tesseract",
     "easyocr",
     "paddle",
     "lighton",
+    "surya",
     "dots",
     "glm",
     "oxr",
 )
+DEFAULT_ENGINES = tuple(name for name in ALL_ENGINES if name != "dots")
 
 
 class Predictor(Protocol):
@@ -240,13 +247,12 @@ class SSIMPredictor:
 # --- Embedding Predictors ---
 
 
-class GemmaPredictor:
-    """EmbeddingGemma 2 + Prototype Matcher (Max-Agg + Height)."""
-
-    name = "EmbeddingGemma (Max-Agg + Matcher)"
+class EmbeddingPredictor:
+    """Embedding backend + Prototype Matcher (Max-Agg + Height)."""
 
     def __init__(
         self,
+        embedder_name: str,
         index_fonts: list[str],
         classes: list[str],
         dim: int = 768,
@@ -254,26 +260,46 @@ class GemmaPredictor:
         device: str = "auto",
         strategy: str = "matcher",
     ) -> None:
-        from embedding_ocr.recognition.embedding.embedder import EmbeddingGemma2
+        from embedding_ocr.recognition.embedding.embedder import (
+            EmbeddingGemma2,
+            JinaEmbeddingsV4,
+            SiglipEmbedder,
+        )
         from embedding_ocr.recognition.embedding.index import FaissIndex
         from embedding_ocr.recognition.embedding.matcher import PrototypeMatcher
         from embedding_ocr.recognition.embedding.prototypes import PrototypeDB
 
         self.strategy = strategy
         self.top_k = top_k
-        self.embedder = EmbeddingGemma2(dim=dim, device=device)
+        if embedder_name == "gemma":
+            embedder = EmbeddingGemma2(dim=dim, device=device)
+            label = "EmbeddingGemma"
+        elif embedder_name == "siglip":
+            embedder = SiglipEmbedder(dim=dim, device=device)
+            label = "SigLIP SO400M"
+        elif embedder_name == "jina":
+            embedder = JinaEmbeddingsV4(dim=dim, device=device)
+            label = "Jina Embeddings v4"
+        else:
+            msg = f"Unknown embedder: {embedder_name}"
+            raise ValueError(msg)
+
+        self.embedder = embedder
         self.db = PrototypeDB(
             embedder=self.embedder,
-            index=FaissIndex(dim=dim),
+            index=FaissIndex(dim=self.embedder.dim),
             classes=classes,
         )
         self.db.build_from_fonts(index_fonts)
         self.matcher = PrototypeMatcher()
+        self.name = f"{label} ({self.embedder.dim}d)"
 
         if strategy == "1nn":
-            self.name = "EmbeddingGemma (1-NN)"
+            self.name = f"{label} ({self.embedder.dim}d, 1-NN)"
         elif strategy == "knn":
-            self.name = "EmbeddingGemma (5-NN Weighted)"
+            self.name = f"{label} ({self.embedder.dim}d, 5-NN Weighted)"
+        else:
+            self.name = f"{label} ({self.embedder.dim}d, Max-Agg + Matcher)"
 
     def predict(
         self, images: list[np.ndarray], relative_heights: list[float]
@@ -358,6 +384,15 @@ def load_engine_adapter(name: str, args: argparse.Namespace) -> RecognitionEngin
             prompt=args.dots_prompt,
         )
 
+    if name == "surya":
+        from embedding_ocr.recognition.surya_ocr import SuryaOCRRecognizer
+
+        return SuryaOCRRecognizer(
+            model_id=args.surya_model,
+            device=args.device,
+            backend=args.surya_backend,
+        )
+
     if name == "glm":
         from embedding_ocr.recognition.glm_ocr import GLMOCRRecognizer
 
@@ -373,6 +408,7 @@ def load_engine_adapter(name: str, args: argparse.Namespace) -> RecognitionEngin
             base_url=args.oxr_base_url,
             model=args.oxr_model,
             prompt=args.oxr_prompt,
+            backend=args.oxr_backend,
         )
 
     msg = f"Unknown engine adapter: {name}"
@@ -505,7 +541,10 @@ def parse_args() -> argparse.Namespace:
         nargs="+",
         default=["all"],
         choices=[*ALL_ENGINES, "all"],
-        help="Engines/algorithms to evaluate.",
+        help=(
+            "Engines/algorithms to evaluate. 'all' runs every default engine; "
+            "list 'dots' explicitly to include the opt-in dots.mocr model."
+        ),
     )
     parser.add_argument(
         "--classes",
@@ -544,6 +583,18 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--limit", type=int, default=None, help="Limit total queries.")
     parser.add_argument("--device", default="auto", help="auto | cpu | cuda")
     parser.add_argument("--gemma-dim", type=int, default=768)
+    parser.add_argument(
+        "--siglip-dim",
+        type=int,
+        default=1152,
+        help="SigLIP SO400M embedding dimension (native 1152).",
+    )
+    parser.add_argument(
+        "--jina-dim",
+        type=int,
+        default=2048,
+        help="Jina v4 dimension: 128, 256, 512, 1024 or 2048 (native).",
+    )
     parser.add_argument("--top-k", type=int, default=25)
     parser.add_argument("--lighton-model", default="lightonai/LightOnOCR-3-0.8B")
     parser.add_argument("--lighton-prompt", default="")
@@ -551,9 +602,29 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--dots-prompt", default="Output the single character in this image."
     )
+    parser.add_argument("--surya-model", default="datalab-to/surya-ocr-2.5")
+    parser.add_argument(
+        "--surya-backend",
+        default=None,
+        choices=["vllm", "llamacpp", "mlx"],
+        help="Inference backend for surya-ocr (default: auto).",
+    )
     parser.add_argument("--glm-model", default="zai-org/GLM-OCR")
-    parser.add_argument("--oxr-base-url", default="http://127.0.0.1:8080/v1")
+    parser.add_argument(
+        "--oxr-base-url",
+        default="https://free-oxr.somark.ai/api/v1",
+        help=(
+            "OXR endpoint: free API (default), local parsing API "
+            "(http://127.0.0.1:8000/v1), or local vLLM (http://127.0.0.1:8080/v1)."
+        ),
+    )
     parser.add_argument("--oxr-model", default="SoMarkAI/OXR-1.0")
+    parser.add_argument(
+        "--oxr-backend",
+        default="auto",
+        choices=["auto", "parse", "chat"],
+        help="OXR protocol: SoMark /parse/sync, OpenAI /chat/completions, or auto.",
+    )
     parser.add_argument("--oxr-prompt", default="Output only the text.")
     parser.add_argument(
         "--output",
@@ -566,7 +637,7 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> None:
     args = parse_args()
-    selected = list(ALL_ENGINES) if "all" in args.engines else args.engines
+    selected = list(DEFAULT_ENGINES) if "all" in args.engines else args.engines
     classes = LATIN_CLASSES if args.classes == "latin" else ALPHANUMERIC_CLASSES
 
     # Determine index and test fonts
@@ -629,10 +700,13 @@ def main() -> None:
         "gemma": "EmbeddingOCR",
         "gemma-1nn": "EmbeddingOCR",
         "gemma-knn": "EmbeddingOCR",
+        "siglip": "EmbeddingOCR",
+        "jina": "EmbeddingOCR",
         "tesseract": "Conventional OCR",
         "easyocr": "Conventional OCR",
         "paddle": "Conventional OCR",
         "lighton": "Generative VLM",
+        "surya": "Generative VLM",
         "dots": "Generative VLM",
         "glm": "Generative VLM",
         "oxr": "Generative VLM",
@@ -648,16 +722,34 @@ def main() -> None:
                 predictor: Predictor = NCCPredictor(gallery_images, gallery_labels)
             elif name == "ssim":
                 predictor = SSIMPredictor(gallery_images, gallery_labels)
-            elif name in ("gemma", "gemma-1nn", "gemma-knn"):
-                strategy = (
-                    "matcher"
-                    if name == "gemma"
-                    else ("1nn" if name == "gemma-1nn" else "knn")
-                )
-                predictor = GemmaPredictor(
+            elif name in (
+                "gemma",
+                "gemma-1nn",
+                "gemma-knn",
+                "siglip",
+                "jina",
+            ):
+                if name.startswith("gemma"):
+                    embedder_name = "gemma"
+                    dim = args.gemma_dim
+                    strategy = (
+                        "matcher"
+                        if name == "gemma"
+                        else ("1nn" if name == "gemma-1nn" else "knn")
+                    )
+                elif name == "siglip":
+                    embedder_name = "siglip"
+                    dim = args.siglip_dim
+                    strategy = "matcher"
+                else:
+                    embedder_name = "jina"
+                    dim = args.jina_dim
+                    strategy = "matcher"
+                predictor: Predictor = EmbeddingPredictor(
+                    embedder_name=embedder_name,
                     index_fonts=args.index_fonts,
                     classes=classes,
-                    dim=args.gemma_dim,
+                    dim=dim,
                     top_k=args.top_k,
                     device=args.device,
                     strategy=strategy,

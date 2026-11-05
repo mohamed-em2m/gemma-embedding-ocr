@@ -34,6 +34,9 @@ dependencies = [
 [project.optional-dependencies]
 baseline = ["paddleocr", "paddlepaddle"]
 faiss-gpu = ["faiss-gpu-cu12"]
+surya = ["surya-ocr>=0.23.0"]
+jina = ["peft>=0.15.2", "torchvision"]
+siglip = []
 
 [project.scripts]
 embedding-ocr = "embedding_ocr.cli:app"

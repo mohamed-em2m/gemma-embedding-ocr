@@ -53,6 +53,13 @@ except ImportError:
     pass
 
 try:
+    from embedding_ocr.recognition.surya_ocr import SuryaOCRRecognizer  # noqa: F401
+
+    __all__.append("SuryaOCRRecognizer")
+except ImportError:
+    pass
+
+try:
     from embedding_ocr.recognition.tesseract import TesseractRecognizer  # noqa: F401
 
     __all__.append("TesseractRecognizer")

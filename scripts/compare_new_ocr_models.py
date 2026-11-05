@@ -1,10 +1,13 @@
-"""One-shot comparison of EmbeddingGemma 2 vs new generative OCR VLMs.
+"""One-shot comparison of embedding models vs new generative OCR VLMs.
 
 Evaluated engines:
   * ``gemma``  - EmbeddingGemma 2 + FAISS prototype matching (this project)
+  * ``siglip`` - SigLIP SO400M + the same prototype matching system
+  * ``jina``   - Jina Embeddings v4 + the same prototype matching system
   * ``lighton`` - lightonai/LightOnOCR-3-0.8B (transformers)
-  * ``dots``   - dots-studio/dots.mocr (transformers)
-  * ``oxr``    - SoMarkAI/OXR-1.0 (OpenAI-compatible local vLLM server)
+  * ``surya``  - datalab-to/surya-ocr-2.5 (surya-ocr package)
+  * ``oxr``    - SoMarkAI/OXR-1.0 (SoMark parse API or OpenAI-compatible vLLM)
+  * ``dots``   - dots-studio/dots.mocr (transformers, opt-in)
 
 All engines see the same rendered Latin glyph queries.  Models that cannot
 be loaded (missing optional dependency, absent GPU, no OXR server) are
@@ -51,7 +54,8 @@ DEFAULT_TEST_FONTS: list[str] = [
     "/usr/share/fonts/truetype/liberation/LiberationMono-Italic.ttf",
 ]
 
-ENGINE_NAMES = ("gemma", "lighton", "dots", "oxr")
+ENGINE_NAMES = ("gemma", "siglip", "jina", "lighton", "surya", "oxr", "dots")
+DEFAULT_ENGINES = ("gemma", "siglip", "jina", "lighton", "surya", "oxr")
 
 
 class Predictor(Protocol):
@@ -156,28 +160,42 @@ class EngineResult:
         return data
 
 
-class GemmaPredictor:
-    """EmbeddingGemma 2 + FAISS prototype matcher."""
-
-    name = "EmbeddingGemma 2"
+class EmbeddingPredictor:
+    """Embedding backend + FAISS prototype matcher."""
 
     def __init__(
         self,
+        embedder_name: str,
         index_fonts: list[str],
         classes: list[str],
         dim: int = 768,
         top_k: int = 25,
         device: str = "auto",
     ) -> None:
-        from embedding_ocr.recognition.embedding.embedder import EmbeddingGemma2
+        from embedding_ocr.recognition.embedding.embedder import (
+            EmbeddingGemma2,
+            JinaEmbeddingsV4,
+            SiglipEmbedder,
+        )
         from embedding_ocr.recognition.embedding.index import FaissIndex
         from embedding_ocr.recognition.embedding.matcher import PrototypeMatcher
         from embedding_ocr.recognition.embedding.prototypes import PrototypeDB
 
-        self.embedder = EmbeddingGemma2(dim=dim, device=device)
+        if embedder_name == "gemma":
+            embedder = EmbeddingGemma2(dim=dim, device=device)
+        elif embedder_name == "siglip":
+            embedder = SiglipEmbedder(dim=dim, device=device)
+        elif embedder_name == "jina":
+            embedder = JinaEmbeddingsV4(dim=dim, device=device)
+        else:
+            msg = f"Unknown embedder: {embedder_name}"
+            raise ValueError(msg)
+
+        self.embedder = embedder
+        self.name = f"{embedder.name} ({self.embedder.dim}d)"
         self.db = PrototypeDB(
             embedder=self.embedder,
-            index=FaissIndex(dim=dim),
+            index=FaissIndex(dim=self.embedder.dim),
             classes=classes,
         )
         self.db.build_from_fonts(index_fonts)
@@ -235,6 +253,14 @@ def load_generic_engine(name: str, args: argparse.Namespace) -> RecognitionEngin
             device=args.device,
             prompt=args.dots_prompt,
         )
+    if name == "surya":
+        from embedding_ocr.recognition.surya_ocr import SuryaOCRRecognizer
+
+        return SuryaOCRRecognizer(
+            model_id=args.surya_model,
+            device=args.device,
+            backend=args.surya_backend,
+        )
     if name == "oxr":
         from embedding_ocr.recognition.oxr import OXRRecognizer
 
@@ -242,6 +268,7 @@ def load_generic_engine(name: str, args: argparse.Namespace) -> RecognitionEngin
             base_url=args.oxr_base_url,
             model=args.oxr_model,
             prompt=args.oxr_prompt,
+            backend=args.oxr_backend,
         )
     msg = f"Unknown engine: {name}"
     raise ValueError(msg)
@@ -321,7 +348,7 @@ def _release_memory() -> None:
 def write_markdown(results: list[EngineResult], path: Path, n_queries: int) -> None:
     """Write a compact human-readable report."""
     lines = [
-        "# EmbeddingGemma 2 vs generative OCR VLMs",
+        "# Embedding models vs generative OCR VLMs",
         "",
         f"Queries: **{n_queries}** rendered Latin glyphs from held-out fonts.",
         "",
@@ -366,9 +393,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--engines",
         nargs="+",
-        default=["all"],
+        default=list(DEFAULT_ENGINES),
         choices=[*ENGINE_NAMES, "all"],
-        help="Engines to run (default: all).",
+        help=(
+            "Engines to run (default: gemma siglip jina lighton surya oxr). "
+            "'all' also includes the opt-in dots engine."
+        ),
     )
     parser.add_argument(
         "--classes",
@@ -396,6 +426,18 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument("--device", default="auto", help="auto | cpu | cuda")
     parser.add_argument("--gemma-dim", type=int, default=768)
+    parser.add_argument(
+        "--siglip-dim",
+        type=int,
+        default=1152,
+        help="SigLIP SO400M embedding dimension (native 1152).",
+    )
+    parser.add_argument(
+        "--jina-dim",
+        type=int,
+        default=2048,
+        help="Jina v4 dimension: 128, 256, 512, 1024 or 2048 (native).",
+    )
     parser.add_argument("--top-k", type=int, default=25)
     parser.add_argument("--lighton-model", default="lightonai/LightOnOCR-3-0.8B")
     parser.add_argument(
@@ -408,12 +450,29 @@ def parse_args() -> argparse.Namespace:
         "--dots-prompt",
         default="Output the single character in this image.",
     )
+    parser.add_argument("--surya-model", default="datalab-to/surya-ocr-2.5")
+    parser.add_argument(
+        "--surya-backend",
+        default=None,
+        choices=["vllm", "llamacpp", "mlx"],
+        help="Inference backend for surya-ocr (default: auto).",
+    )
     parser.add_argument(
         "--oxr-base-url",
-        default="http://127.0.0.1:8080/v1",
-        help="OpenAI-compatible OXR/vLLM base URL.",
+        default="https://free-oxr.somark.ai/api/v1",
+        help=(
+            "OXR endpoint. Use the free API (default), a local parsing API "
+            "(http://127.0.0.1:8000/v1) or a local vLLM server "
+            "(http://127.0.0.1:8080/v1)."
+        ),
     )
     parser.add_argument("--oxr-model", default="SoMarkAI/OXR-1.0")
+    parser.add_argument(
+        "--oxr-backend",
+        default="auto",
+        choices=["auto", "parse", "chat"],
+        help="OXR protocol: SoMark /parse/sync, OpenAI /chat/completions, or auto.",
+    )
     parser.add_argument(
         "--oxr-prompt",
         default="Extract all text from this image. Output only the text.",
@@ -448,11 +507,18 @@ def main() -> None:
     for name in selected:
         print(f"\n=== {name} ===")
         try:
-            if name == "gemma":
-                predictor: Predictor = GemmaPredictor(
+            if name in ("gemma", "siglip", "jina"):
+                if name == "gemma":
+                    dim = args.gemma_dim
+                elif name == "siglip":
+                    dim = args.siglip_dim
+                else:
+                    dim = args.jina_dim
+                predictor: Predictor = EmbeddingPredictor(
+                    embedder_name=name,
                     index_fonts=args.index_fonts,
                     classes=classes,
-                    dim=args.gemma_dim,
+                    dim=dim,
                     top_k=args.top_k,
                     device=args.device,
                 )

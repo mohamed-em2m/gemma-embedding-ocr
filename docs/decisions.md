@@ -31,20 +31,47 @@ Six distinct open-licensed fonts partitioned into Set A (Index) and Set B (Held-
 
 ## 5. Generative OCR VLM Comparison (November 2026)
 
-Added three document-OCR VLMs to the cross-engine comparison:
+Added generative OCR VLMs to the cross-engine comparison:
 
 | Model | Loading path | Status |
 | --- | --- | --- |
 | `lightonai/LightOnOCR-3-0.8B` | `transformers>=5.5.4`, `Qwen3_5ForConditionalGeneration` | Verified from model card; transcription prompt is `""` |
-| `dots-studio/dots.mocr` | `AutoModelForCausalLM` + `AutoProcessor`, `trust_remote_code=True` | Verified from model card; single-glyph prompt is **unverified** |
-| `SoMarkAI/OXR-1.0` | OpenAI-compatible HTTP server (out-of-tree vLLM plugin) | Local `transformers` inference is not documented; adapter talks to a separately started vLLM server |
+| `datalab-to/surya-ocr-2.5` | `surya-ocr` package (`RecognitionPredictor`), optional extra | Verified from model card; requires a vLLM or llama.cpp backend |
+| `SoMarkAI/OXR-1.0` | SoMark `POST /v1/parse/sync` (local port 8000 or free API), or OpenAI-compatible vLLM `/chat/completions` | Verified from model card; local `transformers` inference is not documented |
+| `dots-studio/dots.mocr` | `AutoModelForCausalLM` + `AutoProcessor`, `trust_remote_code=True` | Opt-in; upstream code imports `flash_attn` even when SDPA is selected |
 
 - Shared benchmark: `scripts/compare_new_ocr_models.py`.
 - All engines use the same rendered glyph queries (default: 52 Latin classes,
   3 held-out Liberation fonts) and report exact, case-insensitive, and
   extracted-glyph accuracy plus per-item latency.
 - Unavailable engines are recorded in the JSON/Markdown report instead of
-  aborting the run, because the three VLMs have different hardware and
-  serving requirements.
-- OXR is a document parser served through vLLM; its default prompt and model
-  name must be supplied by the user when the server uses different values.
+  aborting the run, because the VLMs have different hardware and serving
+  requirements.
+- OXR defaults to its public free parsing API in the benchmark scripts; set
+  `--oxr-base-url` to a local endpoint and `--oxr-backend parse|chat` to use a
+  self-hosted deployment.
+- `dots.mocr` is excluded from the default engine set because its remote
+  modeling code requires a `flash_attn` shim; it remains available via
+  `--engines all` or `--engines dots`.
+
+## 6. Embedder Comparison Backends (November 2026)
+
+The prototype-matching system is embedder-agnostic (`Embedder` protocol), so
+additional multimodal models run through the identical rendering, FAISS and
+matching pipeline:
+
+| Key | Model | Native dim | Notes |
+| --- | --- | --- | --- |
+| `gemma` | `google/embeddinggemma-2` | 768 | Matryoshka 768/512/256/128 |
+| `siglip` | `google/siglip-so400m-patch14-384` | 1152 | Separate image/text towers; no native Matryoshka (truncation is approximate) |
+| `jina` | `jinaai/jina-embeddings-v4` | 2048 | Qwen2.5-VL-3B base; Matryoshka 2048/1024/512/256/128; remote code |
+
+- Adapters live in `src/embedding_ocr/recognition/embedding/embedder.py` and
+  implement `embed_images` / `embed_texts`, returning float32 `(n, dim)`
+  L2-normalized vectors.
+- All adapters slice to the active dimension and re-normalize, so a common
+  `--*-dim` value can be used for a fair size-controlled sweep.
+- Jina v4 requires `transformers>=4.52`, `peft>=0.15.2` and `torchvision`;
+  `flash_attn` is optional and is never forced.
+- SigLIP is trained for sigmoid image-text matching rather than Matryoshka
+  retrieval, so low truncated dimensions are expected to degrade faster.
