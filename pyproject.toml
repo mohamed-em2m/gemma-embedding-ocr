@@ -22,21 +22,19 @@ dependencies = [
   "faiss-cpu>=1.8",
   "jiwer",
   "rapidfuzz",
-  "pytesseract>=0.3.13",
-  "easyocr>=1.7.2",
-  "paddleocr>=3.7.0",
-  "paddlepaddle>=3.3.0",
-  "accelerate>=1.15.0",
-  "qwen-vl-utils>=0.0.14",
-  "datasets>=5.1.0",
 ]
 
 [project.optional-dependencies]
-baseline = ["paddleocr", "paddlepaddle"]
+baseline = ["paddleocr>=3.7.0", "paddlepaddle>=3.3.0"]
+tesseract = ["pytesseract>=0.3.13"]
+easyocr = ["easyocr>=1.7.2"]
+experiments = ["datasets>=5.1.0", "accelerate>=1.15.0", "qwen-vl-utils>=0.0.14"]
 faiss-gpu = ["faiss-gpu-cu12"]
 surya = ["surya-ocr>=0.23.0"]
 jina = ["peft>=0.15.2", "torchvision"]
 siglip = []
+craft = ["craft-text-detector"]
+arabic = ["arabic-reshaper", "python-bidi"]
 
 [project.scripts]
 embedding-ocr = "embedding_ocr.cli:app"
@@ -51,6 +49,9 @@ packages = ["src/embedding_ocr"]
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B", "SIM", "NPY", "PT"]
 ignore = ["E501"]
+
+[tool.ruff.lint.per-file-ignores]
+"src/embedding_ocr/cli.py" = ["B008"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

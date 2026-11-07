@@ -123,3 +123,25 @@ Foundational implementation (this iteration):
   missing dependencies are recorded rather than aborting the run.
 - Tests: `tests/test_multilingual_segmentation.py`,
   `tests/test_arabic_alignment.py`.
+
+## 8. Config, pipeline, and CLI (November 2026)
+
+- Configuration is typed with Pydantic and loaded from YAML. Swapping the
+  recognizer (`hierarchical`, `embedding`, `paddle`, `tesseract`, `easyocr`)
+  changes only `recognition.backend`.
+- Detection and recognition are independent protocols. `OCRPipeline` applies
+  preprocessing, detects regions, crops them, calls the recognizer, and
+  reconstructs line-major reading order.
+- Detection boxes are cached by a hash of image bytes, image shape, detector
+  class, and RTL flag. Baseline and embedding runs can therefore reuse exactly
+  the same crops.
+- Prototype loading validates the saved index dimension and embedder name
+  against the active config. A mismatch raises instead of silently producing
+  invalid cosine scores.
+- The benchmark manifest format is `image_path<TAB>reference` per line;
+  relative paths are resolved against the manifest directory. Reported metrics
+  are normalized CER, WER, exact match, mean latency, and p95 latency.
+- PaddleOCR 3.x detection schema and Arabic detection quality remain
+  unverified; the adapter accepts both `predict` and legacy `ocr` shapes.
+- `recognize --json` and `benchmark` records include the resolved config and
+  git commit hash; benchmark runs also write a sibling `.config.yaml`.

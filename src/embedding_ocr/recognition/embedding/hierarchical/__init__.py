@@ -4,6 +4,8 @@ from embedding_ocr.recognition.embedding.hierarchical.alignment import (
     AlignedUnit,
     AlignmentResult,
     EmbeddingAlignmentSegmenter,
+    PrototypeSearchDB,
+    VocabularyPrototypeDB,
 )
 from embedding_ocr.recognition.embedding.hierarchical.arabic_units import (
     ArabicUnit,
@@ -31,7 +33,9 @@ __all__ = [
     "CraftWordDetector",
     "EmbeddingAlignmentSegmenter",
     "EmbeddingVocabulary",
+    "PrototypeSearchDB",
     "HierarchicalWordRecognizer",
     "VisualWordSegmenter",
     "VocabToken",
+    "VocabularyPrototypeDB",
 ]

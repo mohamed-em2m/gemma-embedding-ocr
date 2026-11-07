@@ -286,6 +286,15 @@ wheels = [
 ]
 
 [[package]]
+name = "arabic-reshaper"
+version = "3.1.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/b6/e6/2c143bb2f25322d051da9ab6cf6f4ab79d9476ce668caca8741d81b1a47e/arabic_reshaper-3.1.0.tar.gz", hash = "sha256:87f9a3634ca64f67a18d04593eadb3a148794233ba408fbb625649feedcdd0e0", size = 43849, upload-time = "2026-11-02T12:04:19.905Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/37/6e/c3db2ab709ab6d249e15630eebd59b71a64548c6989440e53dab9d64fa71/arabic_reshaper-3.1.0-py3-none-any.whl", hash = "sha256:ab71c16c18550443e07e7d3e99f30cf076fb84acc081118a3d6001c09d5b5fff", size = 20764, upload-time = "2026-11-02T12:04:18.711Z" },
+]
+
+[[package]]
 name = "argon2-cffi"
 version = "25.1.0"
 source = { registry = "https://pypi.org/simple" }
@@ -1260,6 +1269,23 @@ wheels = [
 ]
 
 [[package]]
+name = "craft-text-detector"
+version = "0.4.3"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "gdown" },
+    { name = "opencv-python" },
+    { name = "scipy", version = "1.17.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.12'" },
+    { name = "scipy", version = "1.18.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12'" },
+    { name = "torch" },
+    { name = "torchvision" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/7d/60/474d6ebd09c6db746a49af2dee0ac48547c6df35c3eee48056193677c794/craft-text-detector-0.4.3.tar.gz", hash = "sha256:1fcd60a5115ebdc05c72d2a78eaae038346d89f3309f45db7ee1a69de622e1f9", size = 16672, upload-time = "2022-05-09T10:55:55.125Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/4a/a7/371d03c2e9dae6b70f329efc84d6bb2d864e2c7d9d32f95ffab2d0771e6b/craft_text_detector-0.4.3-py3-none-any.whl", hash = "sha256:ea31b26eb53bc8d765f2a39d5896fa50f0b033c94a395543a5f323385c615ba5", size = 18277, upload-time = "2022-05-09T10:55:53.298Z" },
+]
+
+[[package]]
 name = "crc32c"
 version = "2.9.post0"
 source = { registry = "https://pypi.org/simple" }
@@ -1628,20 +1654,13 @@ name = "embedding-ocr"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [
-    { name = "accelerate" },
-    { name = "datasets" },
-    { name = "easyocr" },
     { name = "faiss-cpu" },
     { name = "jiwer" },
     { name = "numpy" },
     { name = "opencv-python-headless" },
-    { name = "paddleocr" },
-    { name = "paddlepaddle" },
     { name = "pillow" },
     { name = "pydantic" },
-    { name = "pytesseract" },
     { name = "pyyaml" },
-    { name = "qwen-vl-utils" },
     { name = "rapidfuzz" },
     { name = "rich" },
     { name = "sentence-transformers" },
@@ -1651,9 +1670,24 @@ dependencies = [
 ]
 
 [package.optional-dependencies]
+arabic = [
+    { name = "arabic-reshaper" },
+    { name = "python-bidi" },
+]
 baseline = [
     { name = "paddleocr" },
     { name = "paddlepaddle" },
+]
+craft = [
+    { name = "craft-text-detector" },
+]
+easyocr = [
+    { name = "easyocr" },
+]
+experiments = [
+    { name = "accelerate" },
+    { name = "datasets" },
+    { name = "qwen-vl-utils" },
 ]
 faiss-gpu = [
     { name = "faiss-gpu-cu12" },
@@ -1664,6 +1698,9 @@ jina = [
 ]
 surya = [
     { name = "surya-ocr" },
+]
+tesseract = [
+    { name = "pytesseract" },
 ]
 
 [package.dev-dependencies]
@@ -1681,24 +1718,25 @@ notebooks = [
 
 [package.metadata]
 requires-dist = [
-    { name = "accelerate", specifier = ">=1.15.0" },
-    { name = "datasets", specifier = ">=5.1.0" },
-    { name = "easyocr", specifier = ">=1.7.2" },
+    { name = "accelerate", marker = "extra == 'experiments'", specifier = ">=1.15.0" },
+    { name = "arabic-reshaper", marker = "extra == 'arabic'" },
+    { name = "craft-text-detector", marker = "extra == 'craft'" },
+    { name = "datasets", marker = "extra == 'experiments'", specifier = ">=5.1.0" },
+    { name = "easyocr", marker = "extra == 'easyocr'", specifier = ">=1.7.2" },
     { name = "faiss-cpu", specifier = ">=1.8" },
     { name = "faiss-gpu-cu12", marker = "extra == 'faiss-gpu'" },
     { name = "jiwer" },
     { name = "numpy" },
     { name = "opencv-python-headless" },
-    { name = "paddleocr", specifier = ">=3.7.0" },
-    { name = "paddleocr", marker = "extra == 'baseline'" },
-    { name = "paddlepaddle", specifier = ">=3.3.0" },
-    { name = "paddlepaddle", marker = "extra == 'baseline'" },
+    { name = "paddleocr", marker = "extra == 'baseline'", specifier = ">=3.7.0" },
+    { name = "paddlepaddle", marker = "extra == 'baseline'", specifier = ">=3.3.0" },
     { name = "peft", marker = "extra == 'jina'", specifier = ">=0.15.2" },
     { name = "pillow" },
     { name = "pydantic", specifier = ">=2" },
-    { name = "pytesseract", specifier = ">=0.3.13" },
+    { name = "pytesseract", marker = "extra == 'tesseract'", specifier = ">=0.3.13" },
+    { name = "python-bidi", marker = "extra == 'arabic'" },
     { name = "pyyaml" },
-    { name = "qwen-vl-utils", specifier = ">=0.0.14" },
+    { name = "qwen-vl-utils", marker = "extra == 'experiments'", specifier = ">=0.0.14" },
     { name = "rapidfuzz" },
     { name = "rich" },
     { name = "sentence-transformers" },
@@ -1708,7 +1746,7 @@ requires-dist = [
     { name = "transformers" },
     { name = "typer" },
 ]
-provides-extras = ["baseline", "faiss-gpu", "surya", "jina", "siglip"]
+provides-extras = ["baseline", "tesseract", "easyocr", "experiments", "faiss-gpu", "surya", "jina", "siglip", "craft", "arabic"]
 
 [package.metadata.requires-dev]
 dev = [
@@ -2007,6 +2045,23 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/a7/b2/4140c69c6a66432916b26158687e821ba631a4c9273c474343badf84d3ba/future-1.0.0.tar.gz", hash = "sha256:bd2968309307861edae1458a4f8a4f3598c03be43b97521076aebf5d94c07b05", size = 1228490, upload-time = "2024-02-21T11:52:38.461Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/da/71/ae30dadffc90b9006d77af76b393cb9dfbfc9629f339fc1574a1c52e6806/future-1.0.0-py3-none-any.whl", hash = "sha256:929292d34f5872e70396626ef385ec22355a1fae8ad29e1a734c3e43f9fbc216", size = 491326, upload-time = "2024-02-21T11:52:35.956Z" },
+]
+
+[[package]]
+name = "gdown"
+version = "6.5.1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "beautifulsoup4" },
+    { name = "filelock" },
+    { name = "requests", extra = ["socks"] },
+    { name = "tqdm" },
+    { name = "typing-extensions", marker = "python_full_version < '3.12'" },
+    { name = "urllib3" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/99/14/db6cbe00c8259b2160e998ebbff3a616409611f5c39364cb667dfc7dd35a/gdown-6.5.1.tar.gz", hash = "sha256:e441b564589b4f9f49855679649b3b04b0d2e056bc1d635691f7e003ca27e5d0", size = 358925, upload-time = "2026-10-29T03:52:53.732Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/ab/a7/dceeff81a633c9c894ec1a6b63df2fdf88f88a76f4e40f1d2b504dbc7699/gdown-6.5.1-py3-none-any.whl", hash = "sha256:e3acf0f8cbd4c09e7ffc3d6921d39d406f41fc15ca82fb494cc7fbb956ce1e15", size = 51285, upload-time = "2026-10-29T03:52:52.203Z" },
 ]
 
 [[package]]
@@ -3946,6 +4001,15 @@ wheels = [
 ]
 
 [[package]]
+name = "opencv-python"
+version = "4.5.4.60"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "numpy" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/bc/b6/e447d0302bc328f06b56dabd6742648372df63446725db56058a259dbda2/opencv-python-4.5.4.60.tar.gz", hash = "sha256:f609558a8fe1bf66f6c81816ca14d8e51500c8b53ee44bc644c73f98f1c5655e", size = 89761005, upload-time = "2021-11-22T05:20:38.991Z" }
+
+[[package]]
 name = "opencv-python-headless"
 version = "4.11.0.86"
 source = { registry = "https://pypi.org/simple" }
@@ -4860,6 +4924,15 @@ wheels = [
 ]
 
 [[package]]
+name = "pysocks"
+version = "1.7.1"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/bd/11/293dd436aea955d45fc4e8a35b6ae7270f5b8e00b53cf6c024c83b657a11/PySocks-1.7.1.tar.gz", hash = "sha256:3f8804571ebe159c380ac6de37643bb4685970655d3bba243530d6558b799aa0", size = 284429, upload-time = "2019-09-20T02:07:35.714Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/8d/59/b4572118e098ac8e46e399a1dd0f2d85403ce8bbaad9ec79373ed6badaf9/PySocks-1.7.1-py3-none-any.whl", hash = "sha256:2725bd0a9925919b9b51739eea5f9e2bae91e83288108a9ad338b2e3a4435ee5", size = 16725, upload-time = "2019-09-20T02:06:22.938Z" },
+]
+
+[[package]]
 name = "pytesseract"
 version = "0.3.13"
 source = { registry = "https://pypi.org/simple" }
@@ -5456,6 +5529,11 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/ac/c3/e2a2b89f2d3e2179abd6d00ebd70bff6273f37fb3e0cc209f48b39d00cbf/requests-2.34.2.tar.gz", hash = "sha256:f288924cae4e29463698d6d60bc6a4da69c89185ad1e0bcc4104f584e960b9ed", size = 142856, upload-time = "2026-05-14T19:25:27.735Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/a0/f4/c67b0b3f1b9245e8d266f0f112c500d50e5b4e83cb6f3b71b6528104182a/requests-2.34.2-py3-none-any.whl", hash = "sha256:2a0d60c172f83ac6ab31e4554906c0f3b3588d37b5cb939b1c061f4907e278e0", size = 73075, upload-time = "2026-05-14T19:25:26.443Z" },
+]
+
+[package.optional-dependencies]
+socks = [
+    { name = "pysocks" },
 ]
 
 [[package]]

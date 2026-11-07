@@ -1,0 +1,28 @@
+embedder:
+  backend: gemma
+  dim: 768
+  device: auto
+  batch_size: 16
+
+detector:
+  backend: paddle
+  rtl: null
+  lang: en
+
+index:
+  backend: faiss
+  top_k: 30
+  path: artifacts/prototypes/clean_alnum_768d
+
+recognition:
+  backend: embedding
+  script: latin
+  rtl: null
+  top_k: 25
+
+pipeline:
+  preprocess: true
+  deslant: true
+  binarize: true
+  detection_cache: artifacts/cache/detections
+  seed: 42

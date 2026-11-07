@@ -10,11 +10,39 @@ words), so the same aligner serves Arabic connected scripts and Latin cursive.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Any, Protocol
 
 import cv2
 import numpy as np
 
-from embedding_ocr.recognition.embedding.prototypes import PrototypeDB
+from embedding_ocr.recognition.embedding.embedder import Embedder
+
+
+class PrototypeSearchDB(Protocol):
+    """Minimal prototype store interface needed by the aligner."""
+
+    embedder: Embedder
+
+    def search(
+        self, query_embeddings: np.ndarray, top_k: int = 5
+    ) -> tuple[np.ndarray, list[list[str]]]:
+        """Return similarities and labels for each query."""
+        ...
+
+
+class VocabularyPrototypeDB:
+    """Adapt an ``EmbeddingVocabulary`` character tier to the aligner API."""
+
+    def __init__(self, embedder: Embedder, vocabulary: Any) -> None:
+        self.embedder = embedder
+        self.vocabulary = vocabulary
+
+    def search(
+        self, query_embeddings: np.ndarray, top_k: int = 5
+    ) -> tuple[np.ndarray, list[list[str]]]:
+        sims, token_rows = self.vocabulary.search_chars(query_embeddings, top_k=top_k)
+        labels = [[token.text for token in row] for row in token_rows]
+        return sims, labels
 
 
 @dataclass(frozen=True)
@@ -45,7 +73,7 @@ class EmbeddingAlignmentSegmenter:
 
     def __init__(
         self,
-        prototype_db: PrototypeDB,
+        prototype_db: PrototypeSearchDB,
         canvas_size: int = 64,
         padding: int = 6,
         min_unit_width: int = 8,

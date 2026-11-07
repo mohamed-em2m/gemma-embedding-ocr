@@ -1,0 +1,24 @@
+embedder:
+  backend: gemma
+  dim: 768
+  device: auto
+
+detector:
+  backend: paddle
+  rtl: null
+  lang: en
+
+index:
+  backend: faiss
+  top_k: 30
+  path: artifacts/prototypes/v1
+
+recognition:
+  backend: paddle
+  script: latin
+  paddle_model: en_PP-OCRv4_mobile_rec
+
+pipeline:
+  preprocess: false
+  detection_cache: artifacts/cache/detections
+  seed: 42

@@ -1,0 +1,53 @@
+embedder:
+  backend: gemma
+  model_id: google/embeddinggemma-2
+  dim: 768
+  device: auto
+  dtype: float32
+  batch_size: 16
+
+detector:
+  backend: full
+  rtl: null
+  min_component_area: 8
+  lang: en
+
+index:
+  backend: faiss
+  top_k: 30
+  path: artifacts/prototypes/v1
+  omp_threads: 1
+
+recognition:
+  backend: hierarchical
+  script: latin
+  rtl: null
+  top_k: 15
+  min_word_sim: 0.74
+  min_word_margin: 0.008
+  min_subword_sim: 0.72
+  min_subword_margin: 0.005
+  min_char_sim: 0.65
+  max_recursion_depth: 4
+  preprocess_handwriting: false
+  use_alignment: true
+  min_alignment_score: 0.35
+  vocabulary:
+    tokenizer_name: google/embeddinggemma-2
+    cache_dir: artifacts/vocab_cache
+    use_visual_prototypes: false
+    prototype_fonts:
+      - /usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf
+      - /usr/share/fonts/truetype/dejavu/DejaVuSans.ttf
+    slant_angles: [0.0]
+    max_words: 25000
+    max_subwords: 15000
+    extra_lexicon: []
+
+pipeline:
+  preprocess: false
+  deslant: true
+  binarize: true
+  padding: 4
+  detection_cache: null
+  seed: 42

@@ -136,3 +136,33 @@ only; no fine-tuning or custom detector training in this phase.
 - CJK / Thai / Indic scriptio-continua segmentation.
 - Custom DBNet++/FAST/U-Net training (blocked by inference-only constraint).
 - Pretrained CTC aligner experiments (PaddleOCR/EasyOCR internals).
+
+---
+
+## 6. Implementation status (November 2026)
+
+- **Phase 1 — complete:** typed Pydantic config (`config.py`), default and
+  backend-specific YAML configs, Typer CLI (`embedding-ocr version`,
+  `show-config`, `recognize`, `build-prototypes`, `build-vocabulary`,
+  `benchmark`), Makefile, pre-commit, GitHub Actions, `.gitattributes`.
+- **Phase 2 — complete:** `TextDetector` protocol with full/visual/CRAFT/Paddle
+  backends, region cropping, line grouping/reconstruction, `OCRPipeline`,
+  on-disk detection cache, and a config-driven recognizer/embedder factory.
+  Prototype/index dim and embedder-name mismatches raise on load.
+- **Phase 3 — adapter ready:** `PaddleRecognizer` and a Paddle detection
+  adapter exist behind config. Reproducible baseline numbers still require the
+  Paddle runtime and a fixed dataset manifest.
+- **Phase 4 — MVP implemented:** character segmentation, FAISS prototype
+  matching, hierarchical word/subword/char fallback, script-aware vocabulary,
+  and CLI prototype/vocabulary builders.
+- **Phase 5 — implemented:** `ArabicUnitSegmenter` and
+  `EmbeddingAlignmentSegmenter` with cost-minimizing Viterbi DP. Config wiring
+  is available through `recognition.use_alignment`.
+- **Phase 6 — runner ready:** manifest-driven CER/WER/exact-match benchmark
+  (`embedding-ocr benchmark`) with per-sample latency. Full fair comparison
+  still needs held-out real datasets and detector annotations.
+- **Phase 7 — in progress:** CI, Makefile, pre-commit, docs, and CLI are in
+  place; the `v0.1.0` release tag is pending.
+
+Validation in this iteration: `ruff`, `mypy src`, and 76 tests pass. Optional
+model/detector probes report missing dependencies rather than crashing.

@@ -38,6 +38,10 @@ multimodal model (text, image, audio) in a shared 768-d space (Matryoshka:
 ```bash
 # Python >= 3.11 required; managed with uv only
 uv sync --group dev
+uv sync --extra baseline      # PaddleOCR/PaddlePaddle baseline
+uv sync --extra tesseract --extra easyocr  # conventional baselines
+uv sync --extra experiments   # datasets/accelerate for benchmark scripts
+uv sync --extra arabic        # optional Arabic shaping fallback
 ```
 
 ## Commands
@@ -46,14 +50,42 @@ uv sync --group dev
 uv run pytest                                             # run tests
 uv run ruff check . && uv run ruff format .              # lint / format
 uv run mypy src                                          # type-check
+
+uv run embedding-ocr version                             # CLI smoke test
+uv run embedding-ocr show-config --config configs/default.yaml
+uv run embedding-ocr recognize image.png --config configs/default.yaml --json
+uv run embedding-ocr build-prototypes --config configs/embedding_seg.yaml \
+    --output artifacts/prototypes/clean_alnum_768d
+uv run embedding-ocr build-vocabulary --config configs/default.yaml
+uv run embedding-ocr benchmark manifest.tsv \
+    --config configs/embedding_seg.yaml --output docs/benchmark_report.json
+
 uv run python scripts/phase0_az_spike.py \
     --config configs/spike_az.yaml                       # Phase 0 spike
+uv run python scripts/probe_segmentation.py --mode all   # detector/embedder probe
 uv run python scripts/compare_new_ocr_models.py          # Gemma vs new OCR VLMs
 uv run python scripts/test_word_ocr_vs_glm.py \
     --gemma-dim 768 --augment                            # Benchmark vs GLM-OCR (synthetic)
 uv run python scripts/test_iam_handwriting.py \
     --num-samples 50 --gemma-dim 768                     # Benchmark on IAM Handwriting
 ```
+
+### Configuration
+
+`configs/default.yaml` is the full reference. Key switches:
+
+| Field | Values | Effect |
+| --- | --- | --- |
+| `recognition.backend` | `hierarchical`, `embedding`, `paddle`, `tesseract`, `easyocr` | Chooses the recognizer only |
+| `detector.backend` | `full`, `visual`, `craft`, `paddle` | Chooses the text detector |
+| `recognition.script` | `latin`, `arabic` | Sets classes, RTL order, and case rules |
+| `embedder.backend` | `gemma`, `siglip`, `jina` | Swaps the visual embedder |
+| `index.backend` | `faiss`, `numpy` | Exact FAISS or NumPy reference index |
+
+Use `configs/baseline_paddle.yaml`, `configs/embedding_seg.yaml`, and
+`configs/embedding_align.yaml` as starting points. Detection boxes are cached
+under `pipeline.detection_cache` so baseline and embedding runs use identical
+crops.
 
 ---
 
@@ -147,22 +179,22 @@ override it with `--dots-prompt` / `--oxr-prompt` when tuning.
 
 | Phase | Status | Description |
 |-------|--------|-------------|
-| Phase 0 | ✅ In progress | A-Z embedding + FAISS search spike |
-| Phase 1 | ⏳ Pending | Full project setup |
-| Phase 2 | ⏳ Pending | Core abstractions |
-| Phase 3 | ⏳ Pending | Baseline (PaddleOCR) |
-| Phase 4 | ⏳ Pending | EmbeddingRecognizer MVP |
-| Phase 5 | ⏳ Pending | Alignment (if needed) |
-| Phase 6 | ⏳ Pending | Fair benchmark |
-| Phase 7 | ⏳ Pending | Polish & release |
+| Phase 0 | ✅ Complete | A-Z embedding + FAISS search spike |
+| Phase 1 | ✅ Complete | Project setup, config, CLI, CI |
+| Phase 2 | ✅ Complete | Core abstractions, pipeline, detection cache |
+| Phase 3 | 🟡 Adapter ready | PaddleOCR adapter + config; dataset/deps needed for reference numbers |
+| Phase 4 | ✅ MVP implemented | Character segmentation, prototypes, hierarchical recognition |
+| Phase 5 | ✅ Implemented | Arabic units + embedding-guided Viterbi alignment |
+| Phase 6 | 🟡 Runner ready | Manifest CER/WER runner; full held-out comparison pending data |
+| Phase 7 | 🟡 In progress | CI, docs, CLI; release tag pending |
 
 See [`AGENTS.md`](AGENTS.md) for the full plan and decision log.
 
 ---
 
-## Phase 0 Results (Preliminary)
+## Phase 0 Results
 
-_Full results in [`docs/feasibility.md`](docs/feasibility.md) after Phase 0 completes._
+_See [`docs/feasibility.md`](docs/feasibility.md) for the full analysis._
 
 | Dim | E1 Text Self Top-1 | E2 Image→Text Top-1 | E3 Image→Image Top-1 |
 |-----|---------------------|----------------------|----------------------|
