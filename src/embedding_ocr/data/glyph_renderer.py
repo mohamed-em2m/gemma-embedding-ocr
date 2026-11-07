@@ -19,8 +19,31 @@ PUNCTUATION: list[str] = list(".,:;!?\"'-()[]{}/@#%&*+=<>")
 ALPHANUMERIC_CLASSES: list[str] = LATIN_LETTERS + DIGITS
 ALL_CHAR_CLASSES: list[str] = ALPHANUMERIC_CLASSES + PUNCTUATION
 
+# Arabic base letters (28) plus common hamza/taa-marbuta/alef-maqsura forms.
+ARABIC_LETTERS: list[str] = list("ابتثجحخدذرزسشصضطظعغفقكلمنهوي")
+ARABIC_EXTRA_LETTERS: list[str] = list("ءأإآؤئةى")
+ARABIC_CLASSES: list[str] = ARABIC_LETTERS + ARABIC_EXTRA_LETTERS
+
 # Backward compatibility alias
 LATIN_CLASSES: list[str] = LATIN_LETTERS
+
+SCRIPT_CLASSES: dict[str, list[str]] = {
+    "latin": LATIN_CLASSES,
+    "arabic": ARABIC_CLASSES,
+}
+
+
+def classes_for_script(script: str = "latin") -> list[str]:
+    """Return the prototype character classes for a script.
+
+    Unknown scripts fall back to Latin classes so existing callers keep their
+    behavior. Arabic is supported out of the box; other scripts can be added to
+    :data:`SCRIPT_CLASSES` as prototype data becomes available.
+    """
+    from embedding_ocr.data.scripts import normalize_script_name
+
+    return list(SCRIPT_CLASSES.get(normalize_script_name(script), LATIN_CLASSES))
+
 
 # Known ambiguous case pairs (same shape, differ only in size when cropped)
 CASE_PAIRS: list[tuple[str, str]] = [
@@ -64,6 +87,7 @@ def render_glyph(
     canvas_size: int = 64,
     font_size: int = 44,
     preserve_aspect_and_baseline: bool = True,
+    script: str = "latin",
 ) -> Image.Image:
     """Render a single character on a white canvas.
 
@@ -75,10 +99,19 @@ def render_glyph(
         preserve_aspect_and_baseline: If True, uses typography baseline and
             cap-height metric so that lowercase glyphs naturally sit on the baseline
             and have accurate relative height (resolving case-pair ambiguity).
+            Arabic uses bbox centering because the Latin ``H`` baseline is not
+            meaningful for its glyph metrics.
+        script: Script of ``char``. Arabic requests RTL rendering from Pillow.
 
     Returns:
         PIL Image with the character rendered on a white background.
     """
+    from embedding_ocr.data.scripts import normalize_script_name
+
+    normalized_script = normalize_script_name(script)
+    direction = "rtl" if normalized_script == "arabic" else None
+    language = "ar" if normalized_script == "arabic" else None
+
     image = Image.new("RGB", (canvas_size, canvas_size), color=(255, 255, 255))
     draw = ImageDraw.Draw(image)
     font: ImageFont.ImageFont | ImageFont.FreeTypeFont
@@ -87,24 +120,47 @@ def render_glyph(
     except Exception:
         font = ImageFont.load_default()
 
-    bbox = draw.textbbox((0, 0), char, font=font)
+    try:
+        bbox = draw.textbbox(
+            (0, 0), char, font=font, direction=direction, language=language
+        )
+    except (OSError, ValueError):
+        # Pillow without libraqm cannot honour RTL direction; fall back to
+        # plain rendering rather than failing the prototype build.
+        direction = None
+        language = None
+        bbox = draw.textbbox((0, 0), char, font=font)
     w = bbox[2] - bbox[0]
 
     # Center horizontally
     x = (canvas_size - w) / 2.0 - bbox[0]
 
-    if preserve_aspect_and_baseline:
+    if preserve_aspect_and_baseline and normalized_script != "arabic":
         # Align relative to the font's reference capital letter 'H' baseline
         ref_bbox = draw.textbbox((0, 0), "H", font=font)
         ref_h = ref_bbox[3] - ref_bbox[1]
         baseline_y = (canvas_size - ref_h) / 2.0 - ref_bbox[1] + ref_h
         y = baseline_y - ref_h - ref_bbox[1]
-        draw.text((x, y), char, fill=(0, 0, 0), font=font)
+        draw.text(
+            (x, y),
+            char,
+            fill=(0, 0, 0),
+            font=font,
+            direction=direction,
+            language=language,
+        )
     else:
         # Standard independent bounding-box centering
         h = bbox[3] - bbox[1]
         y = (canvas_size - h) / 2.0 - bbox[1]
-        draw.text((x, y), char, fill=(0, 0, 0), font=font)
+        draw.text(
+            (x, y),
+            char,
+            fill=(0, 0, 0),
+            font=font,
+            direction=direction,
+            language=language,
+        )
 
     return image
 

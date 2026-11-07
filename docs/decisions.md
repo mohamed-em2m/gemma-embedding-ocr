@@ -75,3 +75,51 @@ matching pipeline:
   `flash_attn` is optional and is never forced.
 - SigLIP is trained for sigmoid image-text matching rather than Matryoshka
   retrieval, so low truncated dimensions are expected to degrade faster.
+
+## 7. Multilingual Segmentation & RTL (November 2026)
+
+**New scope:** Arabic/connected scripts and Latin cursive. Segmentation is
+split into two stages: line→word and word→unit. Compute is inference-only; no
+fine-tuning or custom detector training in this phase.
+
+Decisions:
+- Script is explicit configuration (`script="latin"|"arabic"`). Arabic and
+  other RTL scripts use right-to-left reading order; words are joined in
+  reading order to produce the logical string.
+- Latin case-pair disambiguation is gated to Latin letters only. Arabic and
+  other caseless scripts must never be remapped through `CASE_PAIRS`.
+- `PrototypeDB` is script-aware. When `classes` is not given, classes come
+  from the configured script (`ARABIC_CLASSES` for Arabic), and the script is
+  persisted in prototype metadata.
+- The Latin physical character-count estimate is not applied to Arabic; it is
+  calibrated for horizontal Latin text and would reject valid candidates.
+- Planned learned components (inference only): PaddleOCR PP-OCRv5 detection,
+  Surya detection, CRAFT/EasyOCR word boxes, and optional pretrained CTC
+  alignment. Classical components: improved projection/connected components,
+  diacritic merging, watershed/seam carving.
+- Embedding-guided Viterbi alignment (sliding-window embeddings + prototype
+  similarity) is the planned segmentation-free fallback for cursive and
+  connected scripts.
+
+Unverified:
+- EmbeddingGemma 2 Arabic text/image retrieval quality.
+- PaddleOCR 3.x detection API and Arabic detection quality.
+- Surya Arabic detection behavior.
+- Availability of word/unit-level annotations in MADAR, IFN/ENIT, KHATT and
+  AHCD.
+
+Foundational implementation (this iteration):
+- `src/embedding_ocr/data/scripts.py` (script detection, aliases, RTL).
+- Arabic classes and `classes_for_script()` in `data/glyph_renderer.py`.
+- Script-aware `PrototypeDB` and `PrototypeMatcher`.
+- RTL ordering in `CharacterSegmenter`, `VisualWordSegmenter`,
+  `CraftWordDetector`, `HierarchicalWordRecognizer`, and
+  `EmbeddingRecognizer`.
+- Script-aware `EmbeddingVocabulary` (Arabic default fonts, token filtering,
+  cache tags, RTL rendering with libraqm/reshaper fallback).
+- `EmbeddingAlignmentSegmenter` (sliding-window prototype scoring + Viterbi DP)
+  and `ArabicUnitSegmenter` (diacritic merging, RTL unit order).
+- `scripts/probe_segmentation.py` for optional detector/embedder comparison;
+  missing dependencies are recorded rather than aborting the run.
+- Tests: `tests/test_multilingual_segmentation.py`,
+  `tests/test_arabic_alignment.py`.

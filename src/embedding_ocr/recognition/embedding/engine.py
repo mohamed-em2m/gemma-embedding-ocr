@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import numpy as np
 
+from embedding_ocr.data.scripts import is_rtl_script, normalize_script_name
 from embedding_ocr.recognition.base import RecognitionEngine, RecognitionResult
 from embedding_ocr.recognition.embedding.matcher import PrototypeMatcher
 from embedding_ocr.recognition.embedding.prototypes import PrototypeDB
@@ -19,10 +20,17 @@ class EmbeddingRecognizer(RecognitionEngine):
         segmenter: CharacterSegmenter | None = None,
         matcher: PrototypeMatcher | None = None,
         top_k: int = 25,
+        script: str | None = None,
+        rtl: bool | None = None,
     ) -> None:
         self.prototype_db = prototype_db
+        # Default to the prototype DB's script so an Arabic DB does not
+        # silently fall back to Latin case/reading-order rules.
+        resolved_script = script if script is not None else prototype_db.script
+        self.script = normalize_script_name(resolved_script)
+        self.rtl = is_rtl_script(self.script) if rtl is None else rtl
         self.segmenter = segmenter or CharacterSegmenter()
-        self.matcher = matcher or PrototypeMatcher()
+        self.matcher = matcher or PrototypeMatcher(script=self.script)
         self.top_k = top_k
 
     def recognize(self, image: np.ndarray) -> RecognitionResult:
@@ -34,8 +42,8 @@ class EmbeddingRecognizer(RecognitionEngine):
         Returns:
             RecognitionResult with recognized string and mean confidence.
         """
-        # 1. Segment into characters
-        segments = self.segmenter.segment(image)
+        # 1. Segment into characters in logical reading order
+        segments = self.segmenter.segment(image, rtl=self.rtl)
         if not segments:
             return RecognitionResult(text="", confidence=0.0)
 

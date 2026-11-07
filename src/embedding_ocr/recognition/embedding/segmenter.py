@@ -38,14 +38,15 @@ class CharacterSegmenter:
         self.binarize_thresh = binarize_thresh
         self.space_ratio_thresh = space_ratio_thresh
 
-    def segment(self, image: np.ndarray) -> list[SegmentedCharacter]:
+    def segment(self, image: np.ndarray, rtl: bool = False) -> list[SegmentedCharacter]:
         """Segment an input word/line image into individual character crops.
 
         Args:
             image: uint8 numpy array (H, W, 3) or (H, W).
+            rtl: If True, return components in right-to-left reading order.
 
         Returns:
-            List of SegmentedCharacter objects ordered left to right.
+            List of SegmentedCharacter objects in logical reading order.
         """
         if image.ndim == 3:
             gray = cv2.cvtColor(image, cv2.COLOR_RGB2GRAY)
@@ -78,8 +79,8 @@ class CharacterSegmenter:
 
             components.append((x, y, w, h))
 
-        # Sort left to right
-        components.sort(key=lambda c: c[0])
+        # Sort in reading order (LTR ascending, RTL descending)
+        components.sort(key=lambda c: c[0], reverse=rtl)
 
         # Estimate average character width and gap distribution
         widths = [c[2] for c in components]
@@ -87,12 +88,17 @@ class CharacterSegmenter:
         typical_w = float(np.median(widths)) if widths else 20.0
         typical_h = float(np.median(heights)) if heights else 30.0
 
-        # Compute adjacent inter-character gaps
+        # Compute adjacent inter-character gaps in reading order. For RTL,
+        # the previous component sits to the right of the current one.
         gaps: list[float] = []
         for i in range(1, len(components)):
             prev_x, _, prev_w, _ = components[i - 1]
-            curr_x = components[i][0]
-            gaps.append(float(curr_x - (prev_x + prev_w)))
+            curr_x, _, curr_w, _ = components[i]
+            if rtl:
+                gap = float(prev_x - (curr_x + curr_w))
+            else:
+                gap = float(curr_x - (prev_x + prev_w))
+            gaps.append(max(0.0, gap))
 
         # Dynamic space threshold:
         # If text has multiple words, gaps exhibit a bimodal distribution

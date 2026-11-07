@@ -19,6 +19,7 @@ from pathlib import Path
 import numpy as np
 from PIL import Image, ImageDraw, ImageFont
 
+from embedding_ocr.data.scripts import is_text_in_script, normalize_script_name
 from embedding_ocr.recognition.embedding.embedder import Embedder
 from embedding_ocr.recognition.embedding.index import FaissIndex, VectorIndex
 
@@ -30,6 +31,28 @@ DEFAULT_HANDWRITING_FONTS = [
     "/usr/share/fonts/truetype/kristi/Kristi.ttf",
 ]
 
+DEFAULT_ARABIC_FONTS = [
+    "/usr/share/fonts/google-noto-vf/NotoNaskhArabic[wght].ttf",
+    "/usr/share/fonts/google-noto-vf/NotoSansArabic[wght].ttf",
+    "/usr/share/fonts/google-droid-sans-fonts/DroidKufi-Regular.ttf",
+    "/usr/share/fonts/paktype-naskh-basic-fonts/PakTypeNaskhBasic.ttf",
+    "/usr/share/fonts/vazirmatn-vf-fonts/Vazirmatn[wght].ttf",
+]
+
+
+def _shape_arabic_fallback(text: str) -> str:
+    """Shape Arabic text for renderers without libraqm support.
+
+    The optional ``arabic-reshaper`` + ``python-bidi`` pair is used when
+    available. If neither is installed, the raw logical string is returned.
+    """
+    try:
+        import arabic_reshaper  # type: ignore[import-untyped]
+        from bidi.algorithm import get_display  # type: ignore[import-untyped]
+    except ImportError:
+        return text
+    return str(get_display(arabic_reshaper.reshape(text)))
+
 
 def render_prototype_image(
     text: str,
@@ -37,6 +60,9 @@ def render_prototype_image(
     font_size: int = 36,
     shear: float = 0.0,
     pad: int = 12,
+    script: str = "latin",
+    direction: str | None = None,
+    language: str | None = None,
 ) -> np.ndarray:
     """Render a text string as a synthetic image prototype.
 
@@ -46,6 +72,10 @@ def render_prototype_image(
         font_size: Font size in pt.
         shear: Horizontal slant angle tangent (e.g. 0.2 for italic slant).
         pad: Padding in pixels.
+        script: Script of ``text``. Arabic uses RTL rendering when Pillow has
+            libraqm, with a reshaper/bidi fallback otherwise.
+        direction: Optional Pillow direction override (``"rtl"``/``"ltr"``).
+        language: Optional Pillow language override (e.g. ``"ar"``).
 
     Returns:
         RGB numpy array (H, W, 3) of uint8.
@@ -56,12 +86,42 @@ def render_prototype_image(
     except Exception:
         font = ImageFont.load_default()
 
-    bbox = font.getbbox(text)
+    normalized_script = normalize_script_name(script)
+    if normalized_script == "arabic":
+        direction = direction or "rtl"
+        language = language or "ar"
+
+    render_text = text
+    dummy = Image.new("RGB", (1, 1))
+    dummy_draw = ImageDraw.Draw(dummy)
+    try:
+        bbox = dummy_draw.textbbox(
+            (0, 0),
+            render_text,
+            font=font,
+            direction=direction,
+            language=language,
+        )
+    except (OSError, ValueError):
+        # libraqm is unavailable; fall back to pre-shaped visual-order text.
+        if normalized_script == "arabic":
+            render_text = _shape_arabic_fallback(text)
+        direction = None
+        language = None
+        bbox = dummy_draw.textbbox((0, 0), render_text, font=font)
+
     w = max(1, int(bbox[2] - bbox[0]))
     h = max(1, int(bbox[3] - bbox[1]))
     img = Image.new("RGB", (w + pad * 2, h + pad * 2), (255, 255, 255))
     draw = ImageDraw.Draw(img)
-    draw.text((pad - bbox[0], pad - bbox[1]), text, fill=(0, 0, 0), font=font)
+    draw.text(
+        (pad - bbox[0], pad - bbox[1]),
+        render_text,
+        fill=(0, 0, 0),
+        font=font,
+        direction=direction,
+        language=language,
+    )
 
     if abs(shear) > 1e-4:
         # Affine transform for horizontal slant: x_src = x_tgt - shear * y_tgt
@@ -97,16 +157,30 @@ class EmbeddingVocabulary:
         prototype_fonts: list[str] | None = None,
         use_visual_prototypes: bool = False,
         slant_angles: list[float] | None = None,
+        script: str = "latin",
     ) -> None:
         self.embedder = embedder
         self.tokenizer_name = tokenizer_name
+        self.script = normalize_script_name(script)
         self.cache_dir = Path(cache_dir)
         self.cache_dir.mkdir(parents=True, exist_ok=True)
-        self.prototype_fonts = (
-            prototype_fonts
-            if prototype_fonts is not None
-            else [f for f in DEFAULT_HANDWRITING_FONTS if Path(f).exists()]
-        )
+        if prototype_fonts is not None:
+            self.prototype_fonts = list(prototype_fonts)
+        else:
+            default_fonts = (
+                DEFAULT_ARABIC_FONTS
+                if self.script == "arabic"
+                else DEFAULT_HANDWRITING_FONTS
+            )
+            self.prototype_fonts = [f for f in default_fonts if Path(f).exists()]
+            if not self.prototype_fonts:
+                # Last-resort fallback so visual prototypes still work when the
+                # script-specific font package is absent.
+                self.prototype_fonts = [
+                    f
+                    for f in DEFAULT_HANDWRITING_FONTS + DEFAULT_ARABIC_FONTS
+                    if Path(f).exists()
+                ]
         self.use_visual_prototypes = use_visual_prototypes
         self.slant_angles = slant_angles or [0.0]
 
@@ -128,7 +202,7 @@ class EmbeddingVocabulary:
         max_words: int | None = 25000,
         max_subwords: int | None = 15000,
     ) -> None:
-        """Extract all valid Latin tokens from the tokenizer and organize into hierarchy."""
+        """Extract valid tokens for the configured script and organize them."""
         from transformers import AutoTokenizer  # type: ignore[import-untyped]
 
         tokenizer = AutoTokenizer.from_pretrained(self.tokenizer_name)
@@ -156,10 +230,9 @@ class EmbeddingVocabulary:
             if not clean:
                 continue
 
-            # Pure Latin ASCII printable tokens
-            if not all(
-                c.isascii() and (c.isalnum() or c in "-_'.,:;!?") for c in clean
-            ):
+            # Script-aware printable tokens (Latin by default, Arabic and
+            # other supported scripts when configured).
+            if not is_text_in_script(clean, self.script):
                 continue
 
             if len(clean) == 1:
@@ -182,7 +255,11 @@ class EmbeddingVocabulary:
         if extra_lexicon:
             for word in extra_lexicon:
                 clean_w = word.strip()
-                if clean_w and clean_w not in chars_dict:
+                if (
+                    clean_w
+                    and is_text_in_script(clean_w, self.script)
+                    and clean_w not in chars_dict
+                ):
                     words_dict[clean_w] = VocabToken(
                         text=clean_w,
                         token_id=-1,  # priority extra word
@@ -222,14 +299,22 @@ class EmbeddingVocabulary:
         `prototype_fonts` and `slant_angles`, embedding images instead of pure text strings.
         Maps multiple prototype vectors back to the corresponding token candidates.
         """
+        if self.use_visual_prototypes and not self.prototype_fonts:
+            msg = (
+                "Visual prototypes require at least one installed font; "
+                f"none found for script {self.script!r}."
+            )
+            raise ValueError(msg)
+
         categories = [
             ("words", self.word_tokens, "word_index", "_word_lookup"),
             ("subwords", self.subword_tokens, "subword_index", "_subword_lookup"),
             ("chars", self.char_tokens, "char_index", "_char_lookup"),
         ]
 
-        # Signature hash to identify visual font configurations
-        mode_tag = "visual" if self.use_visual_prototypes else "text"
+        # Signature hash to identify visual font configurations. The script is
+        # part of the tag so Arabic and Latin caches never collide.
+        mode_tag = f"{'visual' if self.use_visual_prototypes else 'text'}_{self.script}"
         fonts_hash = hashlib.md5(
             "".join(self.prototype_fonts + [str(s) for s in self.slant_angles]).encode()
         ).hexdigest()[:8]
@@ -290,7 +375,10 @@ class EmbeddingVocabulary:
                     for font_p in self.prototype_fonts:
                         for slant in self.slant_angles:
                             img = render_prototype_image(
-                                tok.text, font_path=font_p, shear=slant
+                                tok.text,
+                                font_path=font_p,
+                                shear=slant,
+                                script=self.script,
                             )
                             all_images.append(img)
                             img_token_indices.append(t_idx)

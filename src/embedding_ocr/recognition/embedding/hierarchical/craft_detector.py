@@ -43,11 +43,14 @@ class CraftWordDetector:
                 low_text=self.low_text,
             )
 
-    def detect_word_boxes(self, image: np.ndarray) -> list[tuple[int, int, int, int]]:
-        """Detect word bounding boxes (x, y, w, h) ordered left-to-right.
+    def detect_word_boxes(
+        self, image: np.ndarray, rtl: bool = False
+    ) -> list[tuple[int, int, int, int]]:
+        """Detect word bounding boxes (x, y, w, h) in reading order.
 
         Args:
             image: uint8 numpy array (H, W, 3) or (H, W).
+            rtl: If True, order boxes right-to-left instead of left-to-right.
 
         Returns:
             List of (x, y, w, h) bounding boxes.
@@ -79,6 +82,6 @@ class CraftWordDetector:
             if w > 2 and h > 2:
                 word_boxes.append((min_x, min_y, w, h))
 
-        # Sort left-to-right
-        word_boxes.sort(key=lambda b: b[0])
+        # Sort in reading order (LTR ascending, RTL descending)
+        word_boxes.sort(key=lambda b: b[0], reverse=rtl)
         return word_boxes if word_boxes else [(0, 0, w_img, h_img)]

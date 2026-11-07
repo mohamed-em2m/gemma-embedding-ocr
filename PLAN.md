@@ -85,3 +85,54 @@
 4. **Git Sync**:
    - Ensure `uv run ruff check .`, `uv run mypy src`, `uv run pytest` pass.
    - Commit and push report updates to `main`.
+
+---
+
+## 5. Multilingual Segmentation Roadmap (Active)
+
+**Scope:** Arabic/connected scripts and Latin cursive. **Goal:** separate
+line→word and word→unit segmentation stages. **Constraint:** inference GPU
+only; no fine-tuning or custom detector training in this phase.
+
+### 5.1 Foundational fixes (done)
+- `src/embedding_ocr/data/scripts.py`: Unicode-range script detection,
+  script aliases, RTL detection, reading-order helper.
+- Arabic character classes (`ARABIC_LETTERS`, `ARABIC_CLASSES`,
+  `classes_for_script`) in `data/glyph_renderer.py`.
+- `PrototypeDB` is script-aware: `script="latin"|"arabic"`, classes default
+  from the script, and `script` is persisted in metadata.
+- `PrototypeMatcher` only applies Latin case-pair logic to Latin letters and
+  disables it for RTL scripts (Arabic has no case).
+- RTL reading order added to `CharacterSegmenter`, `VisualWordSegmenter`,
+  `CraftWordDetector`, `HierarchicalWordRecognizer`, and
+  `EmbeddingRecognizer`; recursive subword cuts now return crops in logical
+  order.
+- Latin-only physical length estimates are skipped for non-Latin scripts.
+
+### 5.2 Remaining phases
+1. **Probe detectors/embedders.** Compare PaddleOCR PP-OCRv5 det, Surya det,
+   CRAFT, and EasyOCR on small Arabic + IAM samples; verify EmbeddingGemma 2
+   Arabic retrieval against Jina v4 / SigLIP. Run
+   `scripts/probe_segmentation.py`; it writes
+   `docs/segmentation_probe.json` with box counts, top-1/top-5 retrieval, and
+   latency. Full word-box F1 requires annotated samples and is deferred.
+2. **Line→word adapters.** Add a `WordSegmenter` protocol and backends:
+   PaddleOCR/Surya line det + whitespace split, CRAFT/EasyOCR word boxes, and
+   the improved gap segmenter. Keep current behavior as the default.
+3. **Word→unit segmentation.** Arabic: diacritic merging, positional-form
+   prototypes, RTL grapheme handling. Latin cursive: watershed/seam carving
+   for touching glyphs plus embedding-guided Viterbi alignment for OOV words.
+4. **Multilingual prototypes/vocabulary.** The ASCII-only filter is removed;
+   `EmbeddingVocabulary` is script-aware (Arabic fonts, token filtering,
+   cache tags, RTL rendering) and `EmbeddingAlignmentSegmenter` plus
+   `ArabicUnitSegmenter` provide word→unit alignment. Still to compare text vs
+   visual prototypes and verify tokenizer coverage on real Arabic data.
+5. **Benchmark.** Synthetic Arabic/Latin-cursive renders with held-out fonts,
+   plus IAM and Arabic datasets (MADAR, IFN/ENIT, KHATT, AHCD; verify
+   annotations). Metrics: word-box F1@IoU 0.5, boundary F1, reading-order
+   accuracy, unit accuracy, CER/WER, latency, GPU memory.
+
+### 5.3 Deferred
+- CJK / Thai / Indic scriptio-continua segmentation.
+- Custom DBNet++/FAST/U-Net training (blocked by inference-only constraint).
+- Pretrained CTC aligner experiments (PaddleOCR/EasyOCR internals).

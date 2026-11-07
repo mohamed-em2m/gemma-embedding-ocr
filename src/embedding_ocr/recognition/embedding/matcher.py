@@ -7,6 +7,7 @@ from dataclasses import dataclass
 import numpy as np
 
 from embedding_ocr.data.glyph_renderer import CASE_PAIRS
+from embedding_ocr.data.scripts import is_rtl_script, normalize_script_name
 
 
 @dataclass(frozen=True)
@@ -22,15 +23,35 @@ class MatchPrediction:
 class PrototypeMatcher:
     """Aggregates prototype search hits per character class and resolves case."""
 
-    def __init__(self, case_height_thresh: float = 0.65) -> None:
+    def __init__(
+        self,
+        case_height_thresh: float = 0.65,
+        script: str = "latin",
+        case_sensitive: bool | None = None,
+    ) -> None:
         """Initialize matcher.
 
         Args:
-            case_height_thresh: Relative height threshold to disambiguate lowercase vs uppercase.
+            case_height_thresh: Relative height threshold to disambiguate
+                lowercase vs uppercase Latin letters.
+            script: Script of the prototype classes. RTL scripts such as
+                Arabic have no case, so Latin case-pair logic is disabled.
+            case_sensitive: Explicit override for case resolution. When
+                ``None``, it is enabled only for non-RTL scripts.
         """
         self.case_height_thresh = case_height_thresh
+        self.script = normalize_script_name(script)
+        self.case_sensitive = (
+            case_sensitive
+            if case_sensitive is not None
+            else not is_rtl_script(self.script)
+        )
         self.case_map = dict(CASE_PAIRS)
         self.reverse_case_map = {v: k for k, v in CASE_PAIRS}
+
+    @staticmethod
+    def _is_latin_letter(char: str) -> bool:
+        return len(char) == 1 and char.isascii() and char.isalpha()
 
     def match_character(
         self,
@@ -79,9 +100,13 @@ class PrototypeMatcher:
         # Confidence mapped from similarity and margin
         conf = max(0.0, min(1.0, (top1_sim + margin) / 1.5))
 
-        # Disambiguate case pairs using geometric relative height and baseline cues
+        # Disambiguate case pairs using geometric relative height and baseline
+        # cues. This only applies to Latin letters; Arabic/Hebrew and other
+        # caseless scripts must never be remapped through CASE_PAIRS.
         is_case_candidate = (
-            best_char in self.case_map or best_char in self.reverse_case_map
+            self.case_sensitive
+            and self._is_latin_letter(best_char)
+            and (best_char in self.case_map or best_char in self.reverse_case_map)
         )
         if is_case_candidate:
             # Baseline & Cap-height analysis if available

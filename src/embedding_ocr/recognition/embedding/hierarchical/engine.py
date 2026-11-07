@@ -11,12 +11,16 @@ from __future__ import annotations
 
 import numpy as np
 
+from embedding_ocr.data.scripts import is_rtl_script, normalize_script_name
 from embedding_ocr.pipeline.preprocess import (
     estimate_char_count_and_width,
     preprocess_handwriting_crop,
 )
 from embedding_ocr.recognition.base import RecognitionEngine, RecognitionResult
 from embedding_ocr.recognition.embedding.embedder import Embedder
+from embedding_ocr.recognition.embedding.hierarchical.alignment import (
+    EmbeddingAlignmentSegmenter,
+)
 from embedding_ocr.recognition.embedding.hierarchical.craft_detector import (
     CraftWordDetector,
 )
@@ -46,9 +50,21 @@ class HierarchicalWordRecognizer(RecognitionEngine):
         max_recursion_depth: int = 4,
         top_k: int = 15,
         preprocess_handwriting: bool = False,
+        script: str = "latin",
+        rtl: bool | None = None,
+        unit_aligner: EmbeddingAlignmentSegmenter | None = None,
+        use_alignment: bool | None = None,
+        min_alignment_score: float = 0.35,
     ) -> None:
         self.embedder = embedder
         self.vocabulary = vocabulary
+        self.script = normalize_script_name(script)
+        self.rtl = is_rtl_script(self.script) if rtl is None else rtl
+        self.unit_aligner = unit_aligner
+        self.use_alignment = (
+            use_alignment if use_alignment is not None else self.script != "latin"
+        )
+        self.min_alignment_score = min_alignment_score
         self.segmenter = segmenter or VisualWordSegmenter()
         self.craft_detector = craft_detector
         self.use_craft = use_craft
@@ -71,6 +87,7 @@ class HierarchicalWordRecognizer(RecognitionEngine):
             "total_words": 0,
             "full_word_hits": 0,
             "subword_fallbacks": 0,
+            "alignment_hits": 0,
             "char_fallbacks": 0,
             "unresolved_fallbacks": 0,
         }
@@ -103,16 +120,22 @@ class HierarchicalWordRecognizer(RecognitionEngine):
 
         # If at depth 0, attempt full-word candidate retrieval
         if depth == 0 and self.vocabulary.word_index is not None:
-            # Estimate physical character capacity of the crop
-            est_chars, _ = estimate_char_count_and_width(word_crop)
+            # The physical character-capacity estimate is calibrated for
+            # horizontal Latin text. For other scripts (e.g. Arabic joined
+            # glyphs) skip it rather than rejecting valid candidates.
+            est_chars: int | None = None
+            if self.script == "latin":
+                est_chars, _ = estimate_char_count_and_width(word_crop)
             sims, tokens = self.vocabulary.search_words(query_emb, top_k=self.top_k)
 
-            # Filter candidates whose length deviates excessively from estimated physical capacity
+            # Filter candidates whose length deviates excessively from the
+            # estimated physical capacity (Latin only).
             valid_candidates = []
             for t, s in zip(tokens[0], sims[0], strict=False):
                 char_len = len(t.text.strip())
-                # Allow tolerance (+/- 3 characters or 50% relative margin)
-                if abs(char_len - est_chars) <= max(3, int(est_chars * 0.6)):
+                if est_chars is None or abs(char_len - est_chars) <= max(
+                    3, int(est_chars * 0.6)
+                ):
                     valid_candidates.append((t, float(s)))
 
             if len(valid_candidates) >= 2:
@@ -165,36 +188,59 @@ class HierarchicalWordRecognizer(RecognitionEngine):
                     self._cache[crop_hash] = result
                     return result
 
-        # 3. Recursive splitting if depth limit not reached and width permits
+        # 3. Segmentation-free alignment for cursive/connected scripts. This
+        # avoids hard cuts through joined Arabic letters or Latin cursive.
+        if self.unit_aligner is not None and self.use_alignment:
+            aligned = self.unit_aligner.align(word_crop, rtl=self.rtl)
+            if aligned.text and aligned.score >= self.min_alignment_score:
+                self.stats["alignment_hits"] += 1
+                result = (aligned.text, max(0.0, min(1.0, aligned.score)))
+                self._cache[crop_hash] = result
+                return result
+
+        # 4. Recursive splitting if depth limit not reached and width permits
         # Only split if width is wide enough to contain multiple glyphs
         if depth < self.max_recursion_depth and w >= 32:
-            left_crop, right_crop, cut_x = self.segmenter.split_word_image(word_crop)
+            first_crop, second_crop, cut_x = self.segmenter.split_word_image(
+                word_crop, rtl=self.rtl
+            )
 
             # Ensure valid cut progress
             if cut_x >= 12 and (w - cut_x) >= 12:
-                left_text, left_conf = self.recognize_word_crop(
-                    left_crop, depth=depth + 1
+                first_text, first_conf = self.recognize_word_crop(
+                    first_crop, depth=depth + 1
                 )
-                right_text, right_conf = self.recognize_word_crop(
-                    right_crop, depth=depth + 1
+                second_text, second_conf = self.recognize_word_crop(
+                    second_crop, depth=depth + 1
                 )
 
-                if left_text and right_text and left_text != "?" and right_text != "?":
-                    combined_text = left_text + right_text
+                if (
+                    first_text
+                    and second_text
+                    and first_text != "?"
+                    and second_text != "?"
+                ):
+                    combined_text = first_text + second_text
 
-                    # Length sanity check: prevent subword hallucinations on small crops
-                    est_crop_chars, _ = estimate_char_count_and_width(word_crop)
-                    max_allowed_len = max(4, int(est_crop_chars * 1.5))
+                    # Length sanity check: prevent subword hallucinations on
+                    # small crops. Only Latin has a calibrated estimate.
+                    est_crop_chars: int | None = None
+                    if self.script == "latin":
+                        est_crop_chars, _ = estimate_char_count_and_width(word_crop)
+                    if est_crop_chars is None:
+                        max_allowed_len = max(4, w // 8)
+                    else:
+                        max_allowed_len = max(4, int(est_crop_chars * 1.5))
                     if len(combined_text) > max_allowed_len:
                         # Truncate or suppress runaway subword concatenation
                         combined_text = combined_text[:max_allowed_len]
 
-                    combined_conf = (left_conf + right_conf) / 2.0
+                    combined_conf = (first_conf + second_conf) / 2.0
                     result = (combined_text, combined_conf)
                     self._cache[crop_hash] = result
                     return result
 
-        # 4. Fallback to single character matching
+        # 5. Fallback to single character matching
         if self.vocabulary.char_index is not None:
             sims, tokens = self.vocabulary.search_chars(query_emb, top_k=self.top_k)
             if tokens[0]:
@@ -226,11 +272,12 @@ class HierarchicalWordRecognizer(RecognitionEngine):
         if image is None or image.size == 0:
             return RecognitionResult(text="", confidence=0.0)
 
-        # 1. Propose individual word crops using CRAFT or visual gap segmentation
+        # 1. Propose individual word crops using CRAFT or visual gap segmentation.
+        # Boxes are returned in logical reading order (RTL for Arabic/Hebrew).
         if self.use_craft and self.craft_detector is not None:
-            word_boxes = self.craft_detector.detect_word_boxes(image)
+            word_boxes = self.craft_detector.detect_word_boxes(image, rtl=self.rtl)
         else:
-            word_boxes = self.segmenter.extract_word_boxes(image)
+            word_boxes = self.segmenter.extract_word_boxes(image, rtl=self.rtl)
 
         recognized_words: list[str] = []
         confidences: list[float] = []
@@ -244,6 +291,7 @@ class HierarchicalWordRecognizer(RecognitionEngine):
                 recognized_words.append(text)
                 confidences.append(conf)
 
+        # Joined in reading order; for RTL this produces the logical string.
         final_text = " ".join(recognized_words)
         mean_conf = float(np.mean(confidences)) if confidences else 0.0
 

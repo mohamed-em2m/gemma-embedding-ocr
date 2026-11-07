@@ -8,7 +8,8 @@ from pathlib import Path
 
 import numpy as np
 
-from embedding_ocr.data.glyph_renderer import LATIN_CLASSES, render_glyph
+from embedding_ocr.data.glyph_renderer import classes_for_script, render_glyph
+from embedding_ocr.data.scripts import normalize_script_name
 from embedding_ocr.recognition.embedding.embedder import Embedder
 from embedding_ocr.recognition.embedding.index import VectorIndex
 
@@ -23,6 +24,7 @@ class PrototypeMetadata:
     fonts: list[str]
     canvas_size: int
     n_prototypes: int
+    script: str = "latin"
 
 
 class PrototypeDB:
@@ -32,13 +34,17 @@ class PrototypeDB:
         self,
         embedder: Embedder,
         index: VectorIndex,
-        classes: Sequence[str] = LATIN_CLASSES,
+        classes: Sequence[str] | None = None,
         canvas_size: int = 64,
         font_size: int = 44,
+        script: str = "latin",
     ) -> None:
         self.embedder = embedder
         self.index = index
-        self.classes = list(classes)
+        self.script = normalize_script_name(script)
+        self.classes = (
+            list(classes) if classes is not None else classes_for_script(self.script)
+        )
         self.canvas_size = canvas_size
         self.font_size = font_size
         self.labels: list[str] = []
@@ -61,6 +67,7 @@ class PrototypeDB:
                     font_path=font_p,
                     canvas_size=self.canvas_size,
                     font_size=self.font_size,
+                    script=self.script,
                 )
                 images.append(np.array(pil_img, dtype=np.uint8))
                 labels.append(char)
@@ -84,6 +91,7 @@ class PrototypeDB:
             "canvas_size": self.canvas_size,
             "font_size": self.font_size,
             "labels": self.labels,
+            "script": self.script,
         }
         meta_file = path.with_suffix(".labels.json")
         import json
@@ -100,7 +108,13 @@ class PrototypeDB:
         import json
 
         meta = json.loads(meta_file.read_text())
-        self.classes = meta.get("classes", self.classes)
+        self.script = normalize_script_name(meta.get("script", self.script))
+        saved_classes = meta.get("classes")
+        self.classes = (
+            list(saved_classes)
+            if saved_classes is not None
+            else classes_for_script(self.script)
+        )
         self.fonts = meta.get("fonts", self.fonts)
         self.canvas_size = meta.get("canvas_size", self.canvas_size)
         self.font_size = meta.get("font_size", self.font_size)
@@ -118,6 +132,13 @@ class PrototypeDB:
         Returns:
             Tuple of (similarities: np.ndarray, retrieved_character_labels: list[list[str]]).
         """
-        similarities, ids = self.index.search(query_embeddings, k=top_k)
-        retrieved_labels = [[self.labels[idx] for idx in row] for row in ids]
+        if not self.labels:
+            empty = np.empty((len(query_embeddings), 0), dtype=np.float32)
+            return empty, [[] for _ in range(len(query_embeddings))]
+
+        # FAISS returns -1 ids when k exceeds the number of prototypes; clamp
+        # so callers never index labels[-1] accidentally.
+        k = max(1, min(top_k, len(self.labels)))
+        similarities, ids = self.index.search(query_embeddings, k=k)
+        retrieved_labels = [[self.labels[int(idx)] for idx in row] for row in ids]
         return similarities, retrieved_labels

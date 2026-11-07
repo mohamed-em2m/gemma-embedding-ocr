@@ -4,8 +4,9 @@ Modular OCR system that replaces conventional character recognition with
 **visual embedding matching**, while preserving the standard OCR detection
 and processing pipeline.
 
-> **Scope:** Latin script only (a-z / A-Z). Arabic and other connected scripts
-> are out of scope for v1 and listed as future work.
+> **Scope:** Latin script first (a-z / A-Z). Multilingual segmentation work is
+> now active for Arabic/connected scripts and Latin cursive; CJK, Indic, and
+> Thai/Lao/Khmer remain future work.
 
 ---
 

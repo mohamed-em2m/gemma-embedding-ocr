@@ -33,14 +33,17 @@ class VisualWordSegmenter:
         )
         return binary
 
-    def extract_word_boxes(self, image: np.ndarray) -> list[tuple[int, int, int, int]]:
+    def extract_word_boxes(
+        self, image: np.ndarray, rtl: bool = False
+    ) -> list[tuple[int, int, int, int]]:
         """Derive word proposals from text-line regions using whitespace gaps and connected components.
 
         Args:
             image: uint8 numpy array (H, W, 3) or (H, W).
+            rtl: If True, return boxes in right-to-left reading order.
 
         Returns:
-            List of (x, y, w, h) bounding boxes for words, ordered left to right.
+            List of (x, y, w, h) bounding boxes for words in reading order.
         """
         binary = self.binarize(image)
         h_img, w_img = binary.shape
@@ -64,19 +67,24 @@ class VisualWordSegmenter:
         if not components:
             return [(0, 0, w_img, h_img)]
 
-        components.sort(key=lambda c: c[0])
+        components.sort(key=lambda c: c[0], reverse=rtl)
 
         widths = [c[2] for c in components]
         heights = [c[3] for c in components]
         typical_w = float(np.median(widths)) if widths else 20.0
         typical_h = float(np.median(heights)) if heights else 30.0
 
-        # Inter-character gaps
+        # Inter-character gaps in reading order. For RTL, the previous
+        # component sits to the right of the current one.
         gaps: list[float] = []
         for i in range(1, len(components)):
             prev_x, _, prev_w, _ = components[i - 1]
-            curr_x = components[i][0]
-            gaps.append(float(curr_x - (prev_x + prev_w)))
+            curr_x, _, curr_w, _ = components[i]
+            if rtl:
+                gap = float(prev_x - (curr_x + curr_w))
+            else:
+                gap = float(curr_x - (prev_x + prev_w))
+            gaps.append(max(0.0, gap))
 
         # Dynamic inter-word space threshold
         # Inter-character gaps in standard Latin text are typically 1-4 pixels,
@@ -185,14 +193,20 @@ class VisualWordSegmenter:
         self,
         image: np.ndarray,
         padding_cut: int = 4,
+        rtl: bool = False,
     ) -> tuple[np.ndarray, np.ndarray, int]:
-        """Split a word image into left and right sub-crops using the visual boundary.
+        """Split a word image into two sub-crops using the visual boundary.
+
+        Args:
+            image: uint8 numpy array (H, W, 3) or (H, W).
+            padding_cut: Horizontal white padding added to each sub-crop.
+            rtl: If True, return the right sub-crop first (logical reading order).
 
         Returns:
-            (left_image, right_image, cut_x)
+            (first_image, second_image, cut_x) where ``first_image`` is the
+            left crop for LTR and the right crop for RTL.
         """
         cut_x = self.find_optimal_cut_boundary(image)
-        h, w = image.shape[:2]
 
         left_crop = image[:, :cut_x]
         right_crop = image[:, cut_x:]
@@ -206,4 +220,6 @@ class VisualWordSegmenter:
             padded[:, padding_cut : padding_cut + cw] = crop
             return padded
 
+        if rtl:
+            return pad_crop(right_crop), pad_crop(left_crop), cut_x
         return pad_crop(left_crop), pad_crop(right_crop), cut_x
