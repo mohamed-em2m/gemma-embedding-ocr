@@ -1,4 +1,7 @@
-.PHONY: install lint format format-check typecheck test check prototypes vocabulary spike
+.PHONY: setup install lint format format-check typecheck test check prototypes vocabulary spike
+
+setup:
+	bash scripts/setup_env.sh
 
 install:
 	uv sync --group dev

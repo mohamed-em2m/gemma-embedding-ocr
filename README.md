@@ -35,8 +35,19 @@ multimodal model (text, image, audio) in a shared 768-d space (Matryoshka:
 
 ## Installation
 
+One-shot setup (system packages/fonts, uv, all core extras, font catalogs,
+pre-commit hooks):
+
 ```bash
-# Python >= 3.11 required; managed with uv only
+bash scripts/setup_env.sh
+bash scripts/setup_env.sh --all-extras   # also jina/craft/surya
+bash scripts/setup_env.sh --check        # also run lint/types/tests
+# or: make setup
+```
+
+Or manage the Python environment manually (Python >= 3.11, uv only):
+
+```bash
 uv sync --group dev
 uv sync --extra baseline      # PaddleOCR/PaddlePaddle baseline
 uv sync --extra tesseract --extra easyocr  # conventional baselines
