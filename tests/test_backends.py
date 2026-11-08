@@ -12,6 +12,7 @@ from embedding_ocr.recognition.embedding.embedder import (
     _default_rope_parameters,
     _ensure_default_rope_init,
     _feature_tensor,
+    _patch_jina_remote_code,
     _to_numpy,
     _truncate_and_normalize,
 )
@@ -58,9 +59,7 @@ def test_feature_tensor_unwraps_tuple_outputs() -> None:
 def test_to_numpy_unwraps_model_output() -> None:
     from transformers.modeling_outputs import BaseModelOutputWithPooling
 
-    output = BaseModelOutputWithPooling(
-        pooler_output=torch.FloatTensor([[1.0, 2.0]])
-    )
+    output = BaseModelOutputWithPooling(pooler_output=torch.FloatTensor([[1.0, 2.0]]))
     np.testing.assert_array_equal(_to_numpy(output), [[1.0, 2.0]])
 
 
@@ -129,6 +128,39 @@ def test_default_rope_parameters_matches_standard_rope() -> None:
     assert scaling == 1.0
 
 
+def test_patch_jina_remote_code_exposes_processor_classes(monkeypatch) -> None:
+    import transformers.dynamic_module_utils as dynamic_module_utils
+
+    class BaseProcessor:
+        image_processor_class = "AutoImageProcessor"
+        tokenizer_class = ("Qwen2Tokenizer", "Qwen2TokenizerFast")
+        video_processor_class = "AutoVideoProcessor"
+
+    class FakeProcessor(BaseProcessor):
+        def __init__(self, *args: object, **kwargs: object) -> None:
+            pass
+
+    class FakeModel:
+        _tied_weights_keys = ["model.embed_tokens.weight"]
+
+    def fake_get_class(module_name: str, model_id: str) -> type[object]:
+        del model_id
+        return FakeModel if "Model" in module_name else FakeProcessor
+
+    monkeypatch.setattr(
+        dynamic_module_utils, "get_class_from_dynamic_module", fake_get_class
+    )
+    _patch_jina_remote_code("jinaai/jina-embeddings-v4")
+
+    assert FakeModel._tied_weights_keys == {}
+    for attribute in (
+        "image_processor_class",
+        "tokenizer_class",
+        "video_processor_class",
+    ):
+        assert attribute in FakeProcessor.__dict__
+
+
 def test_oxr_auto_backend_selection() -> None:
     assert (
         OXRRecognizer("https://free-oxr.somark.ai/api/v1")._resolved_backend()
@@ -179,9 +211,7 @@ def test_oxr_retries_after_timeout(monkeypatch) -> None:
         def __exit__(self, *args: object) -> None:
             return None
 
-    def fake_urlopen(
-        request: object, timeout: float | None = None
-    ) -> FakeResponse:
+    def fake_urlopen(request: object, timeout: float | None = None) -> FakeResponse:
         calls["count"] += 1
         if calls["count"] == 1:
             raise TimeoutError("timed out")

@@ -299,23 +299,48 @@ def _ensure_default_rope_init() -> None:
 def _patch_jina_remote_code(model_id: str) -> None:
     """Adapt Jina v4's bundled Qwen code to transformers 5.x.
 
-    The remote class declares ``_tied_weights_keys`` as a list, while
-    transformers 5 expects a mapping during ``post_init``.  Patch the loaded
-    class attribute before ``from_pretrained`` builds the model.
+    Two compatibility issues are handled before ``from_pretrained``:
+
+    1. The remote model declares ``_tied_weights_keys`` as a list, while
+       transformers 5 expects a mapping during ``post_init``.
+    2. The remote processor overrides ``__init__`` as ``(*args, **kwargs)``.
+       transformers 5 infers sub-processors from ``cls.__dict__`` when the
+       signature is opaque, so inherited ``*_class`` attributes are invisible
+       and the processor is built with ``tokenizer=None``.  Copy those class
+       attributes onto the remote processor so its tokenizer/image processor
+       load correctly.
     """
     try:
         from transformers.dynamic_module_utils import get_class_from_dynamic_module
     except ImportError:  # pragma: no cover - transformers is optional
         return
+
     try:
         model_class = get_class_from_dynamic_module(
             "modeling_jina_embeddings_v4.JinaEmbeddingsV4Model", model_id
         )
     except Exception:  # pragma: no cover - offline or remote-code failure
-        return
-    if isinstance(getattr(model_class, "_tied_weights_keys", None), list):
+        model_class = None
+    if model_class is not None and isinstance(
+        getattr(model_class, "_tied_weights_keys", None), list
+    ):
         model_class_any: Any = model_class
         model_class_any._tied_weights_keys = {}
+
+    try:
+        processor_class = get_class_from_dynamic_module(
+            "modeling_jina_embeddings_v4.JinaEmbeddingsV4Processor", model_id
+        )
+    except Exception:  # pragma: no cover - offline or remote-code failure
+        return
+    for attribute in (
+        "image_processor_class",
+        "tokenizer_class",
+        "video_processor_class",
+    ):
+        value = getattr(processor_class, attribute, None)
+        if value is not None and attribute not in processor_class.__dict__:
+            setattr(processor_class, attribute, value)
 
 
 def _truncate_and_normalize(vectors: np.ndarray, dim: int) -> np.ndarray:
