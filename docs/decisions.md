@@ -227,3 +227,26 @@ Limitations:
   requires line-level Arabic fine-tuning data that this project does not have.
 - The adapter assumes the Latin charset by default; a checkpoint trained with a
   different charset must ship a matching JSON charset.
+
+## 11. Held-out Latin/Arabic OOD Benchmark (November 2026)
+
+The previous word benchmark added `EVAL_WORDS` to the EmbeddingOCR
+hierarchical vocabulary, and its prototype fonts were not guaranteed to be
+disjoint from the evaluation fonts. Those numbers are therefore not a clean
+held-out test.
+
+Decision:
+- `scripts/build_ood_dataset.py` renders a deterministic held-out dataset with
+  Latin and Arabic glyphs, words, phrases, Arabic diacritics and ligatures.
+- Prototype fonts and evaluation fonts are disjoint for each script; the split
+  is recorded in `dataset.json`.
+- `scripts/benchmark_ood_ocr.py` reads the manifest, feeds identical crops to
+  GLM-OCR and EmbeddingOCR, and never passes evaluation words as `extra_lexicon`.
+- Conditions are `clean`, `mild` and `hard`. Hard combines downscaling, JPEG
+  artifacts, mild perspective, blur, noise and contrast changes while keeping
+  text human-readable.
+- Generated images live under `data/` (gitignored); only the generator,
+  manifest schema and tests are committed.
+- The real `google/embeddinggemma-2` and `zai-org/GLM-OCR` checkpoints are not
+  cached in this environment, so a full local benchmark run still requires
+  downloading them and enough RAM/GPU memory.
