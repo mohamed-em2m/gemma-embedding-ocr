@@ -17,6 +17,7 @@ EmbeddingGemma2 facts (verified Phase 0):
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from typing import Any, Protocol, runtime_checkable
 
 import numpy as np
@@ -190,34 +191,55 @@ def _feature_tensor(value: object) -> object:
     """
     if isinstance(value, torch.Tensor):
         return value
+    if isinstance(value, (tuple, list)) and value:
+        return _feature_tensor(value[0])
     if isinstance(value, dict):
         for key in (
             "image_embeds",
             "text_embeds",
+            "embeddings",
+            "image_features",
+            "text_features",
+            "single_vec_emb",
             "pooler_output",
             "last_hidden_state",
         ):
             candidate = value.get(key)
             if candidate is not None:
                 return candidate
-    for attr in ("image_embeds", "text_embeds", "pooler_output", "last_hidden_state"):
+    for attr in (
+        "image_embeds",
+        "text_embeds",
+        "embeddings",
+        "image_features",
+        "text_features",
+        "single_vec_emb",
+        "pooler_output",
+        "last_hidden_state",
+    ):
         candidate = getattr(value, attr, None)
         if candidate is not None:
             return candidate
     msg = (
         "Could not extract an embedding tensor from "
         f"{type(value).__name__}; expected a tensor or a model output with "
-        "image_embeds/text_embeds/pooler_output/last_hidden_state."
+        "image_embeds/text_embeds/embeddings/pooler_output/last_hidden_state."
     )
     raise TypeError(msg)
 
 
 def _to_numpy(value: object) -> np.ndarray:
-    """Convert a torch tensor / array-like to a float32 numpy array."""
-    import torch
-
+    """Convert a torch tensor / model output / array-like to float32 numpy."""
     if isinstance(value, torch.Tensor):
         return value.detach().cpu().float().numpy()
+    if isinstance(value, np.ndarray):
+        return np.asarray(value, dtype=np.float32)
+    if isinstance(value, (tuple, list)):
+        if not value:
+            return np.empty((0, 0), dtype=np.float32)
+        return np.stack([_to_numpy(item) for item in value])
+    if isinstance(value, dict) or hasattr(value, "pooler_output"):
+        return _to_numpy(_feature_tensor(value))
     return np.asarray(value, dtype=np.float32)
 
 
@@ -226,6 +248,7 @@ def _default_rope_parameters(
     device: torch.device | str | None = None,
     seq_len: int | None = None,
     layer_type: str | None = None,
+    **kwargs: object,
 ) -> tuple[torch.Tensor, float]:
     """Compute ordinary RoPE inverse frequencies.
 
@@ -233,14 +256,19 @@ def _default_rope_parameters(
     ``ROPE_INIT_FUNCTIONS``. Jina v4's bundled Qwen2.5-VL code still looks it
     up by name, which raises ``KeyError: 'default'`` on model construction.
     """
-    del seq_len, layer_type
-    rope_parameters = getattr(config, "rope_parameters", None) or {}
+    del seq_len, layer_type, kwargs
+    rope_parameters = getattr(config, "rope_parameters", None)
+    if not isinstance(rope_parameters, dict):
+        rope_parameters = getattr(config, "rope_scaling", None)
     if not isinstance(rope_parameters, dict):
         rope_parameters = {}
 
-    base = float(
-        rope_parameters.get("rope_theta", getattr(config, "rope_theta", 10000.0))
+    base_value = (
+        rope_parameters.get("rope_theta")
+        or getattr(config, "rope_theta", None)
+        or 10000.0
     )
+    base = float(base_value)
     partial = rope_parameters.get(
         "partial_rotary_factor",
         getattr(config, "partial_rotary_factor", 1.0),
@@ -266,6 +294,28 @@ def _ensure_default_rope_init() -> None:
     except ImportError:  # pragma: no cover - transformers is an optional runtime dep
         return
     ROPE_INIT_FUNCTIONS.setdefault("default", _default_rope_parameters)
+
+
+def _patch_jina_remote_code(model_id: str) -> None:
+    """Adapt Jina v4's bundled Qwen code to transformers 5.x.
+
+    The remote class declares ``_tied_weights_keys`` as a list, while
+    transformers 5 expects a mapping during ``post_init``.  Patch the loaded
+    class attribute before ``from_pretrained`` builds the model.
+    """
+    try:
+        from transformers.dynamic_module_utils import get_class_from_dynamic_module
+    except ImportError:  # pragma: no cover - transformers is optional
+        return
+    try:
+        model_class = get_class_from_dynamic_module(
+            "modeling_jina_embeddings_v4.JinaEmbeddingsV4Model", model_id
+        )
+    except Exception:  # pragma: no cover - offline or remote-code failure
+        return
+    if isinstance(getattr(model_class, "_tied_weights_keys", None), list):
+        model_class_any: Any = model_class
+        model_class_any._tied_weights_keys = {}
 
 
 def _truncate_and_normalize(vectors: np.ndarray, dim: int) -> np.ndarray:
@@ -346,7 +396,9 @@ class SiglipEmbedder:
         )
 
     def _features_to_numpy(self, features: object) -> np.ndarray:
-        array = _to_numpy(_feature_tensor(features))
+        array = _to_numpy(features)
+        if array.ndim == 3:
+            array = array.mean(axis=1)
         return _truncate_and_normalize(array, self.dim)
 
     def embed_images(self, images: list[np.ndarray]) -> np.ndarray:
@@ -446,24 +498,53 @@ class JinaEmbeddingsV4:
         if self._device == "auto":
             self._device = "cpu"
         torch_dtype = torch.bfloat16 if dtype == "bfloat16" else torch.float32
+        if self._device == "cpu" and dtype == "bfloat16":
+            torch_dtype = torch.float32
 
         _ensure_default_rope_init()
-        self._model = AutoModel.from_pretrained(
-            self.name,
-            trust_remote_code=True,
-            torch_dtype=torch_dtype,
-        )
+        _patch_jina_remote_code(self.name)
+        try:
+            self._model = AutoModel.from_pretrained(
+                self.name,
+                trust_remote_code=True,
+                torch_dtype=torch_dtype,
+                attn_implementation="sdpa",
+            )
+        except ImportError as exc:
+            msg = (
+                "Jina v4 remote code requires the optional `peft` and "
+                "`torchvision` dependencies. Install them with "
+                "`uv sync --extra jina` (or `uv pip install peft torchvision`)."
+            )
+            raise ImportError(msg) from exc
         self._model.to(self._device)
         self._model.eval()
 
     def _encode(self, method: str, **kwargs: object) -> np.ndarray:
-        """Call a remote ``encode_*`` method with truncate_dim when supported."""
+        """Call a remote ``encode_*`` method with the supported kwargs."""
+        import inspect
+
         encoder = getattr(self._model, method)
         try:
-            result = encoder(truncate_dim=self.dim, return_numpy=True, **kwargs)
-        except TypeError:
-            result = encoder(**kwargs)
-        return _truncate_and_normalize(_to_numpy(result), self.dim)
+            parameters: Mapping[str, inspect.Parameter] = inspect.signature(
+                encoder
+            ).parameters
+        except (TypeError, ValueError):  # pragma: no cover - exotic callables
+            parameters = {}
+        accepts_extra = not parameters or any(
+            parameter.kind is inspect.Parameter.VAR_KEYWORD
+            for parameter in parameters.values()
+        )
+        call_kwargs = {
+            key: value
+            for key, value in kwargs.items()
+            if accepts_extra or key in parameters
+        }
+        if accepts_extra or "return_numpy" in parameters:
+            call_kwargs["return_numpy"] = True
+        if accepts_extra or "truncate_dim" in parameters:
+            call_kwargs["truncate_dim"] = self.dim
+        return _truncate_and_normalize(_to_numpy(encoder(**call_kwargs)), self.dim)
 
     def embed_images(self, images: list[np.ndarray]) -> np.ndarray:
         """Embed uint8 (H, W, 3) images into (n, dim) unit vectors."""

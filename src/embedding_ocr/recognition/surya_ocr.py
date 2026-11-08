@@ -18,8 +18,10 @@ returned HTML blocks into plain text.
 from __future__ import annotations
 
 import html
+import inspect
 import os
 import re
+from collections.abc import Mapping
 from typing import Any
 
 import numpy as np
@@ -70,7 +72,8 @@ class SuryaOCRRecognizer(RecognitionEngine):
             msg = (
                 "surya-ocr is not installed. Install it with "
                 "`uv sync --extra surya` or `uv pip install surya-ocr`, then "
-                "ensure a vLLM (CUDA) or llama.cpp (CPU) backend is available."
+                "ensure a vLLM (CUDA) or llama.cpp (CPU) backend is available "
+                "or point SURYA_INFERENCE_URL at a running server."
             )
             raise ImportError(msg) from exc
 
@@ -84,18 +87,36 @@ class SuryaOCRRecognizer(RecognitionEngine):
 
         self.model_id = model_id
         self.max_new_tokens = max_new_tokens
-        self._manager = SuryaInferenceManager()
-        self._predictor = RecognitionPredictor(self._manager)
+        try:
+            self._manager = SuryaInferenceManager()
+            self._predictor = RecognitionPredictor(self._manager)
+        except Exception as exc:  # pragma: no cover - depends on runtime backend
+            msg = (
+                "Surya could not start its inference backend. GPU runs need "
+                "vLLM (Docker + NVIDIA Container Toolkit); CPU runs need the "
+                "llama.cpp `llama-server` binary. Alternatively set "
+                "SURYA_INFERENCE_URL=http://host:port/v1 to reuse a running "
+                f"server. Original error: {type(exc).__name__}: {exc}"
+            )
+            raise RuntimeError(msg) from exc
 
     def recognize(self, image: np.ndarray) -> RecognitionResult:
         """Recognize text in a single text-region crop."""
         pil_image = Image.fromarray(image).convert("RGB")
+        call_kwargs: dict[str, object] = {}
         try:
-            predictions = self._predictor(
-                [pil_image], max_new_tokens=self.max_new_tokens
-            )
-        except TypeError:
-            predictions = self._predictor([pil_image])
+            parameters: Mapping[str, inspect.Parameter] = inspect.signature(
+                self._predictor.__call__
+            ).parameters
+        except (TypeError, ValueError):  # pragma: no cover - exotic callables
+            parameters = {}
+        accepts_extra = not parameters or any(
+            parameter.kind is inspect.Parameter.VAR_KEYWORD
+            for parameter in parameters.values()
+        )
+        if accepts_extra or "max_new_tokens" in parameters:
+            call_kwargs["max_new_tokens"] = self.max_new_tokens
+        predictions = self._predictor([pil_image], **call_kwargs)
 
         if not predictions:
             return RecognitionResult(text="", confidence=0.0)

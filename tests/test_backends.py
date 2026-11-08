@@ -5,11 +5,14 @@ from __future__ import annotations
 from types import SimpleNamespace
 
 import numpy as np
+import torch
 
 from embedding_ocr.config import AppConfig
 from embedding_ocr.recognition.embedding.embedder import (
     _default_rope_parameters,
+    _ensure_default_rope_init,
     _feature_tensor,
+    _to_numpy,
     _truncate_and_normalize,
 )
 from embedding_ocr.recognition.factory import build_recognizer
@@ -47,6 +50,72 @@ def test_feature_tensor_reads_dict_embedding_fields() -> None:
     assert _feature_tensor({"image_embeds": expected}) is expected
 
 
+def test_feature_tensor_unwraps_tuple_outputs() -> None:
+    expected = torch.tensor([[1.0, 2.0]])
+    assert _feature_tensor((expected,)) is expected
+
+
+def test_to_numpy_unwraps_model_output() -> None:
+    from transformers.modeling_outputs import BaseModelOutputWithPooling
+
+    output = BaseModelOutputWithPooling(
+        pooler_output=torch.FloatTensor([[1.0, 2.0]])
+    )
+    np.testing.assert_array_equal(_to_numpy(output), [[1.0, 2.0]])
+
+
+def test_to_numpy_stacks_tensor_lists() -> None:
+    values = [torch.tensor([1.0, 2.0]), torch.tensor([3.0, 4.0])]
+    np.testing.assert_array_equal(_to_numpy(values), [[1.0, 2.0], [3.0, 4.0]])
+
+
+def test_siglip_features_mean_pool_sequence_output() -> None:
+    from transformers.modeling_outputs import BaseModelOutputWithPooling
+
+    from embedding_ocr.recognition.embedding.embedder import SiglipEmbedder
+
+    embedder = object.__new__(SiglipEmbedder)
+    embedder.dim = 2
+    output = BaseModelOutputWithPooling(
+        last_hidden_state=torch.FloatTensor([[[1.0, 0.0], [3.0, 0.0]]])
+    )
+    np.testing.assert_allclose(embedder._features_to_numpy(output), [[1.0, 0.0]])
+
+
+def test_default_rope_parameters_reads_rope_scaling_fallback() -> None:
+    config = SimpleNamespace(
+        rope_scaling={"rope_type": "default"},
+        rope_theta=10000.0,
+        hidden_size=8,
+        num_attention_heads=2,
+        head_dim=4,
+    )
+    inv_freq, scaling = _default_rope_parameters(config)
+    expected = 1.0 / (10000.0 ** (np.arange(0, 4, 2, dtype=np.float32) / 4))
+    np.testing.assert_allclose(inv_freq.numpy(), expected, rtol=1e-6)
+    assert scaling == 1.0
+
+
+def test_default_rope_parameters_ignores_none_theta() -> None:
+    config = SimpleNamespace(
+        rope_parameters={"rope_type": "default", "rope_theta": None},
+        rope_theta=10000.0,
+        hidden_size=8,
+        num_attention_heads=2,
+        head_dim=4,
+    )
+    inv_freq, _ = _default_rope_parameters(config)
+    expected = 1.0 / (10000.0 ** (np.arange(0, 4, 2, dtype=np.float32) / 4))
+    np.testing.assert_allclose(inv_freq.numpy(), expected, rtol=1e-6)
+
+
+def test_ensure_default_rope_init_registers_entry() -> None:
+    from transformers.modeling_rope_utils import ROPE_INIT_FUNCTIONS
+
+    _ensure_default_rope_init()
+    assert callable(ROPE_INIT_FUNCTIONS["default"])
+
+
 def test_default_rope_parameters_matches_standard_rope() -> None:
     config = SimpleNamespace(
         rope_parameters={"rope_theta": 10000.0},
@@ -76,6 +145,55 @@ def test_oxr_auto_backend_selection() -> None:
 def test_oxr_extract_markdown_response() -> None:
     payload = {"code": 0, "data": {"outputs": {"markdown": "<p>A</p>"}}}
     assert _extract_parse_text(payload) == "<p>A</p>"
+
+
+def test_oxr_extract_public_api_nested_result() -> None:
+    payload = {
+        "code": 0,
+        "data": {
+            "result": {
+                "outputs": {
+                    "markdown": "A\n",
+                    "json": {"pages": [{"blocks": [{"idx": 0, "content": "A"}]}]},
+                }
+            }
+        },
+    }
+    assert _extract_parse_text(payload) == "A"
+
+
+def test_oxr_retries_after_timeout(monkeypatch) -> None:
+    import embedding_ocr.recognition.oxr as oxr_module
+
+    calls = {"count": 0}
+
+    class FakeResponse:
+        headers: dict[str, str] = {}
+
+        def read(self) -> bytes:
+            return b'{"code": 0, "data": {"result": {"outputs": {"markdown": "A"}}}}'
+
+        def __enter__(self) -> FakeResponse:
+            return self
+
+        def __exit__(self, *args: object) -> None:
+            return None
+
+    def fake_urlopen(
+        request: object, timeout: float | None = None
+    ) -> FakeResponse:
+        calls["count"] += 1
+        if calls["count"] == 1:
+            raise TimeoutError("timed out")
+        return FakeResponse()
+
+    monkeypatch.setattr(oxr_module.urllib.request, "urlopen", fake_urlopen)
+    recognizer = OXRRecognizer(retries=1, retry_backoff=0.0)
+    body, _ = recognizer._open(
+        oxr_module.urllib.request.Request("http://example.invalid/v1/parse/sync")
+    )
+    assert calls["count"] == 2
+    assert _extract_parse_text(body) == "A"
 
 
 def test_oxr_extract_json_response_orders_blocks() -> None:

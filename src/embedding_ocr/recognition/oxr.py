@@ -38,6 +38,7 @@ import io
 import json
 import re
 import secrets
+import time
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -51,6 +52,18 @@ from embedding_ocr.recognition.base import RecognitionEngine, RecognitionResult
 _DEFAULT_PROMPT = "Extract all text from this image. Output only the text."
 _FREE_API_URL = "https://free-oxr.somark.ai/api/v1"
 _TAG_RE = re.compile(r"<[^>]+>")
+_RETRYABLE_HTTP = frozenset({408, 425, 429, 500, 502, 503, 504})
+
+
+def _read_error_detail(exc: urllib.error.HTTPError) -> str:
+    try:
+        return exc.read().decode("utf-8", errors="replace")[:500]
+    except Exception:  # pragma: no cover - best-effort diagnostics
+        return ""
+
+
+def _is_timeout(reason: object) -> bool:
+    return isinstance(reason, TimeoutError) or "timed out" in str(reason).lower()
 
 
 def _strip_markup(text: str) -> str:
@@ -71,7 +84,9 @@ class OXRRecognizer(RecognitionEngine):
         prompt: str = _DEFAULT_PROMPT,
         backend: str = "auto",
         max_tokens: int = 128,
-        timeout: float = 120.0,
+        timeout: float = 180.0,
+        retries: int = 2,
+        retry_backoff: float = 1.0,
     ) -> None:
         """Configure the client.
 
@@ -87,9 +102,16 @@ class OXRRecognizer(RecognitionEngine):
                 (OpenAI ``/chat/completions``).
             max_tokens: Generation budget per crop (chat backend only).
             timeout: Per-request timeout in seconds.
+            retries: Additional attempts after a timeout or transient server
+                error (HTTP 408, 429, 500, 502, 503, 504).
+            retry_backoff: Base delay in seconds between retries (doubles each
+                attempt).
         """
         if backend not in {"auto", "parse", "chat"}:
             msg = f"backend must be 'auto', 'parse' or 'chat'; got {backend!r}"
+            raise ValueError(msg)
+        if retries < 0:
+            msg = f"retries must be non-negative; got {retries}"
             raise ValueError(msg)
 
         self.base_url = base_url.rstrip("/")
@@ -99,6 +121,8 @@ class OXRRecognizer(RecognitionEngine):
         self.backend = backend
         self.max_tokens = max_tokens
         self.timeout = timeout
+        self.retries = retries
+        self.retry_backoff = retry_backoff
 
     # ------------------------------------------------------------------
     # Backend selection
@@ -215,26 +239,51 @@ class OXRRecognizer(RecognitionEngine):
     def _open(
         self, request: urllib.request.Request
     ) -> tuple[dict[str, Any], dict[str, str]]:
-        try:
-            with urllib.request.urlopen(request, timeout=self.timeout) as response:
-                raw = response.read().decode("utf-8")
-                headers = dict(response.headers.items())
-        except urllib.error.HTTPError as exc:
-            detail = ""
+        for attempt in range(self.retries + 1):
             try:
-                detail = exc.read().decode("utf-8", errors="replace")[:500]
-            except Exception:  # pragma: no cover - best-effort diagnostics
-                detail = ""
-            msg = (
-                f"OXR request failed at {self.base_url} (HTTP {exc.code}). "
-                f"{_server_hint()} {detail}".strip()
-            )
-            raise RuntimeError(msg) from exc
-        except urllib.error.URLError as exc:
-            msg = (
-                f"OXR request failed at {self.base_url}. {_server_hint()} {exc}".strip()
-            )
-            raise RuntimeError(msg) from exc
+                with urllib.request.urlopen(request, timeout=self.timeout) as response:
+                    raw = response.read().decode("utf-8")
+                    headers = dict(response.headers.items())
+                break
+            except urllib.error.HTTPError as exc:
+                detail = _read_error_detail(exc)
+                if exc.code in _RETRYABLE_HTTP and attempt < self.retries:
+                    self._backoff(attempt)
+                    continue
+                msg = (
+                    f"OXR request failed at {self.base_url} (HTTP {exc.code}). "
+                    f"{_server_hint()} {detail}".strip()
+                )
+                raise RuntimeError(msg) from exc
+            except TimeoutError as exc:
+                if attempt < self.retries:
+                    self._backoff(attempt)
+                    continue
+                msg = (
+                    f"OXR request timed out after {self.timeout:g}s at "
+                    f"{self.base_url} ({attempt + 1} attempt(s)). "
+                    f"{_server_hint()}"
+                )
+                raise RuntimeError(msg) from exc
+            except urllib.error.URLError as exc:
+                if _is_timeout(exc.reason) and attempt < self.retries:
+                    self._backoff(attempt)
+                    continue
+                if _is_timeout(exc.reason):
+                    msg = (
+                        f"OXR request timed out after {self.timeout:g}s at "
+                        f"{self.base_url} ({attempt + 1} attempt(s)). "
+                        f"{_server_hint()}"
+                    )
+                else:
+                    msg = (
+                        f"OXR request failed at {self.base_url}. "
+                        f"{_server_hint()} {exc}".strip()
+                    )
+                raise RuntimeError(msg) from exc
+        else:  # pragma: no cover - defensive; every branch raises on the last attempt
+            msg = f"OXR request failed after {self.retries + 1} attempts."
+            raise RuntimeError(msg)
 
         try:
             parsed = json.loads(raw)
@@ -245,6 +294,10 @@ class OXRRecognizer(RecognitionEngine):
             msg = f"OXR returned an unexpected JSON payload: {type(parsed).__name__}"
             raise RuntimeError(msg)
         return parsed, headers
+
+    def _backoff(self, attempt: int) -> None:
+        if self.retry_backoff > 0:
+            time.sleep(self.retry_backoff * (2**attempt))
 
     # ------------------------------------------------------------------
     # Recognition
@@ -299,9 +352,27 @@ def _encode_multipart(
 
 
 def _extract_parse_text(body: dict[str, Any]) -> str:
-    """Pull text out of a SoMark/OXR ``/parse/sync`` response."""
+    """Pull text out of a SoMark/OXR ``/parse/sync`` response.
+
+    The public API nests the outputs under ``data.result.outputs`` while some
+    self-hosted versions return ``data.outputs`` directly, so both layouts are
+    accepted.
+    """
     data = body.get("data") or {}
-    outputs = data.get("outputs") or {}
+    if not isinstance(data, dict):
+        return ""
+
+    candidates = [data.get("result"), data]
+    for candidate in candidates:
+        if not isinstance(candidate, dict):
+            continue
+        text = _outputs_text(candidate.get("outputs"))
+        if text:
+            return text
+    return ""
+
+
+def _outputs_text(outputs: object) -> str:
     if not isinstance(outputs, dict):
         return ""
 
