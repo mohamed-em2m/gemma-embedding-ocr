@@ -7,8 +7,9 @@
 #
 # Usage:
 #   bash scripts/setup_env.sh                  # full setup + core extras
-#   bash scripts/setup_env.sh --all-extras     # also jina/craft/surya/dtlr extras
+#   bash scripts/setup_env.sh --all-extras     # also jina/craft/surya/dtlr/train
 #   bash scripts/setup_env.sh --dtlr           # install DTLR extras + checkout
+#   bash scripts/setup_env.sh --train          # install YOLO/uharfbuzz training extras
 #   bash scripts/setup_env.sh --no-system      # skip dnf/apt packages
 #   bash scripts/setup_env.sh --no-extras      # core project deps only
 #   bash scripts/setup_env.sh --check          # run lint/types/tests at the end
@@ -25,6 +26,7 @@ INSTALL_SYSTEM=1
 INSTALL_EXTRAS=1
 ALL_EXTRAS=0
 INSTALL_DTLR=0
+INSTALL_TRAIN=0
 INSTALL_SHIM=1
 BUILD_CATALOGS=1
 INSTALL_HOOKS=1
@@ -37,9 +39,10 @@ Usage: bash scripts/setup_env.sh [OPTIONS]
 Options:
   --no-system     Skip system package/font installation.
   --no-extras     Install only core project dependencies.
-  --all-extras    Also install jina, craft, surya, and dtlr extras.
+  --all-extras    Also install jina, craft, surya, dtlr, and train extras.
   --dtlr          Install DTLR extras, clone the official checkout, and print
                   checkpoint/compilation instructions.
+  --train         Install Ultralytics/uharfbuzz for YOLO dataset training.
   --no-shim       Skip the flash_attn compatibility shim.
   --no-catalogs   Skip font catalog generation.
   --no-hooks      Skip pre-commit hook installation.
@@ -54,6 +57,7 @@ while [[ $# -gt 0 ]]; do
         --no-extras) INSTALL_EXTRAS=0 ;;
         --all-extras) ALL_EXTRAS=1 ;;
         --dtlr) INSTALL_DTLR=1; INSTALL_EXTRAS=1 ;;
+        --train) INSTALL_TRAIN=1; INSTALL_EXTRAS=1 ;;
         --no-shim) INSTALL_SHIM=0 ;;
         --no-catalogs) BUILD_CATALOGS=0 ;;
         --no-hooks) INSTALL_HOOKS=0 ;;
@@ -188,9 +192,12 @@ SYNC_ARGS=(sync --locked --group dev)
 if [[ $INSTALL_EXTRAS -eq 1 ]]; then
     EXTRAS=(baseline tesseract easyocr experiments arabic)
     if [[ $ALL_EXTRAS -eq 1 ]]; then
-        EXTRAS+=(jina craft surya dtlr)
+        EXTRAS+=(jina craft surya dtlr train)
     elif [[ $INSTALL_DTLR -eq 1 ]]; then
         EXTRAS+=(dtlr)
+    fi
+    if [[ $INSTALL_TRAIN -eq 1 ]]; then
+        EXTRAS+=(train)
     fi
     for extra in "${EXTRAS[@]}"; do
         SYNC_ARGS+=(--extra "$extra")
@@ -386,4 +393,5 @@ echo " Run type checker: uv run mypy src"
 echo " Run CLI:          uv run embedding-ocr --help"
 echo " Run benchmark:    uv run python scripts/compare_new_ocr_models.py"
 echo " DTLR baseline:    bash scripts/setup_env.sh --dtlr"
+echo " YOLO training:    bash scripts/setup_env.sh --train"
 echo "=========================================================="

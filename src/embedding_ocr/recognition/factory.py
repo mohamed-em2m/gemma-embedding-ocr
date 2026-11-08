@@ -175,6 +175,29 @@ def build_recognizer(
             charset_path=rec.dtlr_charset,
             device=rec.dtlr_device,
         )
+    if backend in {"yolo", "yolo_units"}:
+        if rec.yolo_model is None:
+            message = "recognition.yolo_model must point to a YOLO checkpoint"
+            raise ValueError(message)
+        from embedding_ocr.recognition.yolo_units import (
+            YoloUnitDetector,
+            YoloUnitRecognizer,
+        )
+
+        detector = YoloUnitDetector.from_checkpoint(
+            model_path=rec.yolo_model,
+            classes_path=rec.yolo_classes,
+            conf=rec.yolo_conf,
+            iou=rec.yolo_iou,
+            imgsz=rec.yolo_imgsz,
+            device=rec.yolo_device,
+            max_det=rec.yolo_max_det,
+        )
+        return YoloUnitRecognizer(
+            detector=detector,
+            rtl=rec.rtl,
+            space_gap_ratio=rec.yolo_space_gap_ratio,
+        )
     if backend == "embedding":
         if embedder is None:
             embedder = build_embedder(settings.embedder)

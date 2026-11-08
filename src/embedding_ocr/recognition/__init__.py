@@ -72,3 +72,13 @@ try:
     __all__.append("TesseractRecognizer")
 except ImportError:
     pass
+
+try:
+    from embedding_ocr.recognition.yolo_units import (  # noqa: F401
+        YoloUnitDetector,
+        YoloUnitRecognizer,
+    )
+
+    __all__.extend(["YoloUnitDetector", "YoloUnitRecognizer"])
+except ImportError:
+    pass

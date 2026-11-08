@@ -24,6 +24,7 @@ from embedding_ocr.pipeline.reconstruct import (
     reconstruct_text,
 )
 from embedding_ocr.pipeline.types import (
+    DetectedUnit,
     OCRResult,
     RecognizedRegion,
     TextRegion,
@@ -31,6 +32,7 @@ from embedding_ocr.pipeline.types import (
 
 __all__ = [
     "CraftWordDetectorAdapter",
+    "DetectedUnit",
     "FullImageDetector",
     "OCRPipeline",
     "OCRResult",

@@ -1,0 +1,20 @@
+detector:
+  backend: full
+
+recognition:
+  backend: yolo_units
+  script: latin
+  rtl: null
+  yolo_model: artifacts/yolo_runs/yolo_units/weights/best.pt
+  yolo_classes: artifacts/yolo_letters/classes.json
+  yolo_conf: 0.25
+  yolo_iou: 0.5
+  yolo_imgsz: 1280
+  yolo_device: null
+  yolo_max_det: 1000
+  yolo_space_gap_ratio: 0.9
+
+pipeline:
+  preprocess: false
+  detection_cache: null
+  seed: 42

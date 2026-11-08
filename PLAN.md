@@ -91,8 +91,9 @@
 ## 5. Multilingual Segmentation Roadmap (Active)
 
 **Scope:** Arabic/connected scripts and Latin cursive. **Goal:** separate
-line→word and word→unit segmentation stages. **Constraint:** inference GPU
-only; no fine-tuning or custom detector training in this phase.
+line→word and word→unit segmentation stages. **Constraint:** inference-first;
+YOLO character/unit detector training is available through the `train` extra
+(see section 7).
 
 ### 5.1 Foundational fixes (done)
 - `src/embedding_ocr/data/scripts.py`: Unicode-range script detection,
@@ -134,7 +135,8 @@ only; no fine-tuning or custom detector training in this phase.
 
 ### 5.3 Deferred
 - CJK / Thai / Indic scriptio-continua segmentation.
-- Custom DBNet++/FAST/U-Net training (blocked by inference-only constraint).
+- Custom DBNet++/FAST/U-Net training. A YOLO character/unit path is available
+  instead; see section 7.
 - Pretrained CTC aligner experiments (PaddleOCR/EasyOCR internals).
 
 ---
@@ -164,5 +166,31 @@ only; no fine-tuning or custom detector training in this phase.
 - **Phase 7 — in progress:** CI, Makefile, pre-commit, docs, and CLI are in
   place; the `v0.1.0` release tag is pending.
 
-Validation in this iteration: `ruff`, `mypy src`, and 76 tests pass. Optional
+---
+
+## 7. YOLO character/unit detection (optional)
+
+- Dataset generator: `scripts/build_letter_dataset.py` renders Latin and Arabic
+  words with HarfBuzz shaping and writes YOLO labels per grapheme cluster.
+- Fonts are split before generation; train/val/test never share a font.
+- Training: `scripts/train_yolo_units.py` targets Ultralytics YOLO26 at 1280
+  input resolution with text-safe augmentations.
+- Inference: `recognition.backend: yolo_units` reads classes directly from the
+  detector, groups boxes into lines, and joins text in reading order.
+- Example:
+
+```bash
+bash scripts/setup_env.sh --train
+uv run python scripts/build_letter_dataset.py \
+    --fonts /usr/share/fonts --out artifacts/yolo_letters \
+    --n 50000 --size 1280 --layout line
+uv run python scripts/train_yolo_units.py \
+    --data artifacts/yolo_letters/data.yaml
+uv run embedding-ocr recognize image.png --config configs/yolo_units.yaml
+```
+
+- Ultralytics YOLO is AGPL-3.0 or commercially licensed; review that before
+  distributing weights or integrating the backend.
+
+Validation in this iteration: `ruff`, `mypy src`, and 116 tests pass. Optional
 model/detector probes report missing dependencies rather than crashing.

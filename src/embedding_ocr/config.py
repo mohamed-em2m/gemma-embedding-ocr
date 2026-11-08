@@ -99,6 +99,14 @@ class RecognitionSettings(_Model):
     dtlr_weights: Path | None = None
     dtlr_charset: Path | None = None
     dtlr_device: str = "cuda"
+    yolo_model: Path | None = None
+    yolo_classes: Path | None = None
+    yolo_conf: float = 0.25
+    yolo_iou: float = 0.5
+    yolo_imgsz: int = 1280
+    yolo_device: str | None = None
+    yolo_max_det: int = 1000
+    yolo_space_gap_ratio: float = 0.9
     vocabulary: VocabularySettings = Field(default_factory=VocabularySettings)
 
 
