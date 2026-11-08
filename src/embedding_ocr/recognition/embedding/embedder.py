@@ -17,7 +17,7 @@ EmbeddingGemma2 facts (verified Phase 0):
 
 from __future__ import annotations
 
-from typing import Protocol, runtime_checkable
+from typing import Any, Protocol, runtime_checkable
 
 import numpy as np
 import torch
@@ -181,6 +181,37 @@ class EmbeddingGemma2:
         return result.astype(np.float32)
 
 
+def _feature_tensor(value: object) -> object:
+    """Extract the embedding tensor from a transformers model output.
+
+    Transformers 5.x returns ``BaseModelOutputWithPooling`` from SigLIP's
+    ``get_image_features`` / ``get_text_features`` instead of a plain tensor.
+    Prefer the projected embedding fields, then the pooler output.
+    """
+    if isinstance(value, torch.Tensor):
+        return value
+    if isinstance(value, dict):
+        for key in (
+            "image_embeds",
+            "text_embeds",
+            "pooler_output",
+            "last_hidden_state",
+        ):
+            candidate = value.get(key)
+            if candidate is not None:
+                return candidate
+    for attr in ("image_embeds", "text_embeds", "pooler_output", "last_hidden_state"):
+        candidate = getattr(value, attr, None)
+        if candidate is not None:
+            return candidate
+    msg = (
+        "Could not extract an embedding tensor from "
+        f"{type(value).__name__}; expected a tensor or a model output with "
+        "image_embeds/text_embeds/pooler_output/last_hidden_state."
+    )
+    raise TypeError(msg)
+
+
 def _to_numpy(value: object) -> np.ndarray:
     """Convert a torch tensor / array-like to a float32 numpy array."""
     import torch
@@ -188,6 +219,53 @@ def _to_numpy(value: object) -> np.ndarray:
     if isinstance(value, torch.Tensor):
         return value.detach().cpu().float().numpy()
     return np.asarray(value, dtype=np.float32)
+
+
+def _default_rope_parameters(
+    config: object,
+    device: torch.device | str | None = None,
+    seq_len: int | None = None,
+    layer_type: str | None = None,
+) -> tuple[torch.Tensor, float]:
+    """Compute ordinary RoPE inverse frequencies.
+
+    Transformers 5.x removed the ``"default"`` entry from
+    ``ROPE_INIT_FUNCTIONS``. Jina v4's bundled Qwen2.5-VL code still looks it
+    up by name, which raises ``KeyError: 'default'`` on model construction.
+    """
+    del seq_len, layer_type
+    rope_parameters = getattr(config, "rope_parameters", None) or {}
+    if not isinstance(rope_parameters, dict):
+        rope_parameters = {}
+
+    base = float(
+        rope_parameters.get("rope_theta", getattr(config, "rope_theta", 10000.0))
+    )
+    partial = rope_parameters.get(
+        "partial_rotary_factor",
+        getattr(config, "partial_rotary_factor", 1.0),
+    )
+    partial = float(partial or 1.0)
+
+    head_dim = getattr(config, "head_dim", None)
+    if head_dim is None:
+        config_any: Any = config
+        head_dim = int(config_any.hidden_size) // int(config_any.num_attention_heads)
+    dim = int(head_dim * partial)
+    inv_freq = 1.0 / (
+        base
+        ** (torch.arange(0, dim, 2, dtype=torch.int64, device=device).float() / dim)
+    )
+    return inv_freq, 1.0
+
+
+def _ensure_default_rope_init() -> None:
+    """Restore the legacy ``"default"`` RoPE entry when transformers drops it."""
+    try:
+        from transformers.modeling_rope_utils import ROPE_INIT_FUNCTIONS
+    except ImportError:  # pragma: no cover - transformers is an optional runtime dep
+        return
+    ROPE_INIT_FUNCTIONS.setdefault("default", _default_rope_parameters)
 
 
 def _truncate_and_normalize(vectors: np.ndarray, dim: int) -> np.ndarray:
@@ -268,7 +346,7 @@ class SiglipEmbedder:
         )
 
     def _features_to_numpy(self, features: object) -> np.ndarray:
-        array = _to_numpy(features)
+        array = _to_numpy(_feature_tensor(features))
         return _truncate_and_normalize(array, self.dim)
 
     def embed_images(self, images: list[np.ndarray]) -> np.ndarray:
@@ -369,6 +447,7 @@ class JinaEmbeddingsV4:
             self._device = "cpu"
         torch_dtype = torch.bfloat16 if dtype == "bfloat16" else torch.float32
 
+        _ensure_default_rope_init()
         self._model = AutoModel.from_pretrained(
             self.name,
             trust_remote_code=True,

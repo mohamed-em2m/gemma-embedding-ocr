@@ -57,6 +57,24 @@ class MeanColorEmbedder:
         return np.zeros((len(texts), self.dim), dtype=np.float32)
 
 
+class NonWhiteMeanColorEmbedder(MeanColorEmbedder):
+    """Mean RGB of non-white pixels, ignoring canvas padding."""
+
+    def embed_images(self, images: list[np.ndarray]) -> np.ndarray:
+        vectors = []
+        for image in images:
+            pixels = image.astype(np.float32)
+            mask = (pixels < 250).any(axis=2)
+            mean = (
+                pixels[mask].mean(axis=0)
+                if bool(mask.any())
+                else pixels.reshape(-1, 3).mean(axis=0)
+            )
+            norm = float(np.linalg.norm(mean))
+            vectors.append(mean / norm if norm else mean)
+        return np.asarray(vectors, dtype=np.float32)
+
+
 class FakePrototypeDB:
     """Tiny in-memory RGB prototype store for the alignment test."""
 
@@ -133,6 +151,70 @@ def test_alignment_recovers_ltr_and_rtl_units() -> None:
     rtl = aligner.align(image, rtl=True)
     assert rtl.text == "BGR"
     assert len(rtl.units) == 3
+
+
+def _long_color_word() -> np.ndarray:
+    image = np.full((40, 440, 3), 255, dtype=np.uint8)
+    colors = [(255, 0, 0), (0, 255, 0), (0, 0, 255)]
+    for i in range(20):
+        start = i * 22
+        image[:, start : start + 20] = colors[i % 3]
+    return image
+
+
+def test_pruned_alignment_embeds_few_candidates_for_long_word() -> None:
+    image = _long_color_word()
+    db = FakePrototypeDB()
+    db.embedder = NonWhiteMeanColorEmbedder()
+    aligner = EmbeddingAlignmentSegmenter(
+        prototype_db=db,  # type: ignore[arg-type]
+        min_unit_width=8,
+        max_unit_width=60,
+        stride=4,
+        width_step=4,
+        min_similarity=0.7,
+        unit_penalty=0.1,
+        strategy="pruned",
+    )
+
+    result = aligner.align(image)
+
+    assert result.text.startswith("RGBRGB")
+    assert len(result.units) == 20
+    assert result.stats is not None
+    assert result.stats.strategy == "pruned"
+    assert result.stats.fallback_used is False
+    assert result.stats.candidate_windows == result.stats.embedded_windows
+    assert result.stats.candidate_windows <= 50
+    assert result.stats.embedded_windows < 100
+
+
+def test_pruned_alignment_falls_back_to_exhaustive_when_no_path() -> None:
+    image = np.zeros((20, 60, 3), dtype=np.uint8)
+    image[:, 0:20] = (255, 0, 0)
+    image[:, 20:40] = (0, 255, 0)
+    image[:, 40:60] = (0, 0, 255)
+
+    db = FakePrototypeDB()
+    aligner = EmbeddingAlignmentSegmenter(
+        prototype_db=db,  # type: ignore[arg-type]
+        min_unit_width=8,
+        max_unit_width=40,
+        stride=1,
+        width_step=4,
+        min_similarity=0.9,
+        unit_penalty=0.1,
+        strategy="pruned",
+        max_cut_candidates=4,
+        fallback_exhaustive=True,
+    )
+
+    result = aligner.align(image)
+
+    assert result.text == "RGB"
+    assert result.stats is not None
+    assert result.stats.strategy == "exhaustive"
+    assert result.stats.fallback_used is True
 
 
 def test_arabic_unit_segmenter_merges_diacritics_and_orders_rtl() -> None:

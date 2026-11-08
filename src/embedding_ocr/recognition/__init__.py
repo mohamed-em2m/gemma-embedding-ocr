@@ -18,6 +18,13 @@ except ImportError:
     pass
 
 try:
+    from embedding_ocr.recognition.dtlr import DTLRRecognizer  # noqa: F401
+
+    __all__.append("DTLRRecognizer")
+except ImportError:
+    pass
+
+try:
     from embedding_ocr.recognition.easyocr import EasyOCRRecognizer  # noqa: F401
 
     __all__.append("EasyOCRRecognizer")

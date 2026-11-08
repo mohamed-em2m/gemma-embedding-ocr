@@ -7,8 +7,18 @@ Uses whitespace gaps, vertical projection profiles, and connected components to:
 
 from __future__ import annotations
 
+from dataclasses import dataclass
+
 import cv2
 import numpy as np
+
+
+@dataclass(frozen=True)
+class CutCandidate:
+    """A cheaply scored visual boundary between two units."""
+
+    x: int
+    score: float
 
 
 class VisualWordSegmenter:
@@ -22,16 +32,157 @@ class VisualWordSegmenter:
         self.binarize_thresh = binarize_thresh
         self.min_component_area = min_component_area
 
+    @staticmethod
+    def _to_gray(image: np.ndarray) -> np.ndarray:
+        """Convert 1/3/4-channel image data to a 2-D grayscale array."""
+        if image.ndim == 2:
+            return image
+        channels = image.shape[2]
+        if channels == 4:
+            return cv2.cvtColor(image, cv2.COLOR_RGBA2GRAY)
+        if channels == 3:
+            return cv2.cvtColor(image, cv2.COLOR_RGB2GRAY)
+        return image[..., 0]
+
     def binarize(self, image: np.ndarray) -> np.ndarray:
         """Convert RGB image to inverted binary (white text on black background)."""
-        if image.ndim == 3:
-            gray = cv2.cvtColor(image, cv2.COLOR_RGB2GRAY)
-        else:
-            gray = image.copy()
+        gray = self._to_gray(image)
         _, binary = cv2.threshold(
             gray, self.binarize_thresh, 255, cv2.THRESH_BINARY_INV
         )
         return binary
+
+    def propose_cut_candidates(
+        self,
+        image: np.ndarray,
+        max_candidates: int | None = 32,
+        min_spacing: float | None = None,
+    ) -> list[CutCandidate]:
+        """Propose a small set of likely unit boundaries using cheap geometry.
+
+        Scores vertical-projection valleys, zero-ink gaps, connected-component
+        edges, and local projection minima. A non-maximum-suppression pass keeps
+        boundaries at least ``min_spacing`` pixels apart.
+
+        Args:
+            image: Word crop as uint8 (H, W, 3) or (H, W).
+            max_candidates: Optional cap on returned boundaries (endpoints are
+                always retained). ``None`` keeps all non-suppressed candidates.
+            min_spacing: Minimum distance between selected boundaries. Defaults
+                to one quarter of the crop height.
+
+        Returns:
+            Boundary candidates sorted by x, including 0 and the crop width.
+        """
+        binary = self.binarize(image)
+        h, w = binary.shape
+        if w <= 1:
+            return [CutCandidate(0, 0.0), CutCandidate(w, 0.0)]
+
+        ink = (binary > 0).sum(axis=0).astype(np.float32)
+        max_ink = float(ink.max())
+        if max_ink <= 0:
+            return [CutCandidate(0, 0.0), CutCandidate(w, 0.0)]
+
+        valley = 1.0 - ink / max_ink
+
+        gray = self._to_gray(image).astype(np.float32)
+        gradient = np.zeros(w, dtype=np.float32)
+        if w > 1:
+            diff = np.abs(np.diff(gray, axis=1)).mean(axis=0)
+            gradient[1:] = diff
+            max_gradient = float(gradient.max())
+            if max_gradient > 0:
+                gradient /= max_gradient
+
+        gap_score = np.zeros(w, dtype=np.float32)
+        in_gap = False
+        gap_start = 0
+        for x, value in enumerate(ink):
+            if value <= 0 and not in_gap:
+                in_gap = True
+                gap_start = x
+            elif value > 0 and in_gap:
+                gap_score[gap_start:x] = min(1.0, (x - gap_start) / max(2.0, h * 0.5))
+                in_gap = False
+        if in_gap:
+            gap_score[gap_start:w] = min(1.0, (w - gap_start) / max(2.0, h * 0.5))
+
+        edge_mask = np.zeros(w, dtype=bool)
+        num_labels, _labels, stats, _centroids = cv2.connectedComponentsWithStats(
+            binary, connectivity=8
+        )
+        for i in range(1, num_labels):
+            x = int(stats[i, cv2.CC_STAT_LEFT])
+            cw = int(stats[i, cv2.CC_STAT_WIDTH])
+            ch = int(stats[i, cv2.CC_STAT_HEIGHT])
+            area = int(stats[i, cv2.CC_STAT_AREA])
+            if area < self.min_component_area or cw < 2 or ch < 4:
+                continue
+            edge_mask[x] = True
+            edge_mask[min(w - 1, x + cw - 1)] = True
+
+        local_minima = np.zeros(w, dtype=np.float32)
+        for x in range(1, w - 1):
+            if ink[x] <= ink[x - 1] and ink[x] <= ink[x + 1]:
+                local_minima[x] = 1.0
+
+        scores = (
+            0.35 * valley
+            + 0.20 * gap_score
+            + 0.25 * edge_mask.astype(np.float32)
+            + 0.15 * gradient
+            + 0.05 * local_minima
+        )
+
+        ink_columns = np.flatnonzero(ink > 0)
+        if ink_columns.size:
+            first_ink = int(ink_columns[0])
+            last_ink = int(ink_columns[-1])
+        else:
+            first_ink = 0
+            last_ink = w - 1
+
+        forced = [0, first_ink, last_ink, w]
+        spacing = min_spacing if min_spacing is not None else max(2.0, h * 0.25)
+        selected: list[int] = []
+        for x in sorted(set(forced)):
+            if not selected or abs(x - selected[-1]) >= spacing:
+                selected.append(x)
+        if w not in selected:
+            selected.append(w)
+
+        if max_candidates is None:
+            order = sorted(
+                range(first_ink, last_ink + 1),
+                key=lambda x: (-float(scores[x]), x),
+            )
+            for x in order:
+                if any(abs(x - y) < spacing for y in selected):
+                    continue
+                selected.append(x)
+        else:
+            remaining = max(0, max_candidates - len(selected))
+            span = last_ink - first_ink
+            if remaining > 0 and span > 0:
+                for bin_index in range(remaining):
+                    lo = first_ink + int(round(span * bin_index / remaining))
+                    hi = first_ink + int(round(span * (bin_index + 1) / remaining))
+                    midpoint = (lo + hi) / 2.0
+                    choices = sorted(
+                        range(lo, hi + 1),
+                        key=lambda x: (-float(scores[x]), abs(x - midpoint)),
+                    )
+                    for x in choices:
+                        if any(abs(x - y) < spacing for y in selected):
+                            continue
+                        selected.append(x)
+                        break
+
+        ordered = sorted(set(selected))
+        return [
+            CutCandidate(x=x, score=float(scores[x]) if x < w else 0.0) for x in ordered
+        ]
 
     def extract_word_boxes(
         self, image: np.ndarray, rtl: bool = False

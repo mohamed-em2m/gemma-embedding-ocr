@@ -145,3 +145,85 @@ Foundational implementation (this iteration):
   unverified; the adapter accepts both `predict` and legacy `ocr` shapes.
 - `recognize --json` and `benchmark` records include the resolved config and
   git commit hash; benchmark runs also write a sibling `.config.yaml`.
+
+## 9. Pruned Alignment Candidate Graph (November 2026)
+
+The exhaustive stride × width graph was the dominant cost of
+`EmbeddingAlignmentSegmenter`: every start and width combination was embedded,
+and overlapping windows were re-embedded. A long word could require hundreds or
+thousands of EmbeddingGemma calls even though the DP itself is cheap.
+
+Decision:
+- The default strategy is now `pruned`. Cheap visual geometry proposes a small
+  set of cut positions; only edges between those positions are embedded.
+- `VisualWordSegmenter.propose_cut_candidates()` combines vertical-projection
+  valleys, zero-ink gaps, connected-component edges, horizontal gradients, and
+  local projection minima. Non-maximum suppression enforces a minimum spacing.
+- The candidate budget scales with the expected unit count, not the pixel width:
+  `max(20, expected_units + 4)`, capped at 128. The default is two outgoing
+  edges per start (`max_edges_per_start=2`), yielding roughly 40–50 windows for
+  a 20-unit word instead of ~1,300.
+- Width priors use `max(min_unit_width, 0.5 * crop_height)` so a badly spaced
+  cut candidate cannot collapse the target unit width.
+- If the pruned graph cannot cover the word (e.g. a missed boundary), the
+  aligner retries once with the exhaustive graph when
+  `fallback_exhaustive=true`. Fallbacks are visible in `AlignmentStats`.
+- `AlignmentStats` reports boundary candidates, selected starts, candidate
+  windows, embedded windows, strategy, and whether a fallback was used.
+- `exhaustive` remains available via
+  `recognition.alignment.strategy` for accuracy experiments and debugging.
+
+Beam search is intentionally not used. The current DP is an exact
+shortest-path/Viterbi pass over a small DAG; beam pruning only becomes useful
+when adding label-transition or language-model scores, or when the graph is
+large enough that exact decoding is the bottleneck. Reducing candidate
+generation is the correct first fix.
+
+## 10. Optional DTLR Line Baseline (November 2026)
+
+DTLR (Detection-based Text Line Recognition) is a DINO-DETR-based line
+recognizer. It is kept as an **optional external baseline**, not a default
+backend, because it is not distributed as a pip-installable package.
+
+Decision:
+- `recognition.backend="dtlr"` loads a cloned official checkout through
+  `recognition.dtlr_root` (or `DTLR_ROOT`) and an inference checkpoint through
+  `recognition.dtlr_weights` (or `DTLR_WEIGHTS`).
+- The adapter is line-level. It accepts a line crop, applies DTLR's inference
+  resize (short side 800, longest side 1333), ImageNet normalization, and the
+  repository's non-NMS decoding convention. It returns one `RecognitionResult`
+  per line crop.
+- The default config and charset are `config/Latin_CTC.py` and
+  `datasets/default_charset.json` inside the checkout. Override them with
+  `dtlr_config` / `dtlr_charset` (or `DTLR_CONFIG` / `DTLR_CHARSET`).
+- The official Python files call `torch.cuda.set_device(0)` at import and
+  require compiled multi-scale deformable-attention ops. The adapter therefore
+  requires a CUDA torch build and a compatible GPU environment. In addition to
+  the DTLR checkout, install its inference imports (`addict`, `yapf`, `timm`,
+  `scipy`, `torchvision`) and compile the deformable-attention extension as
+  described by the upstream repository.
+- `bash scripts/setup_env.sh --dtlr` installs the `dtlr` extra, clones the
+  official checkout into `third_party/DTLR` (or `$DTLR_ROOT`), and prints the
+  checkpoint and extension-compilation commands. `--all-extras` includes the
+  Python dependencies but does not clone the external repository.
+- Checkpoint weights can be local files. Unofficial community conversions
+  exist on the Hugging Face Hub, but they remain unofficial; pin a revision and
+  validate the charset/output convention before trusting benchmark numbers.
+- DTLR is not added to the glyph-level unified comparison script. Use the
+  line-manifest benchmark (`embedding-ocr benchmark`) for a like-for-like
+  comparison against the embedding pipeline.
+
+Example:
+```yaml
+recognition:
+  backend: dtlr
+  dtlr_root: /opt/DTLR
+  dtlr_weights: /opt/DTLR/checkpoints/line/checkpoint.pth
+  dtlr_device: cuda
+```
+
+Limitations:
+- DTLR has no verified Arabic or connected-script training. Arabic comparison
+  requires line-level Arabic fine-tuning data that this project does not have.
+- The adapter assumes the Latin charset by default; a checkpoint trained with a
+  different charset must ship a matching JSON charset.

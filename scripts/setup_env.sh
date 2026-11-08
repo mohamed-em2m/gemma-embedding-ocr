@@ -7,7 +7,8 @@
 #
 # Usage:
 #   bash scripts/setup_env.sh                  # full setup + core extras
-#   bash scripts/setup_env.sh --all-extras     # also jina/craft/surya
+#   bash scripts/setup_env.sh --all-extras     # also jina/craft/surya/dtlr extras
+#   bash scripts/setup_env.sh --dtlr           # install DTLR extras + checkout
 #   bash scripts/setup_env.sh --no-system      # skip dnf/apt packages
 #   bash scripts/setup_env.sh --no-extras      # core project deps only
 #   bash scripts/setup_env.sh --check          # run lint/types/tests at the end
@@ -23,6 +24,7 @@ cd "$PROJECT_ROOT"
 INSTALL_SYSTEM=1
 INSTALL_EXTRAS=1
 ALL_EXTRAS=0
+INSTALL_DTLR=0
 INSTALL_SHIM=1
 BUILD_CATALOGS=1
 INSTALL_HOOKS=1
@@ -35,7 +37,9 @@ Usage: bash scripts/setup_env.sh [OPTIONS]
 Options:
   --no-system     Skip system package/font installation.
   --no-extras     Install only core project dependencies.
-  --all-extras    Also install jina, craft, and surya extras.
+  --all-extras    Also install jina, craft, surya, and dtlr extras.
+  --dtlr          Install DTLR extras, clone the official checkout, and print
+                  checkpoint/compilation instructions.
   --no-shim       Skip the flash_attn compatibility shim.
   --no-catalogs   Skip font catalog generation.
   --no-hooks      Skip pre-commit hook installation.
@@ -49,6 +53,7 @@ while [[ $# -gt 0 ]]; do
         --no-system) INSTALL_SYSTEM=0 ;;
         --no-extras) INSTALL_EXTRAS=0 ;;
         --all-extras) ALL_EXTRAS=1 ;;
+        --dtlr) INSTALL_DTLR=1; INSTALL_EXTRAS=1 ;;
         --no-shim) INSTALL_SHIM=0 ;;
         --no-catalogs) BUILD_CATALOGS=0 ;;
         --no-hooks) INSTALL_HOOKS=0 ;;
@@ -64,7 +69,7 @@ while [[ $# -gt 0 ]]; do
 done
 
 step=0
-total=7
+total=8
 run_step() {
     step=$((step + 1))
     echo ""
@@ -183,7 +188,9 @@ SYNC_ARGS=(sync --locked --group dev)
 if [[ $INSTALL_EXTRAS -eq 1 ]]; then
     EXTRAS=(baseline tesseract easyocr experiments arabic)
     if [[ $ALL_EXTRAS -eq 1 ]]; then
-        EXTRAS+=(jina craft surya)
+        EXTRAS+=(jina craft surya dtlr)
+    elif [[ $INSTALL_DTLR -eq 1 ]]; then
+        EXTRAS+=(dtlr)
     fi
     for extra in "${EXTRAS[@]}"; do
         SYNC_ARGS+=(--extra "$extra")
@@ -196,7 +203,44 @@ uv "${SYNC_ARGS[@]}"
 echo "✓ Python environment ready."
 
 # ---------------------------------------------------------------------------
-# 4. flash_attn compatibility shim
+# 4. Optional DTLR baseline checkout
+# ---------------------------------------------------------------------------
+run_step "Preparing optional DTLR baseline..."
+if [[ $INSTALL_DTLR -eq 1 ]]; then
+    DTLR_CHECKOUT="${DTLR_ROOT:-$PROJECT_ROOT/third_party/DTLR}"
+    DTLR_CHECKOUT="$(realpath -m "$DTLR_CHECKOUT")"
+    if [[ ! -d "$DTLR_CHECKOUT/models/dino" ]]; then
+        mkdir -p "$(dirname "$DTLR_CHECKOUT")"
+        if ! git clone --depth 1 \
+            https://github.com/raphael-baena/DTLR.git "$DTLR_CHECKOUT"; then
+            echo "ERROR: failed to clone DTLR into $DTLR_CHECKOUT." >&2
+            exit 1
+        fi
+        echo "✓ Cloned DTLR into $DTLR_CHECKOUT."
+    else
+        echo "✓ Using existing DTLR checkout: $DTLR_CHECKOUT"
+    fi
+
+    if uv run --no-sync python -c \
+        "import sys, torch; sys.exit(0 if torch.cuda.is_available() else 1)" \
+        >/dev/null 2>&1; then
+        echo "✓ CUDA is available for DTLR."
+    else
+        echo "WARNING: this torch build cannot see CUDA. DTLR requires a CUDA"
+        echo "         torch build and a CUDA toolkit to compile its ops."
+    fi
+
+    echo "Set these before running the DTLR backend:"
+    echo "  export DTLR_ROOT=\"$DTLR_CHECKOUT\""
+    echo "  export DTLR_WEIGHTS=\"/path/to/checkpoint.pth\""
+    echo "Compile the deformable-attention extension once with:"
+    echo "  cd \"$DTLR_CHECKOUT/models/dino/ops\" && uv run --no-sync python setup.py build install"
+else
+    echo "Skipped; pass --dtlr to install extras and clone the official checkout."
+fi
+
+# ---------------------------------------------------------------------------
+# 5. flash_attn compatibility shim
 # ---------------------------------------------------------------------------
 run_step "Setting up the flash_attn SDPA compatibility shim..."
 if [[ $INSTALL_SHIM -eq 1 ]]; then
@@ -242,7 +286,7 @@ else
 fi
 
 # ---------------------------------------------------------------------------
-# 5. Build Latin, Arabic, and handwriting font catalogs
+# 6. Build Latin, Arabic, and handwriting font catalogs
 # ---------------------------------------------------------------------------
 run_step "Indexing installed fonts..."
 if [[ $BUILD_CATALOGS -eq 1 ]]; then
@@ -304,7 +348,7 @@ else
 fi
 
 # ---------------------------------------------------------------------------
-# 6. Install pre-commit hooks
+# 7. Install pre-commit hooks
 # ---------------------------------------------------------------------------
 run_step "Installing git hooks..."
 if [[ $INSTALL_HOOKS -eq 1 ]]; then
@@ -319,7 +363,7 @@ else
 fi
 
 # ---------------------------------------------------------------------------
-# 7. Optional validation
+# 8. Optional validation
 # ---------------------------------------------------------------------------
 run_step "Running validation..."
 if [[ $RUN_CHECKS -eq 1 ]]; then
@@ -341,4 +385,5 @@ echo " Run linter:       uv run ruff check src scripts tests"
 echo " Run type checker: uv run mypy src"
 echo " Run CLI:          uv run embedding-ocr --help"
 echo " Run benchmark:    uv run python scripts/compare_new_ocr_models.py"
+echo " DTLR baseline:    bash scripts/setup_env.sh --dtlr"
 echo "=========================================================="

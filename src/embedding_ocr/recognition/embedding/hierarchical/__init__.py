@@ -3,6 +3,7 @@
 from embedding_ocr.recognition.embedding.hierarchical.alignment import (
     AlignedUnit,
     AlignmentResult,
+    AlignmentStats,
     EmbeddingAlignmentSegmenter,
     PrototypeSearchDB,
     VocabularyPrototypeDB,
@@ -18,6 +19,7 @@ from embedding_ocr.recognition.embedding.hierarchical.engine import (
     HierarchicalWordRecognizer,
 )
 from embedding_ocr.recognition.embedding.hierarchical.segmentation import (
+    CutCandidate,
     VisualWordSegmenter,
 )
 from embedding_ocr.recognition.embedding.hierarchical.vocabulary import (
@@ -28,9 +30,11 @@ from embedding_ocr.recognition.embedding.hierarchical.vocabulary import (
 __all__ = [
     "AlignedUnit",
     "AlignmentResult",
+    "AlignmentStats",
     "ArabicUnit",
     "ArabicUnitSegmenter",
     "CraftWordDetector",
+    "CutCandidate",
     "EmbeddingAlignmentSegmenter",
     "EmbeddingVocabulary",
     "PrototypeSearchDB",

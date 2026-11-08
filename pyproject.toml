@@ -33,6 +33,7 @@ faiss-gpu = ["faiss-gpu-cu12"]
 surya = ["surya-ocr>=0.23.0"]
 jina = ["peft>=0.15.2", "torchvision"]
 siglip = []
+dtlr = ["addict>=2.4.0", "yapf>=0.40.0", "timm>=1.0.0", "scipy>=1.11", "torchvision"]
 craft = ["craft-text-detector"]
 arabic = ["arabic-reshaper", "python-bidi"]
 

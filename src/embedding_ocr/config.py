@@ -7,6 +7,7 @@ swapping a recognizer or embedder only changes configuration, not code.
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Literal
 
 import yaml
 from pydantic import BaseModel, ConfigDict, Field
@@ -60,6 +61,16 @@ class VocabularySettings(_Model):
     extra_lexicon: list[str] = Field(default_factory=list)
 
 
+class AlignmentSettings(_Model):
+    """Segmentation-free alignment candidate-graph settings."""
+
+    strategy: Literal["pruned", "exhaustive"] = "pruned"
+    max_cut_candidates: int | None = None
+    min_cut_spacing: float | None = None
+    max_edges_per_start: int = 2
+    fallback_exhaustive: bool = True
+
+
 class RecognitionSettings(_Model):
     """Recognition backend settings."""
 
@@ -77,11 +88,17 @@ class RecognitionSettings(_Model):
     preprocess_handwriting: bool = False
     use_alignment: bool = True
     min_alignment_score: float = 0.35
+    alignment: AlignmentSettings = Field(default_factory=AlignmentSettings)
     tesseract_psm: int = 7
     tesseract_lang: str = "eng"
     paddle_model: str = "en_PP-OCRv4_mobile_rec"
     easyocr_langs: list[str] = Field(default_factory=lambda: ["en"])
     easyocr_gpu: bool = True
+    dtlr_root: Path | None = None
+    dtlr_config: Path | None = None
+    dtlr_weights: Path | None = None
+    dtlr_charset: Path | None = None
+    dtlr_device: str = "cuda"
     vocabulary: VocabularySettings = Field(default_factory=VocabularySettings)
 
 

@@ -21,6 +21,9 @@ def test_load_default_yaml() -> None:
     assert config.embedder.backend == "gemma"
     assert config.recognition.vocabulary.tokenizer_name == "google/embeddinggemma-2"
     assert config.index.top_k == 30
+    assert config.recognition.alignment.strategy == "pruned"
+    assert config.recognition.alignment.max_edges_per_start == 2
+    assert config.recognition.alignment.fallback_exhaustive is True
 
 
 def test_load_arabic_alignment_config() -> None:
@@ -29,6 +32,7 @@ def test_load_arabic_alignment_config() -> None:
     assert config.recognition.rtl is True
     assert config.recognition.use_alignment is True
     assert config.recognition.vocabulary.use_visual_prototypes is True
+    assert config.recognition.alignment.max_cut_candidates is None
 
 
 def test_save_config_round_trip(tmp_path: Path) -> None:

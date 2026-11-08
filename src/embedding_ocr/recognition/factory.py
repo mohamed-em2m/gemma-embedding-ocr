@@ -165,6 +165,16 @@ def build_recognizer(
         from embedding_ocr.recognition.easyocr import EasyOCRRecognizer
 
         return EasyOCRRecognizer(lang_list=rec.easyocr_langs, gpu=rec.easyocr_gpu)
+    if backend == "dtlr":
+        from embedding_ocr.recognition.dtlr import DTLRRecognizer
+
+        return DTLRRecognizer(
+            root=rec.dtlr_root,
+            config_path=rec.dtlr_config,
+            weights=rec.dtlr_weights,
+            charset_path=rec.dtlr_charset,
+            device=rec.dtlr_device,
+        )
     if backend == "embedding":
         if embedder is None:
             embedder = build_embedder(settings.embedder)
@@ -187,12 +197,22 @@ def build_recognizer(
                     prototype_db=proto_db,
                     top_k=min(5, settings.index.top_k),
                     min_similarity=0.35,
+                    strategy=rec.alignment.strategy,
+                    max_cut_candidates=rec.alignment.max_cut_candidates,
+                    min_cut_spacing=rec.alignment.min_cut_spacing,
+                    max_edges_per_start=rec.alignment.max_edges_per_start,
+                    fallback_exhaustive=rec.alignment.fallback_exhaustive,
                 )
             else:
                 aligner = EmbeddingAlignmentSegmenter(
                     prototype_db=VocabularyPrototypeDB(embedder, vocabulary),
                     top_k=5,
                     min_similarity=0.35,
+                    strategy=rec.alignment.strategy,
+                    max_cut_candidates=rec.alignment.max_cut_candidates,
+                    min_cut_spacing=rec.alignment.min_cut_spacing,
+                    max_edges_per_start=rec.alignment.max_edges_per_start,
+                    fallback_exhaustive=rec.alignment.fallback_exhaustive,
                 )
         return HierarchicalWordRecognizer(
             embedder=embedder,

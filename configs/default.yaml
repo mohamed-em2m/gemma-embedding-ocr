@@ -32,6 +32,12 @@ recognition:
   preprocess_handwriting: false
   use_alignment: true
   min_alignment_score: 0.35
+  alignment:
+    strategy: pruned
+    max_cut_candidates: null
+    min_cut_spacing: null
+    max_edges_per_start: 2
+    fallback_exhaustive: true
   vocabulary:
     tokenizer_name: google/embeddinggemma-2
     cache_dir: artifacts/vocab_cache

@@ -155,6 +155,19 @@ def test_character_segmenter_returns_rtl_reading_order() -> None:
     assert rtl[1].is_space_before is True
 
 
+def test_cut_candidates_handle_rgba_and_zero_endpoint_score() -> None:
+    image = np.full((20, 60, 4), 255, dtype=np.uint8)
+    image[:, 10:30, :3] = (0, 0, 0)
+    image[:, 30:50, :3] = (100, 100, 100)
+
+    candidates = VisualWordSegmenter().propose_cut_candidates(image, max_candidates=8)
+
+    assert candidates[0].x == 0
+    assert candidates[-1].x == 60
+    assert candidates[-1].score == 0.0
+    assert any(0 < candidate.x < 60 for candidate in candidates)
+
+
 def test_word_segmenter_returns_rtl_reading_order() -> None:
     image = _two_block_line()
     segmenter = VisualWordSegmenter()
