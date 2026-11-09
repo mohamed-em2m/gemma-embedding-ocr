@@ -75,15 +75,17 @@ uv pip install --python .venv/bin/python opencv-python-headless
 ## Web interface
 
 ```bash
-.venv/bin/embedding-ocr ui                    # public share link by default
-.venv/bin/embedding-ocr ui --no-share         # local-only
-.venv/bin/embedding-ocr-ui --host 0.0.0.0 --port 7860
-# or from a fresh checkout (syncs core + UI only)
-uv run --extra ui embedding-ocr ui
+make ui                                      # public share link by default
+make ui UI_ARGS="--no-share"                 # local-only
+make ui VENV=venv                            # use ./venv instead of ./.venv
+bash scripts/run_ui.sh --no-share            # direct launcher
 ```
 
-`make ui` uses the already-synced environment directly, so it does not prune
-baseline extras the way a bare `uv run` sync would.
+`make ui` runs `scripts/run_ui.sh`, which auto-detects `.venv` (preferred) or
+`venv`, verifies `cv2` and Gradio, and repairs missing imports with `uv pip`
+without running `uv sync` or pruning existing extras. From a fresh checkout,
+install once with `bash scripts/setup_auto.sh` or
+`uv sync --extra ui` before launching.
 
 The UI includes bundled Latin and Arabic example images that set the matching
 profile and script. It also lets you upload or capture an image, choose a YAML

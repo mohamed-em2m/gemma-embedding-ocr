@@ -236,13 +236,13 @@ fi
 # ---------------------------------------------------------------------------
 if [[ $LAUNCH -eq 1 ]]; then
     run_step "Launching Gradio UI..."
-    UI_ARGS=(ui)
+    UI_ARGS=()
     if [[ $SHARE -eq 1 ]]; then
         UI_ARGS+=(--share)
     else
         UI_ARGS+=(--no-share)
     fi
-    exec "$PROJECT_ROOT/.venv/bin/embedding-ocr" "${UI_ARGS[@]}"
+    exec bash "$PROJECT_ROOT/scripts/run_ui.sh" "${UI_ARGS[@]}"
 fi
 
 echo ""
