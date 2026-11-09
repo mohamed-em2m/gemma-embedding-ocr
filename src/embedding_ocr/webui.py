@@ -425,7 +425,7 @@ def build_demo(config_dir: str | Path = DEFAULT_CONFIG_DIR) -> Any:
                     )
                     quick = gr.Checkbox(
                         value=True,
-                        label="Quick vocabulary (max 4k words / 3k subwords)",
+                        label="Quick vocabulary (4k words / 3k subwords; uncheck for full)",
                     )
                 examples = example_rows(profiles)
                 if examples:

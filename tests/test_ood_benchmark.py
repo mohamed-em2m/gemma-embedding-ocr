@@ -35,6 +35,12 @@ class DummyEngine:
         return RecognitionResult(text=self.text, confidence=0.9)
 
 
+class WordAwareEngine(DummyEngine):
+    def recognize_word_crop(self, image: np.ndarray, depth: int = 0):
+        del image, depth
+        return RecognitionResult(text="word-path", confidence=0.8)
+
+
 def _sample(tmp_path: Path, script: str, category: str) -> OODSample:
     image_path = tmp_path / f"{script}_{category}.png"
     Image.fromarray(np.full((16, 16, 3), 255, dtype=np.uint8)).save(image_path)
@@ -76,6 +82,33 @@ def test_hybrid_predictor_dispatches_glyphs_and_words(tmp_path: Path) -> None:
     )
     assert predictor.predict(_sample(tmp_path, "arabic", "phrase"), image)[0] == (
         "hier-arabic"
+    )
+
+
+def test_word_samples_use_word_crop_path(tmp_path: Path) -> None:
+    module = _load_script()
+    engine = WordAwareEngine("line-path")
+    predictor = module.HybridEmbeddingPredictor(
+        name="hier",
+        mode="hier",
+        char_engines={"latin": engine, "arabic": engine},
+        hier_engines={"latin": engine, "arabic": engine},
+    )
+    image = np.zeros((8, 8, 3), dtype=np.uint8)
+
+    assert (
+        predictor.predict(_sample(tmp_path, "latin", "word"), image)[0] == "word-path"
+    )
+    assert (
+        predictor.predict(_sample(tmp_path, "arabic", "diacritics"), image)[0]
+        == "word-path"
+    )
+    assert (
+        predictor.predict(_sample(tmp_path, "arabic", "ligature"), image)[0]
+        == "word-path"
+    )
+    assert predictor.predict(_sample(tmp_path, "latin", "phrase"), image)[0] == (
+        "line-path"
     )
 
 

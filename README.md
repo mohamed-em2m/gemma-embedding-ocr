@@ -91,7 +91,8 @@ profile, override the recognizer/detector/script/device, and inspect recognized
 text, confidence, region boxes, and JSON details. The first request builds
 prototypes/vocabulary and may download `google/embeddinggemma-2`, so it can take
 several minutes. Quick mode caps the hierarchical vocabulary at 4k words / 3k
-subwords.
+subwords; uncheck it to use the full tokenizer vocabulary. Small caps can omit
+rare words because tokenizer ids are not frequency-ordered.
 
 ### CUDA out of memory
 
@@ -180,6 +181,26 @@ _See [`docs/iam_handwriting_benchmark_report.md`](docs/iam_handwriting_benchmark
 
 
 
+
+### Held-out Latin/Arabic OOD comparison
+
+```bash
+# Full tokenizer vocabulary (default); no OOD evaluation words are injected.
+uv run python scripts/benchmark_ood_ocr.py \
+    --engines glm gemma-hybrid \
+    --output docs/ood_glm_vs_gemma
+
+# Fast smoke test only. Small candidate caps exclude rare words, so use the
+# full-vocabulary run for reported numbers.
+uv run python scripts/benchmark_ood_ocr.py \
+    --engines gemma-hybrid --limit-per-script 20 \
+    --hier-max-words 4000 --hier-max-subwords 3000
+```
+
+The hierarchical recognizer uses the full tokenizer vocabulary by default and
+recognizes already-cropped word samples without re-segmenting them. Pass
+`--hier-visual-prototypes` to render word/subword prototypes from the held-out
+prototype fonts (visual prototypes then default to a 4k/3k cap).
 
 ### Generative OCR VLM comparison
 

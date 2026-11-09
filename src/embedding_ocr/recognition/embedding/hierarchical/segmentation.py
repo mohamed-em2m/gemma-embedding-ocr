@@ -237,10 +237,11 @@ class VisualWordSegmenter:
                 gap = float(curr_x - (prev_x + prev_w))
             gaps.append(max(0.0, gap))
 
-        # Dynamic inter-word space threshold
-        # Inter-character gaps in standard Latin text are typically 1-4 pixels,
-        # while word spaces are typically >= 8-10 pixels (or >= 0.35 of line height).
-        space_threshold = max(7.0, 0.35 * max(typical_w, typical_h * 0.4))
+        # Dynamic inter-word space threshold. Start conservatively: a gap must
+        # be clearly larger than typical intra-word letter spacing. The old
+        # 0.35*width threshold split words like "fjord" and "sphinx" into
+        # multiple pseudo-words on wide/tracked fonts.
+        space_threshold = max(8.0, 0.40 * typical_h)
         if len(gaps) >= 2:
             sorted_gaps = sorted(gaps)
             diffs = [
@@ -249,8 +250,10 @@ class VisualWordSegmenter:
             max_jump_idx = int(np.argmax(diffs))
             jump_size = diffs[max_jump_idx]
             cand = (sorted_gaps[max_jump_idx] + sorted_gaps[max_jump_idx + 1]) / 2.0
-            if jump_size >= 3.0 and 6.0 <= cand <= max(12.0, typical_w * 2.0):
-                space_threshold = cand
+            if jump_size >= 4.0 and 6.0 <= cand <= max(12.0, typical_w * 2.0):
+                # Never lower the conservative baseline; a large jump may raise
+                # it when the gap distribution is clearly bimodal.
+                space_threshold = max(space_threshold, cand)
 
         # Group components into words
         word_boxes: list[tuple[int, int, int, int]] = []

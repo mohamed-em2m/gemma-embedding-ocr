@@ -250,3 +250,22 @@ Decision:
 - The real `google/embeddinggemma-2` and `zai-org/GLM-OCR` checkpoints are not
   cached in this environment, so a full local benchmark run still requires
   downloading them and enough RAM/GPU memory.
+
+Follow-up after the first OOD run (2026-11-09):
+- Root cause of the weak Latin result was candidate starvation, not the
+  embedder: the benchmark capped the hierarchical vocabulary at 4k words / 3k
+  subwords, sorted by token id. Gemma token ids are not frequency ordered, so
+  tokens such as `▁fjord`, `▁sphinx` and `▁labyrinth` were silently removed.
+- The benchmark now uses the full tokenizer vocabulary by default, increases
+  raw FAISS depth for text prototypes, and keeps OOD words out of
+  `extra_lexicon`.
+- Already-cropped word/diacritic/ligature samples now call
+  `recognize_word_crop()` directly, so a single unit is not split into
+  pseudo-words by the line word-grouper.
+- `VisualWordSegmenter` now uses a higher, conservative gap threshold
+  (`max(8, 0.40 * typical_height)`) and never lowers it via the dynamic
+  candidate; this avoids splitting words such as `fjord` and `sphinx` on wide
+  or tracked fonts.
+- `configs/default.yaml` now uses the full tokenizer vocabulary
+  (`max_words: null`, `max_subwords: null`). The UI quick mode remains an
+  explicit 4k/3k speed cap.

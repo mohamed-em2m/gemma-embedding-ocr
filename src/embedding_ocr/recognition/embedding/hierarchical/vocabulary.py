@@ -449,13 +449,15 @@ class EmbeddingVocabulary:
         """Search nearest word candidates with max-per-class aggregation."""
         if self.word_index is None:
             raise RuntimeError("Word index is not built.")
-        # Retrieve more raw hits to ensure top_k distinct classes after aggregation
-        raw_k = min(
-            top_k * len(self.prototype_fonts) * len(self.slant_angles)
+        # Retrieve more raw hits to ensure top_k distinct classes after
+        # aggregation. Text prototypes need extra depth because the full
+        # tokenizer vocabulary is large and rare words sit far from the head.
+        multiplier = (
+            len(self.prototype_fonts) * len(self.slant_angles)
             if self.use_visual_prototypes
-            else top_k,
-            50,
+            else 8
         )
+        raw_k = min(max(top_k * multiplier, top_k), 200)
         sims, idxs = self.word_index.search(query_embs, raw_k)
         return self._aggregate_search_results(
             sims, idxs, self._word_lookup, top_k=top_k
@@ -467,12 +469,12 @@ class EmbeddingVocabulary:
         """Search nearest subword candidates with max-per-class aggregation."""
         if self.subword_index is None:
             raise RuntimeError("Subword index is not built.")
-        raw_k = min(
-            top_k * len(self.prototype_fonts) * len(self.slant_angles)
+        multiplier = (
+            len(self.prototype_fonts) * len(self.slant_angles)
             if self.use_visual_prototypes
-            else top_k,
-            50,
+            else 8
         )
+        raw_k = min(max(top_k * multiplier, top_k), 200)
         sims, idxs = self.subword_index.search(query_embs, raw_k)
         return self._aggregate_search_results(
             sims, idxs, self._subword_lookup, top_k=top_k
@@ -484,12 +486,12 @@ class EmbeddingVocabulary:
         """Search nearest char candidates with max-per-class aggregation."""
         if self.char_index is None:
             raise RuntimeError("Char index is not built.")
-        raw_k = min(
-            top_k * len(self.prototype_fonts) * len(self.slant_angles)
+        multiplier = (
+            len(self.prototype_fonts) * len(self.slant_angles)
             if self.use_visual_prototypes
-            else top_k,
-            50,
+            else 8
         )
+        raw_k = min(max(top_k * multiplier, top_k), 200)
         sims, idxs = self.char_index.search(query_embs, raw_k)
         return self._aggregate_search_results(
             sims, idxs, self._char_lookup, top_k=top_k

@@ -46,8 +46,8 @@ recognition:
       - /usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf
       - /usr/share/fonts/truetype/dejavu/DejaVuSans.ttf
     slant_angles: [0.0]
-    max_words: 25000
-    max_subwords: 15000
+    max_words: null
+    max_subwords: null
     extra_lexicon: []
 
 pipeline:

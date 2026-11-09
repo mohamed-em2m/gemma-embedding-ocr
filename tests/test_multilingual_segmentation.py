@@ -168,6 +168,16 @@ def test_cut_candidates_handle_rgba_and_zero_endpoint_score() -> None:
     assert any(0 < candidate.x < 60 for candidate in candidates)
 
 
+def test_word_segmenter_keeps_tracked_word_together() -> None:
+    image = np.full((30, 47, 3), 255, dtype=np.uint8)
+    image[5:25, 0:20] = (0, 0, 0)
+    image[5:25, 27:47] = (0, 0, 0)
+
+    boxes = VisualWordSegmenter().extract_word_boxes(image)
+
+    assert len(boxes) == 1
+
+
 def test_word_segmenter_returns_rtl_reading_order() -> None:
     image = _two_block_line()
     segmenter = VisualWordSegmenter()

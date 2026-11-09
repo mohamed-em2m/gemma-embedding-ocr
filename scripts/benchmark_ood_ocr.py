@@ -30,6 +30,7 @@ from embedding_ocr.recognition.base import RecognitionEngine
 EMBEDDING_ENGINES = ("gemma-char", "gemma-hier", "gemma-hybrid")
 ALL_ENGINES = ("glm", *EMBEDDING_ENGINES)
 DEFAULT_ENGINES = ("glm", "gemma-hybrid")
+SINGLE_WORD_CATEGORIES = frozenset({"word", "diacritics", "ligature"})
 
 
 class Predictor(Protocol):
@@ -90,6 +91,16 @@ class HybridEmbeddingPredictor:
                 if sample.category == "glyph"
                 else self.hier_engines[sample.script]
             )
+
+        # These categories are already cropped to one word/unit. Calling the
+        # word-crop path directly avoids re-segmenting them and inserting
+        # artificial spaces.
+        if sample.category in SINGLE_WORD_CATEGORIES:
+            word_recognizer = getattr(engine, "recognize_word_crop", None)
+            if word_recognizer is not None:
+                result = word_recognizer(image, depth=0)
+                return result.text, float(result.confidence)
+
         result = engine.recognize(image)
         return result.text, float(result.confidence)
 
@@ -117,6 +128,9 @@ def _build_hier_engine(
     script: str,
     index_fonts: Sequence[str],
     char_engine: RecognitionEngine,
+    max_words: int | None = None,
+    max_subwords: int | None = None,
+    use_visual_prototypes: bool = False,
 ) -> RecognitionEngine:
     from embedding_ocr.recognition.embedding.hierarchical.alignment import (
         EmbeddingAlignmentSegmenter,
@@ -133,10 +147,16 @@ def _build_hier_engine(
         embedder=embedder,
         cache_dir=Path("artifacts") / f"ood_vocab_{script}",
         prototype_fonts=list(index_fonts),
-        use_visual_prototypes=False,
+        use_visual_prototypes=use_visual_prototypes,
         script=script,
     )
-    vocabulary.extract_and_organize_tokens(max_words=4000, max_subwords=3000)
+    # Use the full tokenizer vocabulary by default. Token IDs are not
+    # frequency-ordered, so a small cap silently removes rare words such as
+    # the held-out OOD lexicon.
+    vocabulary.extract_and_organize_tokens(
+        max_words=max_words,
+        max_subwords=max_subwords,
+    )
     vocabulary.build_indexes()
 
     aligner = None
@@ -375,6 +395,23 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--device", default="auto")
     parser.add_argument("--gemma-dim", type=int, default=768)
     parser.add_argument(
+        "--hier-max-words",
+        type=int,
+        default=None,
+        help="Cap hierarchical word candidates (default: full tokenizer vocabulary).",
+    )
+    parser.add_argument(
+        "--hier-max-subwords",
+        type=int,
+        default=None,
+        help="Cap hierarchical subword candidates (default: full tokenizer vocabulary).",
+    )
+    parser.add_argument(
+        "--hier-visual-prototypes",
+        action="store_true",
+        help="Use rendered font prototypes for hierarchical words/subwords.",
+    )
+    parser.add_argument(
         "--limit-per-script",
         type=int,
         default=None,
@@ -429,7 +466,11 @@ def main() -> None:
         from embedding_ocr.recognition.embedding.embedder import EmbeddingGemma2
 
         print("\nLoading EmbeddingGemma 2...")
-        embedder = EmbeddingGemma2(dim=args.gemma_dim, device=args.device)
+        embedder = EmbeddingGemma2(
+            dim=args.gemma_dim,
+            device=args.device,
+            batch_size=8,
+        )
 
         index_fonts: dict[str, list[str]] = {}
         dataset_meta = json.loads((manifest.parent / "dataset.json").read_text())
@@ -449,9 +490,25 @@ def main() -> None:
             script: _build_char_engine(embedder, script, fonts)
             for script, fonts in index_fonts.items()
         }
+        hier_max_words = args.hier_max_words
+        hier_max_subwords = args.hier_max_subwords
+        if args.hier_visual_prototypes:
+            # Visual prototypes multiply each candidate by the number of fonts;
+            # keep explicit safe caps unless the user overrides them.
+            hier_max_words = hier_max_words or 4000
+            hier_max_subwords = hier_max_subwords or 3000
+
         print("Building hierarchical engines...")
         hier_engines = {
-            script: _build_hier_engine(embedder, script, fonts, char_engines[script])
+            script: _build_hier_engine(
+                embedder,
+                script,
+                fonts,
+                char_engines[script],
+                max_words=hier_max_words,
+                max_subwords=hier_max_subwords,
+                use_visual_prototypes=args.hier_visual_prototypes,
+            )
             for script, fonts in index_fonts.items()
         }
 
@@ -475,6 +532,11 @@ def main() -> None:
     payload = {
         "manifest": str(manifest),
         "num_samples": len(samples),
+        "hierarchical": {
+            "max_words": args.hier_max_words,
+            "max_subwords": args.hier_max_subwords,
+            "visual_prototypes": args.hier_visual_prototypes,
+        },
         "engines": [asdict(report) for report in reports],
     }
     output.parent.mkdir(parents=True, exist_ok=True)
