@@ -250,6 +250,43 @@ def _to_rgb(image: Any) -> np.ndarray:
     return np.ascontiguousarray(array[:, :, :3]).astype(np.uint8, copy=False)
 
 
+def annotate_word_boxes(image: np.ndarray, result: OCRResult) -> np.ndarray:
+    """Draw recognizer word boxes over the input image for debugging."""
+    canvas = Image.fromarray(_to_rgb(image)).convert("RGB")
+    draw = ImageDraw.Draw(canvas)
+    try:
+        font = ImageFont.load_default()
+    except OSError:  # pragma: no cover - Pillow always ships a default font
+        font = None
+
+    raw_boxes = result.metadata.get("word_boxes")
+    if not isinstance(raw_boxes, list):
+        return np.asarray(canvas, dtype=np.uint8)
+
+    color = (37, 99, 235)
+    for index, item in enumerate(raw_boxes, start=1):
+        if not isinstance(item, dict):
+            continue
+        bbox = item.get("bbox")
+        if not isinstance(bbox, (list, tuple)) or len(bbox) != 4:
+            continue
+        try:
+            x, y, width, height = (int(value) for value in bbox)
+        except (TypeError, ValueError):
+            continue
+        x1 = x + max(1, width)
+        y1 = y + max(1, height)
+        draw.rectangle((x, y, x1, y1), outline=color, width=2)
+        text = str(item.get("text", "")).strip() or "?"
+        label = f"{index}: {text}"
+        if font is not None:
+            draw.text((x + 2, max(0, y - 12)), label, fill=color, font=font)
+        else:  # pragma: no cover
+            draw.text((x + 2, max(0, y - 12)), label, fill=color)
+
+    return np.asarray(canvas, dtype=np.uint8)
+
+
 def annotate_result(image: np.ndarray, result: OCRResult) -> np.ndarray:
     """Draw detected region boxes and labels over the input image."""
     canvas = Image.fromarray(_to_rgb(image)).convert("RGB")
@@ -321,7 +358,14 @@ def run_ocr(
     script: str,
     quick: bool,
     progress: Any = None,
-) -> tuple[str, float, dict[str, Any], np.ndarray | None, str]:
+) -> tuple[
+    str,
+    float,
+    dict[str, Any],
+    np.ndarray | None,
+    np.ndarray | None,
+    str,
+]:
     """Run the selected pipeline and return Gradio-compatible outputs."""
     overrides = UiOverrides(
         device=device,
@@ -337,20 +381,31 @@ def run_ocr(
         _notify(progress, 0.55, "Running detection and recognition...")
         result = pipeline.recognize(array)
         annotated = annotate_result(array, result)
+        word_debug = annotate_word_boxes(array, result)
         details = format_details(profile, overrides, result)
         latency = result.metadata.get("latency_ms")
         latency_text = (
             f"{float(latency):.1f} ms" if isinstance(latency, (int, float)) else "n/a"
         )
+        raw_word_boxes = result.metadata.get("word_boxes")
+        word_box_count = len(raw_word_boxes) if isinstance(raw_word_boxes, list) else 0
         status = (
             "### Done\n"
             f"- Profile: `{profile or 'default'}`\n"
             f"- Recognizer: `{result.metadata.get('recognizer', 'unknown')}`\n"
             f"- Detector: `{result.metadata.get('detector', 'unknown')}`\n"
             f"- Regions: {len(result.regions)}\n"
+            f"- Word boxes: {word_box_count}\n"
             f"- Latency: {latency_text}"
         )
-        return result.text, float(result.confidence), details, annotated, status
+        return (
+            result.text,
+            float(result.confidence),
+            details,
+            annotated,
+            word_debug,
+            status,
+        )
     except Exception as exc:  # noqa: BLE001 - surface the error in the UI
         if _is_cuda_oom(exc):
             clear_pipeline_cache()
@@ -363,11 +418,11 @@ def run_ocr(
             "error": error,
         }
         fallback = _to_rgb(image) if image is not None else None
-        return "", 0.0, details, fallback, f"### Error\n`{error}`"
+        return "", 0.0, details, fallback, fallback, f"### Error\n`{error}`"
 
 
-def _clear() -> tuple[None, str, float, None, dict[str, Any], str]:
-    return None, "", 0.0, None, {}, ""
+def _clear() -> tuple[None, str, float, None, None, dict[str, Any], str]:
+    return None, "", 0.0, None, None, {}, ""
 
 
 def build_demo(config_dir: str | Path = DEFAULT_CONFIG_DIR) -> Any:
@@ -451,18 +506,22 @@ def build_demo(config_dir: str | Path = DEFAULT_CONFIG_DIR) -> Any:
                 )
                 confidence = gr.Number(label="Confidence", precision=4)
                 annotated = gr.Image(label="Detected regions", type="numpy")
+                word_debug = gr.Image(
+                    label="Word boxes / segmentation",
+                    type="numpy",
+                )
                 details = gr.JSON(label="Details")
                 status = gr.Markdown()
 
         run_button.click(
             fn=run_ocr,
             inputs=[image, profile, device, recognizer, detector, script, quick],
-            outputs=[text, confidence, details, annotated, status],
+            outputs=[text, confidence, details, annotated, word_debug, status],
         )
         clear_button.click(
             fn=_clear,
             inputs=[],
-            outputs=[image, text, confidence, annotated, details, status],
+            outputs=[image, text, confidence, annotated, word_debug, details, status],
         )
 
     return demo

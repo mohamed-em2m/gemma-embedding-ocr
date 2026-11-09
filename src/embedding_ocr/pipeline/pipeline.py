@@ -11,7 +11,7 @@ import cv2
 import numpy as np
 
 from embedding_ocr.config import PipelineSettings
-from embedding_ocr.pipeline.crop import crop_regions
+from embedding_ocr.pipeline.crop import crop_regions, normalize_bbox
 from embedding_ocr.pipeline.detect import TextDetector
 from embedding_ocr.pipeline.preprocess import preprocess_handwriting_crop
 from embedding_ocr.pipeline.reconstruct import mean_confidence, reconstruct_text
@@ -116,7 +116,10 @@ class OCRPipeline:
 
         crops = crop_regions(processed, regions)
         recognized: list[RecognizedRegion] = []
-        for region, crop in zip(regions, crops, strict=False):
+        word_boxes: list[dict[str, object]] = []
+        for region_index, (region, crop) in enumerate(
+            zip(regions, crops, strict=False), start=1
+        ):
             if crop.size == 0:
                 continue
             result = self.recognizer.recognize(self._ensure_rgb(crop))
@@ -125,6 +128,18 @@ class OCRPipeline:
                     region=region,
                     text=result.text,
                     confidence=result.confidence,
+                )
+            )
+            normalized_bbox = normalize_bbox(
+                region.bbox,
+                processed.shape[1],
+                processed.shape[0],
+            )
+            word_boxes.extend(
+                self._offset_word_boxes(
+                    result.metadata.get("word_boxes"),
+                    normalized_bbox,
+                    region_index,
                 )
             )
 
@@ -139,5 +154,37 @@ class OCRPipeline:
                 "num_regions": len(regions),
                 "detection_cached": cached,
                 "latency_ms": elapsed_ms,
+                "word_boxes": word_boxes,
             },
         )
+
+    @staticmethod
+    def _offset_word_boxes(
+        raw_boxes: object,
+        region_bbox: tuple[int, int, int, int],
+        region_index: int,
+    ) -> list[dict[str, object]]:
+        """Translate recognizer-local word boxes into image coordinates."""
+        if not isinstance(raw_boxes, list):
+            return []
+        origin_x, origin_y = int(region_bbox[0]), int(region_bbox[1])
+        boxes: list[dict[str, object]] = []
+        for item in raw_boxes:
+            if not isinstance(item, dict):
+                continue
+            bbox = item.get("bbox")
+            if not isinstance(bbox, (list, tuple)) or len(bbox) != 4:
+                continue
+            try:
+                x, y, width, height = (int(value) for value in bbox)
+            except (TypeError, ValueError):
+                continue
+            boxes.append(
+                {
+                    "bbox": [x + origin_x, y + origin_y, width, height],
+                    "text": str(item.get("text", "")),
+                    "confidence": float(item.get("confidence", 0.0)),
+                    "region_index": region_index,
+                }
+            )
+        return boxes

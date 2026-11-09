@@ -13,6 +13,7 @@ from embedding_ocr.pipeline.types import OCRResult, RecognizedRegion, TextRegion
 from embedding_ocr.webui import (
     UiOverrides,
     annotate_result,
+    annotate_word_boxes,
     apply_ui_overrides,
     format_details,
     list_config_profiles,
@@ -74,6 +75,23 @@ def test_annotate_result_draws_boxes() -> None:
     assert not np.array_equal(annotated, image)
 
 
+def test_annotate_word_boxes_draws_recognizer_boxes() -> None:
+    image = np.full((60, 100, 3), 255, dtype=np.uint8)
+    result = OCRResult(
+        text="ab",
+        confidence=0.9,
+        metadata={
+            "word_boxes": [
+                {"bbox": [10, 10, 20, 20], "text": "a", "confidence": 0.9},
+                {"bbox": [40, 10, 20, 20], "text": "", "confidence": 0.0},
+            ]
+        },
+    )
+    annotated = annotate_word_boxes(image, result)
+    assert annotated.shape == image.shape
+    assert not np.array_equal(annotated, image)
+
+
 def test_format_details_is_serializable() -> None:
     result = OCRResult(
         text="x",
@@ -112,12 +130,15 @@ def test_run_ocr_uses_pipeline(monkeypatch) -> None:
                     "detector": "dummy",
                     "recognizer": "dummy",
                     "latency_ms": 2.5,
+                    "word_boxes": [
+                        {"bbox": [2, 2, 4, 4], "text": "hello", "confidence": 0.75}
+                    ],
                 },
             )
 
     monkeypatch.setattr(webui, "get_pipeline", lambda *args, **kwargs: DummyPipeline())
     image = np.full((32, 32, 3), 255, dtype=np.uint8)
-    text, confidence, details, annotated, status = webui.run_ocr(
+    text, confidence, details, annotated, word_debug, status = webui.run_ocr(
         image,
         "default.yaml",
         "cpu",
@@ -131,6 +152,8 @@ def test_run_ocr_uses_pipeline(monkeypatch) -> None:
     assert confidence == pytest.approx(0.75)
     assert details["text"] == "hello"
     assert annotated is not None
+    assert word_debug is not None
+    assert "Word boxes: 1" in status
     assert "Done" in status
 
 
@@ -147,7 +170,7 @@ def test_run_ocr_clears_pipeline_cache_after_cuda_oom(monkeypatch) -> None:
     monkeypatch.setattr(webui, "get_pipeline", raise_oom)
     monkeypatch.setattr(webui, "clear_pipeline_cache", lambda: cleared.append(True))
     image = np.full((32, 32, 3), 255, dtype=np.uint8)
-    _text, _confidence, details, annotated, status = webui.run_ocr(
+    _text, _confidence, details, annotated, word_debug, status = webui.run_ocr(
         image,
         "default.yaml",
         "cuda",
@@ -161,6 +184,7 @@ def test_run_ocr_clears_pipeline_cache_after_cuda_oom(monkeypatch) -> None:
     assert "OutOfMemoryError" in status
     assert "error" in details
     assert annotated is not None
+    assert word_debug is not None
 
 
 def test_public_share_link_is_enabled_by_default(

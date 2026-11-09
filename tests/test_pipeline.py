@@ -83,6 +83,55 @@ def test_pipeline_recognizes_and_joins_regions() -> None:
     assert result.metadata["num_regions"] == 2
 
 
+class WordBoxRecognizer:
+    def __init__(self) -> None:
+        self.index = 0
+
+    def recognize(self, image: np.ndarray) -> RecognitionResult:
+        index = self.index
+        self.index += 1
+        return RecognitionResult(
+            text=f"W{index}",
+            confidence=0.8,
+            metadata={
+                "word_boxes": [
+                    {"bbox": [1, 2, 3, 4], "text": f"W{index}", "confidence": 0.8}
+                ]
+            },
+        )
+
+
+def test_pipeline_offsets_word_boxes_to_image_coordinates() -> None:
+    pipeline = OCRPipeline(
+        detector=TwoRegionDetector(),
+        recognizer=WordBoxRecognizer(),
+        settings=PipelineSettings(preprocess=False),
+    )
+    result = pipeline.recognize(np.zeros((20, 40, 3), dtype=np.uint8))
+
+    boxes = result.metadata["word_boxes"]
+    assert [box["bbox"] for box in boxes] == [[1, 2, 3, 4], [21, 2, 3, 4]]
+    assert [box["region_index"] for box in boxes] == [1, 2]
+    assert [box["text"] for box in boxes] == ["W0", "W1"]
+
+
+class ClampedRegionDetector:
+    def detect(self, image: np.ndarray) -> list[TextRegion]:
+        return [TextRegion((-5, 0, 10, 20))]
+
+
+def test_pipeline_offsets_word_boxes_from_clamped_crop_origin() -> None:
+    pipeline = OCRPipeline(
+        detector=ClampedRegionDetector(),
+        recognizer=WordBoxRecognizer(),
+        settings=PipelineSettings(preprocess=False),
+    )
+    result = pipeline.recognize(np.zeros((20, 40, 3), dtype=np.uint8))
+
+    boxes = result.metadata["word_boxes"]
+    assert boxes[0]["bbox"] == [1, 2, 3, 4]
+
+
 def test_pipeline_rtl_reading_order() -> None:
     pipeline = OCRPipeline(
         detector=TwoRegionDetector(),

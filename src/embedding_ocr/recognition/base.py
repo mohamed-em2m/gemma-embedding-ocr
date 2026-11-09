@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Protocol
 
 import numpy as np
@@ -15,10 +15,12 @@ class RecognitionResult:
     Attributes:
         text: The recognized text string.
         confidence: Confidence score in [0, 1].
+        metadata: Optional debug data, including recognizer-local ``word_boxes``.
     """
 
     text: str
     confidence: float
+    metadata: dict[str, object] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
         if not (0.0 <= self.confidence <= 1.0):

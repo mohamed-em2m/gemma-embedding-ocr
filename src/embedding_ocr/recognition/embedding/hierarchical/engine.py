@@ -274,19 +274,29 @@ class HierarchicalWordRecognizer(RecognitionEngine):
 
         # 1. Propose individual word crops using CRAFT or visual gap segmentation.
         # Boxes are returned in logical reading order (RTL for Arabic/Hebrew).
+        word_source = "visual"
         if self.use_craft and self.craft_detector is not None:
             word_boxes = self.craft_detector.detect_word_boxes(image, rtl=self.rtl)
+            word_source = "craft"
         else:
             word_boxes = self.segmenter.extract_word_boxes(image, rtl=self.rtl)
 
         recognized_words: list[str] = []
         confidences: list[float] = []
+        debug_boxes: list[dict[str, object]] = []
 
         for x, y, w, h in word_boxes:
             word_crop = image[y : y + h, x : x + w]
             self.stats["total_words"] += 1
 
             text, conf = self.recognize_word_crop(word_crop, depth=0)
+            debug_boxes.append(
+                {
+                    "bbox": [int(x), int(y), int(w), int(h)],
+                    "text": text,
+                    "confidence": float(conf),
+                }
+            )
             if text:
                 recognized_words.append(text)
                 confidences.append(conf)
@@ -298,4 +308,5 @@ class HierarchicalWordRecognizer(RecognitionEngine):
         return RecognitionResult(
             text=final_text,
             confidence=max(0.0, min(1.0, mean_conf)),
+            metadata={"word_boxes": debug_boxes, "word_box_source": word_source},
         )

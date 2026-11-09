@@ -252,7 +252,13 @@ def test_hierarchical_recognizer_joins_words_in_reading_order() -> None:
         script="latin",
     )
     ltr_engine.recognize_word_crop = fake_recognize_word_crop  # type: ignore[method-assign]
-    assert ltr_engine.recognize(image).text == "LEFT RIGHT"
+    ltr_result = ltr_engine.recognize(image)
+    assert ltr_result.text == "LEFT RIGHT"
+    assert ltr_result.metadata["word_box_source"] == "visual"
+    assert [box["text"] for box in ltr_result.metadata["word_boxes"]] == [
+        "LEFT",
+        "RIGHT",
+    ]
 
     rtl_engine = HierarchicalWordRecognizer(
         embedder=embedder,
@@ -260,4 +266,9 @@ def test_hierarchical_recognizer_joins_words_in_reading_order() -> None:
         script="arabic",
     )
     rtl_engine.recognize_word_crop = fake_recognize_word_crop  # type: ignore[method-assign]
-    assert rtl_engine.recognize(image).text == "RIGHT LEFT"
+    rtl_result = rtl_engine.recognize(image)
+    assert rtl_result.text == "RIGHT LEFT"
+    assert [box["text"] for box in rtl_result.metadata["word_boxes"]] == [
+        "RIGHT",
+        "LEFT",
+    ]

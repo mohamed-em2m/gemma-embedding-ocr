@@ -192,5 +192,5 @@ uv run embedding-ocr recognize image.png --config configs/yolo_units.yaml
 - Ultralytics YOLO is AGPL-3.0 or commercially licensed; review that before
   distributing weights or integrating the backend.
 
-Validation in this iteration: `ruff`, `mypy src`, and 140 tests pass. Optional
+Validation in this iteration: `ruff`, `mypy src`, and 143 tests pass. Optional
 model/detector probes report missing dependencies rather than crashing.

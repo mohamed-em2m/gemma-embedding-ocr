@@ -88,7 +88,8 @@ baseline extras the way a bare `uv run` sync would.
 The UI includes bundled Latin and Arabic example images that set the matching
 profile and script. It also lets you upload or capture an image, choose a YAML
 profile, override the recognizer/detector/script/device, and inspect recognized
-text, confidence, region boxes, and JSON details. The first request builds
+text, confidence, detector region boxes, per-word segmentation boxes, and JSON
+details. The first request builds
 prototypes/vocabulary and may download `google/embeddinggemma-2`, so it can take
 several minutes. Quick mode caps the hierarchical vocabulary at 4k words / 3k
 subwords; uncheck it to use the full tokenizer vocabulary. Small caps can omit
