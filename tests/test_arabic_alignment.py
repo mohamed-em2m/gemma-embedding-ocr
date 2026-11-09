@@ -235,3 +235,38 @@ def test_arabic_unit_segmenter_merges_diacritics_and_orders_rtl() -> None:
     assert units[0].bbox[1] <= 8
     assert units[0].bbox[3] + units[0].bbox[1] >= 35
     assert units[0].image.shape == (64, 64, 3)
+
+
+def test_render_prototype_image_falls_back_without_raqm(monkeypatch) -> None:
+    font = next(
+        (font for font in DEFAULT_ARABIC_FONTS if Path(font).exists()),
+        None,
+    )
+    if font is None:
+        pytest.skip("No Arabic font installed")
+
+    original_textbbox = ImageDraw.ImageDraw.textbbox
+    original_text = ImageDraw.ImageDraw.text
+
+    def textbbox_without_raqm(self, xy, text, *args, **kwargs):
+        if kwargs.get("direction") is not None:
+            raise KeyError(
+                "setting text direction, language or font features is not "
+                "supported without libraqm"
+            )
+        return original_textbbox(self, xy, text, *args, **kwargs)
+
+    def text_without_raqm(self, xy, text, *args, **kwargs):
+        if kwargs.get("direction") is not None:
+            raise KeyError(
+                "setting text direction, language or font features is not "
+                "supported without libraqm"
+            )
+        return original_text(self, xy, text, *args, **kwargs)
+
+    monkeypatch.setattr(ImageDraw.ImageDraw, "textbbox", textbbox_without_raqm)
+    monkeypatch.setattr(ImageDraw.ImageDraw, "text", text_without_raqm)
+    image = render_prototype_image("مرحبا", font_path=font, script="arabic")
+    assert image.ndim == 3
+    assert image.shape[2] == 3
+    assert image.min() < 250

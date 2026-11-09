@@ -124,7 +124,7 @@ def render_glyph(
         bbox = draw.textbbox(
             (0, 0), char, font=font, direction=direction, language=language
         )
-    except (OSError, ValueError):
+    except (OSError, ValueError, KeyError):
         # Pillow without libraqm cannot honour RTL direction; fall back to
         # plain rendering rather than failing the prototype build.
         direction = None

@@ -102,7 +102,7 @@ def render_prototype_image(
             direction=direction,
             language=language,
         )
-    except (OSError, ValueError):
+    except (OSError, ValueError, KeyError):
         # libraqm is unavailable; fall back to pre-shaped visual-order text.
         if normalized_script == "arabic":
             render_text = _shape_arabic_fallback(text)

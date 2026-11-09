@@ -255,3 +255,31 @@ def test_matryoshka_truncation_renormalization() -> None:
     renormed = truncated / norms[:, None]
     norms2 = np.linalg.norm(renormed, axis=1)
     np.testing.assert_allclose(norms2, 1.0, atol=1e-6)
+
+
+def test_render_glyph_falls_back_without_raqm(monkeypatch) -> None:
+    from PIL import ImageDraw
+
+    original_textbbox = ImageDraw.ImageDraw.textbbox
+    original_text = ImageDraw.ImageDraw.text
+
+    def textbbox_without_raqm(self, xy, text, *args, **kwargs):
+        if kwargs.get("direction") is not None:
+            raise KeyError(
+                "setting text direction, language or font features is not "
+                "supported without libraqm"
+            )
+        return original_textbbox(self, xy, text, *args, **kwargs)
+
+    def text_without_raqm(self, xy, text, *args, **kwargs):
+        if kwargs.get("direction") is not None:
+            raise KeyError(
+                "setting text direction, language or font features is not "
+                "supported without libraqm"
+            )
+        return original_text(self, xy, text, *args, **kwargs)
+
+    monkeypatch.setattr(ImageDraw.ImageDraw, "textbbox", textbbox_without_raqm)
+    monkeypatch.setattr(ImageDraw.ImageDraw, "text", text_without_raqm)
+    image = render_glyph("A", font_path="/nonexistent/font.ttf", script="arabic")
+    assert image.size == (64, 64)
