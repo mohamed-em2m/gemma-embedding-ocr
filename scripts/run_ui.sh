@@ -63,6 +63,19 @@ has_module() {
 
 require_uv() {
     if ! command -v uv >/dev/null 2>&1; then
+        local candidate
+        for candidate in "${UV_ENV_FILE:-}" "${HOME:-}/.local/bin/env" "${HOME:-}/.cargo/env"; do
+            if [[ -n "$candidate" && -f "$candidate" ]]; then
+                # shellcheck disable=SC1090
+                source "$candidate" >/dev/null 2>&1 || true
+                command -v uv >/dev/null 2>&1 && break
+            fi
+        done
+    fi
+    if ! command -v uv >/dev/null 2>&1; then
+        export PATH="${HOME:-}/.local/bin:${HOME:-}/.cargo/bin:$PATH"
+    fi
+    if ! command -v uv >/dev/null 2>&1; then
         echo "ERROR: uv is required to repair missing runtime packages." >&2
         echo "Install uv or run: bash scripts/setup_auto.sh" >&2
         exit 1
