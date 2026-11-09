@@ -85,7 +85,8 @@ uv run --extra ui embedding-ocr ui
 `make ui` uses the already-synced environment directly, so it does not prune
 baseline extras the way a bare `uv run` sync would.
 
-The UI lets you upload or capture an image, choose a YAML profile, override the
+The UI includes bundled Latin and Arabic example images, lets you upload or
+capture an image, choose a YAML profile, override the
 recognizer/detector/script/device, and inspect recognized text, confidence,
 region boxes, and JSON details. The first request builds prototypes/vocabulary
 and may download `google/embeddinggemma-2`, so it can take several minutes.

@@ -137,6 +137,7 @@ command -v uv >/dev/null 2>&1 || {
     exit 1
 }
 export UV_LINK_MODE="${UV_LINK_MODE:-copy}"
+export PYTORCH_CUDA_ALLOC_CONF="${PYTORCH_CUDA_ALLOC_CONF:-expandable_segments:True}"
 echo "✓ $(uv --version)"
 
 # ---------------------------------------------------------------------------

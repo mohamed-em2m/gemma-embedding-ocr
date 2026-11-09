@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import sys
+from pathlib import Path
 
 import numpy as np
 import pytest
@@ -141,3 +142,37 @@ def test_public_share_link_is_enabled_by_default(
 
     monkeypatch.setattr(sys, "argv", ["embedding-ocr-ui", "--no-share"])
     assert parse_args().share is False
+
+
+def test_bundled_example_images_are_available() -> None:
+    from embedding_ocr.webui import list_example_images
+
+    examples = list_example_images()
+    assert len(examples) >= 3
+    assert all(Path(path).is_file() for path in examples)
+
+
+def test_pipeline_cache_keeps_only_one_model(monkeypatch) -> None:
+    import embedding_ocr.webui as webui
+
+    class DummyPipeline:
+        released = 0
+
+        def __del__(self) -> None:
+            type(self).released += 1
+
+    webui.clear_pipeline_cache()
+    monkeypatch.setattr(webui, "build_pipeline", lambda config: DummyPipeline())
+
+    webui.get_pipeline(
+        "default.yaml",
+        webui.UiOverrides(device="cpu", quick=True),
+    )
+    webui.get_pipeline(
+        "default.yaml",
+        webui.UiOverrides(device="auto", quick=True),
+    )
+
+    assert len(webui._PIPELINE_CACHE) == 1
+    assert DummyPipeline.released >= 1
+    webui.clear_pipeline_cache()

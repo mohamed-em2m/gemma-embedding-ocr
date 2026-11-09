@@ -7,6 +7,7 @@ when the optional ``ui`` extra is not installed.
 from __future__ import annotations
 
 import argparse
+import gc
 import threading
 from dataclasses import asdict, dataclass
 from pathlib import Path
@@ -58,6 +59,22 @@ class UiOverrides:
     detector: str = DEFAULT_DETECTOR
     script: str = DEFAULT_SCRIPT
     quick: bool = True
+
+
+def list_example_images() -> list[str]:
+    """Return bundled example images that can be loaded into the UI."""
+    candidates = (
+        Path.cwd() / "assets" / "examples",
+        Path(__file__).resolve().parents[2] / "assets" / "examples",
+    )
+    for directory in candidates:
+        if directory.is_dir():
+            images = sorted(
+                path for path in directory.iterdir() if path.suffix.lower() == ".png"
+            )
+            if images:
+                return [str(path) for path in images]
+    return []
 
 
 def list_config_profiles(config_dir: str | Path = DEFAULT_CONFIG_DIR) -> list[str]:
@@ -138,28 +155,53 @@ def _cache_key(config_path: Path, overrides: UiOverrides) -> tuple[Any, ...]:
     )
 
 
+def _release_cuda_memory() -> None:
+    """Run Python/CUDA garbage collection after dropping a pipeline."""
+    gc.collect()
+    try:
+        import torch
+    except ImportError:
+        return
+    if torch.cuda.is_available():
+        torch.cuda.empty_cache()
+
+
+def _release_pipelines(pipelines: list[OCRPipeline]) -> None:
+    for pipeline in pipelines:
+        del pipeline
+    pipelines.clear()
+    _release_cuda_memory()
+
+
 def get_pipeline(
     profile: str | None,
     overrides: UiOverrides,
     config_dir: str | Path = DEFAULT_CONFIG_DIR,
 ) -> OCRPipeline:
-    """Build or fetch a cached pipeline for the selected profile."""
+    """Build or fetch the one cached pipeline for the selected profile."""
     config_path = resolve_config_path(profile, config_dir)
     key = _cache_key(config_path, overrides)
     with _CACHE_LOCK:
         cached = _PIPELINE_CACHE.get(key)
         if cached is not None:
             return cached
-        config = apply_ui_overrides(load_config(config_path), overrides)
-        pipeline = build_pipeline(config)
+        stale = list(_PIPELINE_CACHE.values())
+        _PIPELINE_CACHE.clear()
+    # Free the previous model(s) before loading another one onto the GPU.
+    _release_pipelines(stale)
+    config = apply_ui_overrides(load_config(config_path), overrides)
+    pipeline = build_pipeline(config)
+    with _CACHE_LOCK:
         _PIPELINE_CACHE[key] = pipeline
-        return pipeline
+    return pipeline
 
 
 def clear_pipeline_cache() -> None:
-    """Drop cached pipelines (used by tests and long-lived servers)."""
+    """Drop cached pipelines and release their GPU memory."""
     with _CACHE_LOCK:
+        pipelines = list(_PIPELINE_CACHE.values())
         _PIPELINE_CACHE.clear()
+    _release_pipelines(pipelines)
 
 
 def _to_rgb(image: Any) -> np.ndarray:
@@ -280,6 +322,7 @@ def run_ocr(
         )
         return result.text, float(result.confidence), details, annotated, status
     except Exception as exc:  # noqa: BLE001 - surface the error in the UI
+        _release_cuda_memory()
         error = f"{type(exc).__name__}: {exc}"
         details = {
             "profile": profile,
@@ -321,6 +364,13 @@ def build_demo(config_dir: str | Path = DEFAULT_CONFIG_DIR) -> Any:
         with gr.Row():
             with gr.Column(scale=1):
                 image = gr.Image(type="numpy", label="Input image")
+                examples = list_example_images()
+                if examples:
+                    gr.Examples(
+                        examples=[[path] for path in examples],
+                        inputs=[image],
+                        label="Example images",
+                    )
                 profile = gr.Dropdown(
                     choices=profiles,
                     value=default_profile,
