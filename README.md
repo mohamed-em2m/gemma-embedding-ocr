@@ -65,11 +65,15 @@ uv pip install --python .venv/bin/python opencv-python-headless
 ## Web interface
 
 ```bash
-uv run --extra ui embedding-ocr ui          # public share link by default
-uv run --extra ui embedding-ocr ui --no-share  # local-only
-# or
-uv run --extra ui embedding-ocr-ui --host 0.0.0.0 --port 7860
+.venv/bin/embedding-ocr ui                    # public share link by default
+.venv/bin/embedding-ocr ui --no-share         # local-only
+.venv/bin/embedding-ocr-ui --host 0.0.0.0 --port 7860
+# or from a fresh checkout (syncs core + UI only)
+uv run --extra ui embedding-ocr ui
 ```
+
+`make ui` uses the already-synced environment directly, so it does not prune
+baseline extras the way a bare `uv run` sync would.
 
 The UI lets you upload or capture an image, choose a YAML profile, override the
 recognizer/detector/script/device, and inspect recognized text, confidence,
