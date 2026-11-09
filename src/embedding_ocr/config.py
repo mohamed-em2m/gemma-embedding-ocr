@@ -25,7 +25,7 @@ class EmbedderSettings(_Model):
     dim: int = 768
     device: str = "auto"
     dtype: str = "float32"
-    batch_size: int = 16
+    batch_size: int = 0
 
 
 class IndexSettings(_Model):

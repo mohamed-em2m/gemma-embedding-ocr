@@ -9,6 +9,7 @@ import torch
 from PIL import Image
 
 from embedding_ocr.recognition.base import RecognitionEngine, RecognitionResult
+from embedding_ocr.utils.gpu import resolve_device
 
 
 class GLMOCRRecognizer(RecognitionEngine):
@@ -22,15 +23,13 @@ class GLMOCRRecognizer(RecognitionEngine):
     ) -> None:
         from transformers import AutoModelForImageTextToText, AutoProcessor
 
-        resolved_device = (
-            "cuda" if device == "auto" and torch.cuda.is_available() else device
-        )
-        if resolved_device == "auto":
-            resolved_device = "cpu"
+        resolved_device = resolve_device(device)
         resolved_dtype = (
             torch_dtype
             if torch_dtype is not None
-            else (torch.bfloat16 if resolved_device == "cuda" else torch.float32)
+            else (
+                torch.bfloat16 if resolved_device.startswith("cuda") else torch.float32
+            )
         )
 
         self.device = resolved_device

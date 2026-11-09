@@ -86,7 +86,7 @@ def main() -> None:
     print(f"Embedding Dim:  {args.dim}d")
 
     # Initialize embedder and index
-    embedder = EmbeddingGemma2(dim=args.dim, device=args.device, batch_size=16)
+    embedder = EmbeddingGemma2(dim=args.dim, device=args.device, batch_size=0)
     index = FaissIndex(dim=args.dim, embedder_name=embedder.name)
     proto_db = PrototypeDB(embedder=embedder, index=index, classes=ALPHANUMERIC_CLASSES)
 

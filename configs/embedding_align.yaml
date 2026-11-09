@@ -2,7 +2,7 @@ embedder:
   backend: gemma
   dim: 768
   device: auto
-  batch_size: 8
+  batch_size: 0
 
 detector:
   backend: full

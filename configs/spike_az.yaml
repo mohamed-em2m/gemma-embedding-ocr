@@ -2,7 +2,7 @@ embedder:
   model_id: "google/embeddinggemma-2"
   dims: [768, 512, 256, 128]
   device: "auto"
-  batch_size: 16
+  batch_size: 0
 
 rendering:
   image_size: [64, 64]

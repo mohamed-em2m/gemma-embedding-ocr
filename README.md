@@ -112,14 +112,35 @@ several minutes. Quick mode caps the hierarchical vocabulary at 4k words / 3k
 subwords; uncheck it to use the full tokenizer vocabulary. Small caps can omit
 rare words because tokenizer ids are not frequency-ordered.
 
+### GPU selection and batch auto-tuning
+
+`device: auto` checks every visible CUDA device and picks the one with the
+most free memory, then the lowest utilisation. Explicit values such as
+`cuda:1` are respected.
+
+`batch_size: 0` means auto. The embedder reads `artifacts/gpu_tuning.json` if it
+exists, otherwise uses a conservative free-memory estimate. If a batch still
+runs out of memory, the embedder halves it and retries automatically.
+
+Benchmark and cache the best batch for the current machine:
+
+```bash
+uv run --no-sync python scripts/autotune_gpu.py --device auto
+```
+
+The script reports every GPU, the selected device, the image/text batch sizes,
+peak memory, and writes the recommendation to `artifacts/gpu_tuning.json`.
+EmbeddingOCR uses one GPU per process; run separate processes with different
+`CUDA_VISIBLE_DEVICES` values for parallel benchmarks.
+
 ### CUDA out of memory
 
 The UI keeps only one pipeline in memory and releases the old one when the
-profile/overrides change. The embedding configs use `batch_size: 8`, and
-`embedding_ocr` sets `PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True` by
-default. If a notebook already loaded GLM-OCR or another model, restart the
-kernel before launching the UI. The UI clears its pipeline cache automatically
-after a CUDA OOM so the next request can retry.
+profile/overrides change. `embedding_ocr` sets
+`PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True` by default. If a notebook
+already loaded GLM-OCR or another model, restart the kernel before launching the
+UI. The UI clears its pipeline cache automatically after a CUDA OOM so the next
+request can retry.
 
 ## Commands
 
@@ -138,6 +159,7 @@ uv run --no-sync embedding-ocr build-vocabulary --config configs/default.yaml
 uv run --no-sync embedding-ocr benchmark manifest.tsv \
     --config configs/embedding_seg.yaml --output docs/benchmark_report.json
 
+uv run --no-sync python scripts/autotune_gpu.py --device auto  # pick GPU + batch
 uv run --no-sync python scripts/phase0_az_spike.py \
     --config configs/spike_az.yaml                       # Phase 0 spike
 uv run --no-sync python scripts/probe_segmentation.py --mode all   # detector/embedder probe
@@ -158,6 +180,8 @@ uv run --no-sync python scripts/test_iam_handwriting.py \
 | `detector.backend` | `full`, `visual`, `craft`, `paddle` | Chooses the text detector |
 | `recognition.script` | `latin`, `arabic` | Sets classes, RTL order, and case rules |
 | `embedder.backend` | `gemma`, `siglip`, `jina` | Swaps the visual embedder |
+| `embedder.device` | `auto`, `cpu`, `cuda`, `cuda:N` | `auto` picks the least-used GPU |
+| `embedder.batch_size` | `0` or positive int | `0` uses tuned cache/heuristic and OOM fallback |
 | `index.backend` | `faiss`, `numpy` | Exact FAISS or NumPy reference index |
 
 Use `configs/baseline_paddle.yaml`, `configs/embedding_seg.yaml`, and

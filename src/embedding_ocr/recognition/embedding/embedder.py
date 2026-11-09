@@ -17,11 +17,21 @@ EmbeddingGemma2 facts (verified Phase 0):
 
 from __future__ import annotations
 
+import logging
 from collections.abc import Mapping
 from typing import Any, Protocol, runtime_checkable
 
 import numpy as np
 import torch
+
+from embedding_ocr.utils.gpu import (
+    AUTO_BATCH_SIZE,
+    is_oom_error,
+    recommend_batch_size,
+    resolve_device,
+)
+
+_LOGGER = logging.getLogger(__name__)
 
 
 @runtime_checkable
@@ -78,30 +88,30 @@ class EmbeddingGemma2:
         self,
         dim: int = 768,
         device: str = "auto",
-        batch_size: int = 16,
+        batch_size: int = AUTO_BATCH_SIZE,
         dtype: str = "float32",
+        auto_oom_fallback: bool = True,
     ) -> None:
         """Initialise the EmbeddingGemma2 backend.
 
         Args:
             dim: Active Matryoshka dimension. One of 768, 512, 256, 128.
-            device: Device to use. "auto" selects CUDA if available else CPU.
-            batch_size: Batch size for encoding. Use <= 16 on T4/15GB (bfloat16).
-            dtype: Weight dtype. "bfloat16" recommended on GPU; "float32" on CPU.
+            device: Device to use. ``auto``/``cuda`` selects the least-used GPU
+                with enough free memory; explicit values such as ``cuda:1``
+                are respected.
+            batch_size: Images/texts per forward pass. ``0`` auto-selects from
+                the tuned cache or free-memory heuristics, with OOM fallback.
+            dtype: Weight dtype. ``bfloat16`` is used on GPU automatically.
+            auto_oom_fallback: Halve the batch and retry on CUDA OOM.
         """
         if dim not in (768, 512, 256, 128):
             msg = f"dim must be one of 768, 512, 256, 128; got {dim}"
             raise ValueError(msg)
 
         self.dim = dim
-        self.batch_size = batch_size
         self._cache: dict[bytes, np.ndarray] = {}
-
-        # Resolve device
-        if device == "auto":
-            self._device = "cuda" if torch.cuda.is_available() else "cpu"
-        else:
-            self._device = device
+        self._device = resolve_device(device)
+        self._auto_oom_fallback = auto_oom_fallback
 
         # Lazy import to avoid requiring ST at module import time
         from sentence_transformers import (
@@ -109,13 +119,27 @@ class EmbeddingGemma2:
         )
 
         model_kwargs: dict[str, object] = {}
-        if self._device == "cuda":
+        if self._device.startswith("cuda"):
             model_kwargs["torch_dtype"] = torch.bfloat16
+            torch.cuda.set_device(torch.device(self._device))
 
         self._model = SentenceTransformer(
             self.name,
             model_kwargs=model_kwargs,
             device=self._device,
+        )
+        if batch_size <= AUTO_BATCH_SIZE:
+            self.batch_size = recommend_batch_size(
+                self._device,
+                model_id=self.name,
+                dim=self.dim,
+            )
+        else:
+            self.batch_size = max(1, batch_size)
+        _LOGGER.info(
+            "EmbeddingGemma2 device=%s batch_size=%d",
+            self._device,
+            self.batch_size,
         )
 
     def embed_images(
@@ -153,13 +177,7 @@ class EmbeddingGemma2:
             to_encode_pil = [Image.fromarray(img) for img in images]
 
         if to_encode_pil:
-            encoded: np.ndarray = self._model.encode(
-                to_encode_pil,  # type: ignore[arg-type]
-                batch_size=self.batch_size,
-                truncate_dim=self.dim,
-                normalize_embeddings=True,
-                show_progress_bar=False,
-            ).astype(np.float32)
+            encoded = self._encode(to_encode_pil)  # type: ignore[arg-type]
 
             for local_i, global_i in enumerate(to_encode_indices):
                 vec = encoded[local_i]
@@ -171,15 +189,38 @@ class EmbeddingGemma2:
 
     def embed_texts(self, texts: list[str]) -> np.ndarray:
         """Embed a list of text strings using the 'Document' task prefix."""
-        result: np.ndarray = self._model.encode(
-            texts,
-            batch_size=self.batch_size,
-            truncate_dim=self.dim,
-            normalize_embeddings=True,
-            prompt_name="Document",
-            show_progress_bar=False,
-        )
-        return result.astype(np.float32)
+        return self._encode(texts, prompt_name="Document")
+
+    def _encode(self, inputs: list[Any], **kwargs: Any) -> np.ndarray:
+        """Encode a batch, halving the batch size on CUDA OOM."""
+        batch_size = max(1, self.batch_size)
+        while True:
+            try:
+                encoded = self._model.encode(
+                    inputs,
+                    batch_size=batch_size,
+                    truncate_dim=self.dim,
+                    normalize_embeddings=True,
+                    show_progress_bar=False,
+                    **kwargs,
+                )
+            except Exception as exc:
+                if (
+                    not is_oom_error(exc)
+                    or not self._device.startswith("cuda")
+                    or batch_size == 1
+                    or not self._auto_oom_fallback
+                ):
+                    raise
+                batch_size = max(1, batch_size // 2)
+                torch.cuda.empty_cache()
+                _LOGGER.warning(
+                    "CUDA OOM while encoding; retrying with batch_size=%d",
+                    batch_size,
+                )
+                continue
+            self.batch_size = batch_size
+            return np.asarray(encoded, dtype=np.float32)
 
 
 def _feature_tensor(value: object) -> object:

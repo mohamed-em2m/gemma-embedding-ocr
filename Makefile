@@ -1,4 +1,4 @@
-.PHONY: setup setup-auto install lint format format-check typecheck test check prototypes vocabulary ui spike
+.PHONY: setup setup-auto install lint format format-check typecheck test check prototypes vocabulary ui spike autotune
 
 VENV ?= .venv
 PYTHON ?= $(VENV)/bin/python
@@ -40,3 +40,6 @@ ui:
 
 spike:
 	uv run --no-sync python scripts/phase0_az_spike.py --config configs/spike_az.yaml
+
+autotune:
+	uv run --no-sync python scripts/autotune_gpu.py --device auto

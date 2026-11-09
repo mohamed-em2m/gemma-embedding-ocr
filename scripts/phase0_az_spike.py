@@ -171,6 +171,17 @@ def main() -> None:
     )
 
     batch_size = cfg["embedder"]["batch_size"]
+    if not isinstance(batch_size, int) or batch_size <= 0:
+        from embedding_ocr.utils.gpu import recommend_batch_size
+
+        gpu_device = (
+            f"cuda:{torch.cuda.current_device()}" if device == "cuda" else device
+        )
+        batch_size = recommend_batch_size(
+            gpu_device,
+            model_id="google/embeddinggemma-2",
+            dim=768,
+        )
     dims = cfg["embedder"]["dims"]
 
     for dim in dims:

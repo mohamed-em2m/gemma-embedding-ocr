@@ -469,7 +469,7 @@ def main() -> None:
         embedder = EmbeddingGemma2(
             dim=args.gemma_dim,
             device=args.device,
-            batch_size=8,
+            batch_size=0,
         )
 
         index_fonts: dict[str, list[str]] = {}
