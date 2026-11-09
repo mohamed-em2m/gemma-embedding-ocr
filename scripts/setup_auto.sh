@@ -167,18 +167,28 @@ PYTHON="$PROJECT_ROOT/.venv/bin/python"
 }
 
 if ! "$PYTHON" -c "import cv2" >/dev/null 2>&1; then
-    echo "  - OpenCV missing; installing opencv-python-headless..."
-    uv pip install --python "$PYTHON" "opencv-python-headless>=4.11"
+    echo "  - OpenCV import failed; forcing a clean headless reinstall..."
+    uv pip uninstall --python "$PYTHON" opencv-python opencv-contrib-python         >/dev/null 2>&1 || true
+    uv pip install --python "$PYTHON" --reinstall "opencv-python-headless>=4.11"
 fi
+"$PYTHON" -c "import cv2" >/dev/null 2>&1 || {
+    echo "ERROR: cv2 is still unavailable after reinstall." >&2
+    echo "Check that opencv-python and opencv-contrib-python are not installed." >&2
+    exit 1
+}
 
 if ! "$PYTHON" -c "import gradio" >/dev/null 2>&1; then
-    echo "  - Gradio missing; installing gradio..."
-    uv pip install --python "$PYTHON" "gradio>=5.0"
+    echo "  - Gradio import failed; forcing a reinstall..."
+    uv pip install --python "$PYTHON" --reinstall "gradio>=5.0"
 fi
+"$PYTHON" -c "import gradio" >/dev/null 2>&1 || {
+    echo "ERROR: Gradio is still unavailable after reinstall." >&2
+    exit 1
+}
 
 if ! "$PYTHON" -c "import arabic_reshaper, bidi" >/dev/null 2>&1; then
     echo "  - Arabic shaping helpers missing; installing them..."
-    uv pip install --python "$PYTHON" arabic-reshaper python-bidi
+    uv pip install --python "$PYTHON" --reinstall arabic-reshaper python-bidi
 fi
 
 PYTHONPATH="$PROJECT_ROOT/src" "$PYTHON" - <<'PY'
