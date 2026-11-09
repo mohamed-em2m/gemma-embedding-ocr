@@ -5,7 +5,7 @@ embedder:
   batch_size: 16
 
 detector:
-  backend: paddle
+  backend: full
   rtl: true
   lang: ar
 

@@ -28,6 +28,7 @@ def test_load_default_yaml() -> None:
 
 def test_load_arabic_alignment_config() -> None:
     config = load_config("configs/embedding_align.yaml")
+    assert config.detector.backend == "full"
     assert config.recognition.script == "arabic"
     assert config.recognition.rtl is True
     assert config.recognition.use_alignment is True
@@ -41,6 +42,7 @@ def test_save_config_round_trip(tmp_path: Path) -> None:
     save_config(config, output)
 
     restored = load_config(output)
+    assert restored.detector.backend == "full"
     assert restored.embedder.dim == config.embedder.dim
     assert restored.recognition.backend == "embedding"
     assert restored.index.path == config.index.path
