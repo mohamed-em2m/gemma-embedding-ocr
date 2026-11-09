@@ -37,9 +37,11 @@ dtlr = ["addict>=2.4.0", "yapf>=0.40.0", "timm>=1.0.0", "scipy>=1.11", "torchvis
 craft = ["craft-text-detector"]
 arabic = ["arabic-reshaper", "python-bidi"]
 train = ["ultralytics>=8.3.0", "uharfbuzz>=0.37.0"]
+ui = ["gradio>=5.0"]
 
 [project.scripts]
 embedding-ocr = "embedding_ocr.cli:app"
+embedding-ocr-ui = "embedding_ocr.webui:main"
 
 [dependency-groups]
 dev = ["pytest", "pytest-cov", "ruff", "mypy", "pre-commit"]

@@ -66,6 +66,27 @@ def version() -> None:
     typer.echo(__version__)
 
 
+@app.command()
+def ui(
+    config_dir: Path = typer.Option(
+        Path("configs"), "--config-dir", help="Directory containing YAML profiles."
+    ),
+    host: str = typer.Option("127.0.0.1", help="Server bind address."),
+    port: int = typer.Option(7860, help="Server port."),
+    share: bool = typer.Option(False, help="Create a public Gradio share link."),
+) -> None:
+    """Launch the Gradio web interface."""
+    try:
+        from embedding_ocr.webui import launch_ui
+    except ImportError as exc:
+        typer.echo(
+            "error: Gradio is not installed; run `uv sync --extra ui`.",
+            err=True,
+        )
+        raise typer.Exit(code=1) from exc
+    launch_ui(config_dir=config_dir, host=host, port=port, share=share)
+
+
 @app.command("show-config")
 def show_config(
     config: Path = typer.Option(Path("configs/default.yaml"), "--config", "-c"),

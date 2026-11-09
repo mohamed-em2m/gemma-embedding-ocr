@@ -40,7 +40,7 @@ pre-commit hooks):
 
 ```bash
 bash scripts/setup_env.sh
-bash scripts/setup_env.sh --all-extras   # also jina/craft/surya
+bash scripts/setup_env.sh --all-extras   # also jina/craft/surya/train/ui
 bash scripts/setup_env.sh --check        # also run lint/types/tests
 # or: make setup
 ```
@@ -53,7 +53,22 @@ uv sync --extra baseline      # PaddleOCR/PaddlePaddle baseline
 uv sync --extra tesseract --extra easyocr  # conventional baselines
 uv sync --extra experiments   # datasets/accelerate for benchmark scripts
 uv sync --extra arabic        # optional Arabic shaping fallback
+uv sync --extra ui            # Gradio web interface
 ```
+
+## Web interface
+
+```bash
+uv run embedding-ocr ui
+# or
+uv run embedding-ocr-ui --host 0.0.0.0 --port 7860
+```
+
+The UI lets you upload or capture an image, choose a YAML profile, override the
+recognizer/detector/script/device, and inspect recognized text, confidence,
+region boxes, and JSON details. The first request builds prototypes/vocabulary
+and may download `google/embeddinggemma-2`, so it can take several minutes.
+Quick mode caps the hierarchical vocabulary at 4k words / 3k subwords.
 
 ## Commands
 
@@ -63,6 +78,7 @@ uv run ruff check . && uv run ruff format .              # lint / format
 uv run mypy src                                          # type-check
 
 uv run embedding-ocr version                             # CLI smoke test
+uv run embedding-ocr ui                                  # Gradio web UI
 uv run embedding-ocr show-config --config configs/default.yaml
 uv run embedding-ocr recognize image.png --config configs/default.yaml --json
 uv run embedding-ocr build-prototypes --config configs/embedding_seg.yaml \
@@ -168,6 +184,9 @@ uv run python scripts/compare_new_ocr_models.py --engines gemma siglip --limit 5
 # Surya (optional dependency; auto-spawns a vLLM or llama.cpp backend)
 uv sync --extra surya
 uv run python scripts/compare_new_ocr_models.py --engines surya
+# or reuse a running Surya server
+uv run python scripts/compare_new_ocr_models.py --engines surya \
+    --surya-inference-url http://127.0.0.1:8000/v1
 
 # OXR: free API by default, or point at a local server
 uv run python scripts/compare_new_ocr_models.py \
@@ -176,6 +195,10 @@ uv run python scripts/compare_new_ocr_models.py \
     --engines oxr --oxr-base-url http://127.0.0.1:8000/v1 --oxr-backend parse
 uv run python scripts/compare_new_ocr_models.py \
     --engines oxr --oxr-base-url http://127.0.0.1:8080/v1 --oxr-backend chat
+
+# Public API returned Cloudflare 524: retry with backoff and pacing
+uv run python scripts/compare_new_ocr_models.py --engines oxr \
+    --oxr-retries 4 --oxr-retry-backoff 3 --oxr-request-delay 0.3
 ```
 
 Results are written to `docs/new_ocr_models_comparison.{json,md}`. `dots` is

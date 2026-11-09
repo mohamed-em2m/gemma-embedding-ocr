@@ -1,4 +1,4 @@
-.PHONY: setup install lint format format-check typecheck test check prototypes vocabulary spike
+.PHONY: setup install lint format format-check typecheck test check prototypes vocabulary ui spike
 
 setup:
 	bash scripts/setup_env.sh
@@ -28,6 +28,9 @@ prototypes:
 
 vocabulary:
 	uv run embedding-ocr build-vocabulary --config configs/default.yaml
+
+ui:
+	uv run embedding-ocr ui
 
 spike:
 	uv run python scripts/phase0_az_spike.py --config configs/spike_az.yaml
