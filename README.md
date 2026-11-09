@@ -69,9 +69,11 @@ Run the one-shot setup from a notebook cell before launching:
 Gradio. Use `--all-extras` to also install the optional jina/craft/surya/dtlr/
 train backends.
 
-`bash scripts/setup_auto.sh --launch --no-share` also runs GPU batch tuning on
-the first launch when CUDA is available and no `artifacts/gpu_tuning.json`
-cache exists. Use `--autotune` to force a fresh run or `--no-autotune` to skip.
+`bash scripts/setup_auto.sh --launch --no-share` does not preload model weights.
+The embedder uses the tuned cache when present, otherwise a free-memory
+heuristic, and halves the batch on CUDA OOM. Run `make autotune` once for an
+exact measurement; use `setup_auto.sh --autotune` only if you accept the extra
+model load before launch.
 
 Or manage the Python environment manually (Python >= 3.11, uv only). Do **not**
 use `uv sync` on an existing/Kaggle environment: it removes packages from extras

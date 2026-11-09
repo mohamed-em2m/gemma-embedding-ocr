@@ -12,6 +12,7 @@ from embedding_ocr.utils.gpu import (
     BatchTuningResult,
     GPUInfo,
     autotune_batch_size,
+    get_cached_batch_size,
     is_oom_error,
     recommend_batch_size,
     resolve_device,
@@ -80,6 +81,28 @@ def test_recommend_batch_size_uses_matching_cache(tmp_path: Path) -> None:
             cache_path=path,
         )
         == 12
+    )
+
+
+def test_get_cached_batch_size_rejects_other_model(tmp_path: Path) -> None:
+    path = tmp_path / "gpu_tuning.json"
+    save_tuning_cache(
+        path,
+        {
+            "device": "cuda:0",
+            "model_id": "other/model",
+            "dim": 768,
+            "batch_size": 12,
+        },
+    )
+    assert (
+        get_cached_batch_size(
+            "cuda:0",
+            model_id="google/embeddinggemma-2",
+            dim=768,
+            cache_path=path,
+        )
+        is None
     )
 
 

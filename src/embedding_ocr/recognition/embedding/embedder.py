@@ -26,6 +26,7 @@ import torch
 
 from embedding_ocr.utils.gpu import (
     AUTO_BATCH_SIZE,
+    get_cached_batch_size,
     is_oom_error,
     recommend_batch_size,
     resolve_device,
@@ -129,10 +130,19 @@ class EmbeddingGemma2:
             device=self._device,
         )
         if batch_size <= AUTO_BATCH_SIZE:
-            self.batch_size = recommend_batch_size(
+            cached = get_cached_batch_size(
                 self._device,
                 model_id=self.name,
                 dim=self.dim,
+            )
+            self.batch_size = (
+                cached
+                if cached is not None
+                else recommend_batch_size(
+                    self._device,
+                    model_id=self.name,
+                    dim=self.dim,
+                )
             )
         else:
             self.batch_size = max(1, batch_size)

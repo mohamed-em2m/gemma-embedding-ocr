@@ -193,18 +193,39 @@ def recommend_batch_size(
     if device == "cpu":
         return max(1, min(fallback, max_batch))
 
-    cached = load_tuning_cache(cache_path)
-    if cached and _cache_matches(cached, device, model_id, dim):
-        try:
-            return max(1, min(int(cached["batch_size"]), max_batch))
-        except (KeyError, TypeError, ValueError):
-            pass
+    cached = get_cached_batch_size(
+        device,
+        model_id=model_id,
+        dim=dim,
+        cache_path=cache_path,
+        max_batch=max_batch,
+    )
+    if cached is not None:
+        return cached
 
     gpus = query_gpus()
     gpu = _find_gpu(gpus, device)
     if gpu is None:
         return max(1, min(fallback, max_batch))
     return _batch_size_from_free_memory(gpu.free_mb, max_batch=max_batch)
+
+
+def get_cached_batch_size(
+    device: str,
+    *,
+    model_id: str | None = None,
+    dim: int | None = None,
+    cache_path: Path = DEFAULT_TUNING_PATH,
+    max_batch: int = MAX_BATCH_SIZE,
+) -> int | None:
+    """Return a matching cached batch size, or ``None`` when unavailable."""
+    cached = load_tuning_cache(cache_path)
+    if not cached or not _cache_matches(cached, device, model_id, dim):
+        return None
+    try:
+        return max(1, min(int(cached["batch_size"]), max_batch))
+    except (KeyError, TypeError, ValueError):
+        return None
 
 
 def _find_gpu(gpus: Sequence[GPUInfo], device: str) -> GPUInfo | None:
