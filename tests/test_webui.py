@@ -152,6 +152,20 @@ def test_bundled_example_images_are_available() -> None:
     assert all(Path(path).is_file() for path in examples)
 
 
+def test_example_rows_select_arabic_profile_and_script() -> None:
+    from embedding_ocr.webui import example_rows
+
+    rows = example_rows(["default.yaml", "embedding_align.yaml"])
+    assert len(rows) >= 3
+    arabic_rows = [row for row in rows if str(row[0]).endswith("arabic_marhaba.png")]
+    assert arabic_rows
+    assert arabic_rows[0][1] == "embedding_align.yaml"
+    assert arabic_rows[0][3] == "hierarchical"
+    assert arabic_rows[0][4] == "full"
+    assert arabic_rows[0][5] == "arabic"
+    assert all(len(row) == 7 for row in rows)
+
+
 def test_pipeline_cache_keeps_only_one_model(monkeypatch) -> None:
     import embedding_ocr.webui as webui
 

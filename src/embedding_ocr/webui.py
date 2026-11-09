@@ -77,6 +77,31 @@ def list_example_images() -> list[str]:
     return []
 
 
+def example_rows(profiles: list[str]) -> list[list[Any]]:
+    """Return Gradio example rows with the matching profile and script."""
+    default_profile = DEFAULT_PROFILE if DEFAULT_PROFILE in profiles else profiles[0]
+    arabic_profile = (
+        "embedding_align.yaml"
+        if "embedding_align.yaml" in profiles
+        else default_profile
+    )
+    rows: list[list[Any]] = []
+    for path in list_example_images():
+        is_arabic = Path(path).name.lower().startswith("arabic")
+        rows.append(
+            [
+                path,
+                arabic_profile if is_arabic else default_profile,
+                DEFAULT_DEVICE,
+                "hierarchical" if is_arabic else DEFAULT_RECOGNIZER,
+                "full" if is_arabic else DEFAULT_DETECTOR,
+                "arabic" if is_arabic else "latin",
+                True,
+            ]
+        )
+    return rows
+
+
 def list_config_profiles(config_dir: str | Path = DEFAULT_CONFIG_DIR) -> list[str]:
     """Return available YAML profile names, sorted."""
     directory = Path(config_dir)
@@ -364,13 +389,6 @@ def build_demo(config_dir: str | Path = DEFAULT_CONFIG_DIR) -> Any:
         with gr.Row():
             with gr.Column(scale=1):
                 image = gr.Image(type="numpy", label="Input image")
-                examples = list_example_images()
-                if examples:
-                    gr.Examples(
-                        examples=[[path] for path in examples],
-                        inputs=[image],
-                        label="Example images",
-                    )
                 profile = gr.Dropdown(
                     choices=profiles,
                     value=default_profile,
@@ -400,6 +418,21 @@ def build_demo(config_dir: str | Path = DEFAULT_CONFIG_DIR) -> Any:
                     quick = gr.Checkbox(
                         value=True,
                         label="Quick vocabulary (max 4k words / 3k subwords)",
+                    )
+                examples = example_rows(profiles)
+                if examples:
+                    gr.Examples(
+                        examples=examples,
+                        inputs=[
+                            image,
+                            profile,
+                            device,
+                            recognizer,
+                            detector,
+                            script,
+                            quick,
+                        ],
+                        label="Example images",
                     )
                 run_button = gr.Button("Run OCR", variant="primary")
                 clear_button = gr.Button("Clear")
