@@ -539,7 +539,7 @@ class JinaEmbeddingsV4:
             msg = (
                 "Jina v4 remote code requires the optional `peft` and "
                 "`torchvision` dependencies. Install them with "
-                "`uv sync --extra jina` (or `uv pip install peft torchvision`)."
+                "`uv pip install --python .venv/bin/python -e '.[jina]'` (or `uv pip install peft torchvision`)."
             )
             raise ImportError(msg) from exc
         self._model.to(self._device)

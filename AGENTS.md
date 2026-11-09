@@ -181,11 +181,11 @@ strict = true
 Commands to document in the README:
 
 ```bash
-uv sync --group dev
-uv run pytest
-uv run ruff check . && uv run ruff format .
-uv run mypy src
-uv run python scripts/phase0_az_spike.py --config configs/spike_az.yaml
+bash scripts/setup_env.sh
+uv run --no-sync pytest
+uv run --no-sync ruff check . && uv run --no-sync ruff format .
+uv run --no-sync mypy src
+uv run --no-sync python scripts/phase0_az_spike.py --config configs/spike_az.yaml
 ```
 
 ---
@@ -297,7 +297,7 @@ Each phase ends with: lint + types + tests green, a commit (Section 10), a short
 
 Tasks: full src layout, pyproject (Section 5), ruff/mypy/pytest config, pre-commit, `.gitattributes`, `Makefile`, CI workflow, README skeleton. Move reusable spike code (rendering, embedder, index) into `src/embedding_ocr/`.
 
-Acceptance: `uv sync --group dev`, `uv run pytest`, ruff, mypy all pass; CI green on first push.
+Acceptance: `bash scripts/setup_env.sh`, `uv run --no-sync pytest`, ruff, mypy all pass; CI green on first push.
 
 ### Phase 2: Core abstractions (provisional)
 
@@ -336,7 +336,7 @@ Sliding-window features over the crop matched to prototypes, decoded with CTC-st
 
 ### Phase 7: Polish
 
-README (overview, install, quickstart, config guide, results), CI with `uv sync --locked`, limitations section (including "Latin only"), tag `v0.1.0`.
+README (overview, install, quickstart, config guide, results), CI without `uv sync` pruning, limitations section (including "Latin only"), tag `v0.1.0`.
 
 ---
 
@@ -352,7 +352,7 @@ README (overview, install, quickstart, config guide, results), CI with `uv sync 
 - Plan first; wait for approval before each phase. Phase 0 is the only phase planned in detail.
 - Do not guess model names, APIs, or versions. Verify them from the model card or docs, or mark as **unverified**.
 - Never silently invent details. Record assumptions in `docs/decisions.md`.
-- Run `uv run ruff check . && uv run ruff format --check . && uv run mypy src && uv run pytest` before declaring a step done (once Phase 1 tooling exists; in Phase 0 run what is configured).
+- Run `uv run --no-sync ruff check . && uv run --no-sync ruff format --check . && uv run --no-sync mypy src && uv run --no-sync pytest` before declaring a step done (once Phase 1 tooling exists; in Phase 0 run what is configured).
 - Be honest about anything untested.
 
 ---
@@ -419,15 +419,15 @@ Rules:
 ### 10.4 Pre-commit checklist (run before every commit)
 
 ```bash
-uv run ruff check . --fix
-uv run ruff format .
-uv run mypy src
-uv run pytest
+uv run --no-sync ruff check . --fix
+uv run --no-sync ruff format .
+uv run --no-sync mypy src
+uv run --no-sync pytest
 git status
 git diff --staged
 ```
 
-Install hooks once: `uv run pre-commit install`.
+Install hooks once: `uv run --no-sync pre-commit install`.
 
 ### 10.5 Commit and push a phase
 
@@ -542,11 +542,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v5
-      - run: uv sync --locked --group dev
-      - run: uv run ruff check .
-      - run: uv run ruff format --check .
-      - run: uv run mypy src
-      - run: uv run pytest --cov
+      - run: uv venv --python 3.11 .venv
+      - run: uv pip install --python .venv/bin/python -e . pytest pytest-cov ruff mypy
+      - run: uv run --no-sync ruff check .
+      - run: uv run --no-sync ruff format --check .
+      - run: uv run --no-sync mypy src
+      - run: uv run --no-sync pytest --cov
 ```
 
 CI must **not** download the large embedder. Mark tests that need the real model with `@pytest.mark.model` and skip them in CI, or use a tiny fake `Embedder`. Pin action versions to current releases when creating the file.
@@ -564,10 +565,12 @@ Scope: Latin script only for now.
 
 ## Stack and commands
 - Python >=3.11, managed with **uv** only (never pip or poetry).
-- `uv sync --group dev` install | `uv run pytest` test
-- `uv run ruff check . && uv run ruff format .` lint/format
-- `uv run mypy src` types
-- `uv run embedding-ocr <command>` CLI (Typer)
+- Never run `uv sync` on an existing/Kaggle env: it prunes packages from
+  unselected extras. Install with `bash scripts/setup_env.sh` or `uv pip install`.
+- Use `uv run --no-sync ...` (or `make ...`) so commands never resync.
+- `bash scripts/setup_env.sh` install | `make test` test
+- `make lint` / `make format` | `make typecheck` types
+- `uv run --no-sync embedding-ocr <command>` CLI (Typer)
 
 ## Architecture rules (non-negotiable)
 - Only the Recognition stage is replaced. Preprocessing, detection, cropping,
@@ -617,7 +620,7 @@ Scope: Latin script only for now.
   - `artifacts/vocab_cache_iam_multifont/` stores precomputed multi-font visual prototype vectors (`words_visual_c353c32d_768d.npy`, `subwords_visual_c353c32d_768d.npy`, `chars_visual_c353c32d_768d.npy`).
 - **Resumption Command**:
   ```bash
-  uv run python scripts/test_iam_handwriting.py \
+  uv run --no-sync python scripts/test_iam_handwriting.py \
       --num-samples 50 \
       --gemma-dim 768 \
       --skip-glm \

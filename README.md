@@ -55,21 +55,36 @@ bash scripts/setup_env.sh --check        # also run lint/types/tests
 # or: make setup
 ```
 
-Or manage the Python environment manually (Python >= 3.11, uv only). Pass all
-extras in **one** `uv sync`; each sync removes packages from extras you did not
-select. The default `setup_env.sh` already selects this combination:
+### Kaggle / Jupyter
 
-```bash
-uv sync --group dev \
-  --extra baseline --extra tesseract --extra easyocr \
-  --extra experiments --extra arabic --extra ui
+Run the one-shot setup from a notebook cell before launching:
+
+```python
+%cd /kaggle/working/gemma-embedding-ocr
+!./scripts/setup_env.sh
+!make ui UI_ARGS="--no-share"
 ```
 
-If a sync removed OpenCV (`ModuleNotFoundError: No module named 'cv2'`), rerun
-the command above or install the core wheel directly:
+`setup_env.sh` installs the UI extra by default and repairs missing `cv2` and
+Gradio. Use `--all-extras` to also install the optional jina/craft/surya/dtlr/
+train backends.
+
+Or manage the Python environment manually (Python >= 3.11, uv only). Do **not**
+use `uv sync` on an existing/Kaggle environment: it removes packages from extras
+you did not select. Install the project and selected extras without pruning:
 
 ```bash
-uv pip install --python .venv/bin/python opencv-python-headless
+uv pip install --python .venv/bin/python \
+  -e ".[baseline,tesseract,easyocr,experiments,arabic,ui]" \
+  pytest pytest-cov ruff mypy pre-commit
+```
+
+If OpenCV is still missing (`ModuleNotFoundError: No module named 'cv2'`),
+force a clean headless reinstall:
+
+```bash
+uv pip uninstall --python .venv/bin/python opencv-python opencv-contrib-python
+uv pip install --python .venv/bin/python --reinstall opencv-python-headless
 ```
 
 ## Web interface
@@ -85,7 +100,7 @@ bash scripts/run_ui.sh --no-share            # direct launcher
 `venv`, verifies `cv2` and Gradio, and repairs missing imports with `uv pip`
 without running `uv sync` or pruning existing extras. From a fresh checkout,
 install once with `bash scripts/setup_auto.sh` or
-`uv sync --extra ui` before launching.
+`uv pip install --python .venv/bin/python -e ".[ui]"` before launching.
 
 The UI includes bundled Latin and Arabic example images that set the matching
 profile and script. It also lets you upload or capture an image, choose a YAML
@@ -109,27 +124,27 @@ after a CUDA OOM so the next request can retry.
 ## Commands
 
 ```bash
-uv run pytest                                             # run tests
-uv run ruff check . && uv run ruff format .              # lint / format
-uv run mypy src                                          # type-check
+uv run --no-sync pytest                                             # run tests
+uv run --no-sync ruff check . && uv run --no-sync ruff format .              # lint / format
+uv run --no-sync mypy src                                          # type-check
 
-uv run embedding-ocr version                             # CLI smoke test
-uv run --extra ui embedding-ocr ui                       # Gradio web UI
-uv run embedding-ocr show-config --config configs/default.yaml
-uv run embedding-ocr recognize image.png --config configs/default.yaml --json
-uv run embedding-ocr build-prototypes --config configs/embedding_seg.yaml \
+uv run --no-sync embedding-ocr version                             # CLI smoke test
+make ui                                                  # Gradio web UI
+uv run --no-sync embedding-ocr show-config --config configs/default.yaml
+uv run --no-sync embedding-ocr recognize image.png --config configs/default.yaml --json
+uv run --no-sync embedding-ocr build-prototypes --config configs/embedding_seg.yaml \
     --output artifacts/prototypes/clean_alnum_768d
-uv run embedding-ocr build-vocabulary --config configs/default.yaml
-uv run embedding-ocr benchmark manifest.tsv \
+uv run --no-sync embedding-ocr build-vocabulary --config configs/default.yaml
+uv run --no-sync embedding-ocr benchmark manifest.tsv \
     --config configs/embedding_seg.yaml --output docs/benchmark_report.json
 
-uv run python scripts/phase0_az_spike.py \
+uv run --no-sync python scripts/phase0_az_spike.py \
     --config configs/spike_az.yaml                       # Phase 0 spike
-uv run python scripts/probe_segmentation.py --mode all   # detector/embedder probe
-uv run python scripts/compare_new_ocr_models.py          # Gemma vs new OCR VLMs
-uv run python scripts/test_word_ocr_vs_glm.py \
+uv run --no-sync python scripts/probe_segmentation.py --mode all   # detector/embedder probe
+uv run --no-sync python scripts/compare_new_ocr_models.py          # Gemma vs new OCR VLMs
+uv run --no-sync python scripts/test_word_ocr_vs_glm.py \
     --gemma-dim 768 --augment                            # Benchmark vs GLM-OCR (synthetic)
-uv run python scripts/test_iam_handwriting.py \
+uv run --no-sync python scripts/test_iam_handwriting.py \
     --num-samples 50 --gemma-dim 768                     # Benchmark on IAM Handwriting
 ```
 
@@ -189,13 +204,13 @@ _See [`docs/iam_handwriting_benchmark_report.md`](docs/iam_handwriting_benchmark
 
 ```bash
 # Full tokenizer vocabulary (default); no OOD evaluation words are injected.
-uv run python scripts/benchmark_ood_ocr.py \
+uv run --no-sync python scripts/benchmark_ood_ocr.py \
     --engines glm gemma-hybrid \
     --output docs/ood_glm_vs_gemma
 
 # Fast smoke test only. Small candidate caps exclude rare words, so use the
 # full-vocabulary run for reported numbers.
-uv run python scripts/benchmark_ood_ocr.py \
+uv run --no-sync python scripts/benchmark_ood_ocr.py \
     --engines gemma-hybrid --limit-per-script 20 \
     --hier-max-words 4000 --hier-max-subwords 3000
 ```
@@ -225,35 +240,35 @@ case-resolution matcher, so the comparison isolates the embedder.
 
 ```bash
 # Run the default engines; unavailable engines are reported, not fatal
-uv run python scripts/compare_new_ocr_models.py
+uv run --no-sync python scripts/compare_new_ocr_models.py
 
 # Compare embedders only at their native dimensions
-uv run python scripts/compare_new_ocr_models.py --engines gemma siglip jina
+uv run --no-sync python scripts/compare_new_ocr_models.py --engines gemma siglip jina
 
 # Matryoshka / truncation sweep (each adapter re-normalizes after slicing)
-uv run python scripts/compare_new_ocr_models.py \
+uv run --no-sync python scripts/compare_new_ocr_models.py \
     --engines gemma siglip jina --gemma-dim 256 --siglip-dim 256 --jina-dim 256
 
 # Quick smoke test / subset
-uv run python scripts/compare_new_ocr_models.py --engines gemma siglip --limit 52
+uv run --no-sync python scripts/compare_new_ocr_models.py --engines gemma siglip --limit 52
 
 # Surya (optional dependency; auto-spawns a vLLM or llama.cpp backend)
-uv sync --extra surya
-uv run python scripts/compare_new_ocr_models.py --engines surya
+uv pip install --python .venv/bin/python -e ".[surya]"
+uv run --no-sync python scripts/compare_new_ocr_models.py --engines surya
 # or reuse a running Surya server
-uv run python scripts/compare_new_ocr_models.py --engines surya \
+uv run --no-sync python scripts/compare_new_ocr_models.py --engines surya \
     --surya-inference-url http://127.0.0.1:8000/v1
 
 # OXR: free API by default, or point at a local server
-uv run python scripts/compare_new_ocr_models.py \
+uv run --no-sync python scripts/compare_new_ocr_models.py \
     --engines oxr --oxr-base-url https://free-oxr.somark.ai/api/v1
-uv run python scripts/compare_new_ocr_models.py \
+uv run --no-sync python scripts/compare_new_ocr_models.py \
     --engines oxr --oxr-base-url http://127.0.0.1:8000/v1 --oxr-backend parse
-uv run python scripts/compare_new_ocr_models.py \
+uv run --no-sync python scripts/compare_new_ocr_models.py \
     --engines oxr --oxr-base-url http://127.0.0.1:8080/v1 --oxr-backend chat
 
 # Public API returned Cloudflare 524: retry with backoff and pacing
-uv run python scripts/compare_new_ocr_models.py --engines oxr \
+uv run --no-sync python scripts/compare_new_ocr_models.py --engines oxr \
     --oxr-retries 4 --oxr-retry-backoff 3 --oxr-request-delay 0.3
 ```
 

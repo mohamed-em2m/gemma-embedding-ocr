@@ -5,8 +5,8 @@ the full end-to-end recognition pipeline (segmentation -> batched embedding ->
 prototype matching -> space reconstruction), and computes standard CER and WER.
 
 Usage:
-    uv run python scripts/benchmark_e2e_words.py --help
-    uv run python scripts/benchmark_e2e_words.py --num-samples 20
+    uv run --no-sync python scripts/benchmark_e2e_words.py --help
+    uv run --no-sync python scripts/benchmark_e2e_words.py --num-samples 20
 """
 
 from __future__ import annotations

@@ -1,7 +1,7 @@
 """Build a synthetic Latin/Arabic character-detection dataset for YOLO.
 
 Example:
-    uv run python scripts/build_letter_dataset.py \
+    uv run --no-sync python scripts/build_letter_dataset.py \
         --fonts /usr/share/fonts \
         --out artifacts/yolo_letters \
         --n 50000 --size 1280 --layout line
@@ -119,7 +119,7 @@ def main(argv: list[str] | None = None) -> int:
         )
     print(
         "Train with:\n"
-        "  uv run python scripts/train_yolo_units.py "
+        "  uv run --no-sync python scripts/train_yolo_units.py "
         f"--data {args.out / 'data.yaml'}"
     )
     return 0

@@ -77,5 +77,5 @@ By adopting **Normalized CER** (lowercase, stripped whitespace):
 - Full Output JSON: [`docs/word_ocr_vs_glm_report.json`](word_ocr_vs_glm_report.json)
 - Run command:
   ```bash
-  uv run python scripts/test_word_ocr_vs_glm.py --gemma-dim 768 --augment
+  uv run --no-sync python scripts/test_word_ocr_vs_glm.py --gemma-dim 768 --augment
   ```

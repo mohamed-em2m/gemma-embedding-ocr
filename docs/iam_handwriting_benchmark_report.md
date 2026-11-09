@@ -79,5 +79,5 @@ Despite these challenges, GLM-OCR maintains strong overall reading capability (8
 - Full Output JSON: [`docs/iam_handwriting_benchmark_report.json`](iam_handwriting_benchmark_report.json)
 - Run command:
   ```bash
-  uv run python scripts/test_iam_handwriting.py --num-samples 50 --gemma-dim 768
+  uv run --no-sync python scripts/test_iam_handwriting.py --num-samples 50 --gemma-dim 768
   ```

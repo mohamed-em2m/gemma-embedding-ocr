@@ -61,7 +61,7 @@ def main(argv: list[str] | None = None) -> int:
     except ImportError:
         print(
             "error: ultralytics is not installed. "
-            "Run `uv sync --extra train` or `bash scripts/setup_env.sh --train`.",
+            "Run `uv pip install --python .venv/bin/python -e '.[train]'` or `bash scripts/setup_env.sh --train`.",
             file=sys.stderr,
         )
         return 2

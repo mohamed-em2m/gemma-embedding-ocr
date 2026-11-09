@@ -108,7 +108,7 @@ The segmentation path is also slow: **5.0 s per word** and **16.1 s per phrase**
 ## 6. Reproducibility
 
 ```bash
-uv run python scripts/test_word_ocr_vs_glm.py --gemma-dim 768 --augment
+uv run --no-sync python scripts/test_word_ocr_vs_glm.py --gemma-dim 768 --augment
 ```
 
 The script writes its raw output to:

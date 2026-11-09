@@ -141,29 +141,30 @@ export PYTORCH_CUDA_ALLOC_CONF="${PYTORCH_CUDA_ALLOC_CONF:-expandable_segments:T
 echo "✓ $(uv --version)"
 
 # ---------------------------------------------------------------------------
-# 3. Python environment: one exact sync with every UI/benchmark extra
+# 3. Python environment: install required extras without pruning old packages
 # ---------------------------------------------------------------------------
-run_step "Syncing Python dependencies..."
+run_step "Installing Python dependencies without uv sync..."
+PYTHON="$PROJECT_ROOT/.venv/bin/python"
+if [[ ! -x "$PYTHON" ]]; then
+    uv venv --python 3.11 "$PROJECT_ROOT/.venv"
+fi
+
 EXTRAS=(tesseract easyocr experiments arabic ui)
 if [[ $INSTALL_PADDLE -eq 1 ]]; then
     EXTRAS+=(baseline)
 fi
-
-SYNC_ARGS=(sync --locked --group dev)
-for extra in "${EXTRAS[@]}"; do
-    SYNC_ARGS+=(--extra "$extra")
-done
+EXTRAS_CSV="$(IFS=,; echo "${EXTRAS[*]}")"
+DEV_PACKAGES=(pytest pytest-cov ruff mypy pre-commit)
 echo "Extras: ${EXTRAS[*]}"
-uv "${SYNC_ARGS[@]}"
+uv pip install --python "$PYTHON" -e "$PROJECT_ROOT[$EXTRAS_CSV]" "${DEV_PACKAGES[@]}"
 echo "✓ Python environment ready."
 
 # ---------------------------------------------------------------------------
-# 4. Verify / repair imports that commonly break after a uv sync
+# 4. Verify / repair imports that commonly break after installation
 # ---------------------------------------------------------------------------
 run_step "Verifying runtime imports..."
-PYTHON="$PROJECT_ROOT/.venv/bin/python"
 [[ -x "$PYTHON" ]] || {
-    echo "ERROR: $PYTHON not found after sync." >&2
+    echo "ERROR: $PYTHON not found after install." >&2
     exit 1
 }
 

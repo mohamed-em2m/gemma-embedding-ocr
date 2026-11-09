@@ -432,7 +432,7 @@ def build_demo(config_dir: str | Path = DEFAULT_CONFIG_DIR) -> Any:
     except ImportError as exc:  # pragma: no cover - optional dependency
         msg = (
             "Gradio is not installed. Install the UI extra with "
-            "`uv sync --extra ui` or `uv pip install gradio`."
+            "`uv pip install --python .venv/bin/python -e '.[ui]'` or `uv pip install gradio`."
         )
         raise ImportError(msg) from exc
 

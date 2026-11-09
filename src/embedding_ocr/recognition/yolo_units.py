@@ -83,7 +83,7 @@ class YoloUnitDetector:
         except ImportError as exc:
             message = (
                 "ultralytics is not installed. Install the training extra with "
-                "`uv sync --extra train`."
+                "`uv pip install --python .venv/bin/python -e '.[train]'`."
             )
             raise ImportError(message) from exc
         model = YOLO(str(model_path))

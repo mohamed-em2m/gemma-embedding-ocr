@@ -6,7 +6,7 @@
 # compatibility shim, font catalogs, and git hooks in a single run.
 #
 # Usage:
-#   bash scripts/setup_env.sh                  # full setup + core extras
+#   bash scripts/setup_env.sh                  # full setup + core extras + UI
 #   bash scripts/setup_env.sh --all-extras     # also jina/craft/surya/dtlr/train/ui
 #   bash scripts/setup_env.sh --dtlr           # install DTLR extras + checkout
 #   bash scripts/setup_env.sh --train          # install YOLO/uharfbuzz training extras
@@ -28,7 +28,7 @@ INSTALL_EXTRAS=1
 ALL_EXTRAS=0
 INSTALL_DTLR=0
 INSTALL_TRAIN=0
-INSTALL_UI=0
+INSTALL_UI=1
 INSTALL_SHIM=1
 BUILD_CATALOGS=1
 INSTALL_HOOKS=1
@@ -45,7 +45,8 @@ Options:
   --dtlr          Install DTLR extras, clone the official checkout, and print
                   checkpoint/compilation instructions.
   --train         Install Ultralytics/uharfbuzz for YOLO dataset training.
-  --ui            Install Gradio for the web interface.
+  --ui            Install Gradio for the web interface (enabled by default).
+  --no-ui         Skip Gradio and the web interface.
   --no-shim       Skip the flash_attn compatibility shim.
   --no-catalogs   Skip font catalog generation.
   --no-hooks      Skip pre-commit hook installation.
@@ -62,6 +63,7 @@ while [[ $# -gt 0 ]]; do
         --dtlr) INSTALL_DTLR=1; INSTALL_EXTRAS=1 ;;
         --train) INSTALL_TRAIN=1; INSTALL_EXTRAS=1 ;;
         --ui) INSTALL_UI=1; INSTALL_EXTRAS=1 ;;
+        --no-ui) INSTALL_UI=0 ;;
         --no-shim) INSTALL_SHIM=0 ;;
         --no-catalogs) BUILD_CATALOGS=0 ;;
         --no-hooks) INSTALL_HOOKS=0 ;;
@@ -191,10 +193,16 @@ fi
 echo "✓ uv is ready: $(uv --version)"
 
 # ---------------------------------------------------------------------------
-# 3. Synchronize Python environment (core + selected extras in one command)
+# 3. Install core + selected extras without pruning existing packages
 # ---------------------------------------------------------------------------
-run_step "Installing Python dependencies via uv sync..."
-SYNC_ARGS=(sync --locked --group dev)
+run_step "Installing Python dependencies without uv sync..."
+PYTHON="$PROJECT_ROOT/.venv/bin/python"
+if [[ ! -x "$PYTHON" ]]; then
+    uv venv --python 3.11 "$PROJECT_ROOT/.venv"
+fi
+
+DEV_PACKAGES=(pytest pytest-cov ruff mypy pre-commit)
+INSTALL_SPEC="$PROJECT_ROOT"
 if [[ $INSTALL_EXTRAS -eq 1 ]]; then
     EXTRAS=(baseline tesseract easyocr experiments arabic)
     if [[ $ALL_EXTRAS -eq 1 ]]; then
@@ -208,15 +216,39 @@ if [[ $INSTALL_EXTRAS -eq 1 ]]; then
     if [[ $INSTALL_UI -eq 1 ]]; then
         EXTRAS+=(ui)
     fi
-    for extra in "${EXTRAS[@]}"; do
-        SYNC_ARGS+=(--extra "$extra")
-    done
+    EXTRAS_CSV="$(IFS=,; echo "${EXTRAS[*]}")"
+    INSTALL_SPEC="$PROJECT_ROOT[$EXTRAS_CSV]"
     echo "Installing extras: ${EXTRAS[*]}"
 else
     echo "Installing core project dependencies only (--no-extras)."
 fi
-uv "${SYNC_ARGS[@]}"
+uv pip install --python "$PYTHON" -e "$INSTALL_SPEC" "${DEV_PACKAGES[@]}"
 echo "✓ Python environment ready."
+
+# Verify imports that commonly break after installation, especially on Kaggle.
+if ! "$PYTHON" -c "import cv2" >/dev/null 2>&1; then
+    echo "  - OpenCV import failed; repairing opencv-python-headless..."
+    uv pip uninstall --python "$PYTHON" \
+        opencv-python opencv-contrib-python >/dev/null 2>&1 || true
+    uv pip install --python "$PYTHON" --reinstall \
+        "opencv-python-headless>=4.11"
+fi
+"$PYTHON" -c "import cv2" >/dev/null 2>&1 || {
+    echo "ERROR: cv2 is still unavailable after reinstall." >&2
+    exit 1
+}
+
+if [[ $INSTALL_EXTRAS -eq 1 && $INSTALL_UI -eq 1 ]]; then
+    if ! "$PYTHON" -c "import gradio" >/dev/null 2>&1; then
+        echo "  - Gradio import failed; installing the UI extra..."
+        uv pip install --python "$PYTHON" --reinstall "gradio>=5.0"
+    fi
+    "$PYTHON" -c "import gradio" >/dev/null 2>&1 || {
+        echo "ERROR: Gradio is still unavailable after reinstall." >&2
+        exit 1
+    }
+fi
+echo "✓ Runtime imports verified."
 
 # ---------------------------------------------------------------------------
 # 4. Optional DTLR baseline checkout
@@ -396,11 +428,11 @@ echo ""
 echo "=========================================================="
 echo " EmbeddingOCR environment successfully configured!"
 echo ""
-echo " Run unit tests:   uv run pytest"
-echo " Run linter:       uv run ruff check src scripts tests"
-echo " Run type checker: uv run mypy src"
-echo " Run CLI:          uv run embedding-ocr --help"
-echo " Run benchmark:    uv run python scripts/compare_new_ocr_models.py"
+echo " Run unit tests:   uv run --no-sync pytest"
+echo " Run linter:       uv run --no-sync ruff check src scripts tests"
+echo " Run type checker: uv run --no-sync mypy src"
+echo " Run CLI:          uv run --no-sync embedding-ocr --help"
+echo " Run benchmark:    uv run --no-sync python scripts/compare_new_ocr_models.py"
 echo " DTLR baseline:    bash scripts/setup_env.sh --dtlr"
 echo " YOLO training:    bash scripts/setup_env.sh --train"
 echo " Web UI:           bash scripts/setup_auto.sh --launch"

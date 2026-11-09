@@ -22,6 +22,6 @@ Queries: **1300** rendered glyphs from held-out typography fonts.
 ## Unavailable Engines / Services
 
 - **jina** (EmbeddingOCR): `AttributeError: 'NoneType' object has no attribute 'convert_tokens_to_ids'`
-- **surya** (Generative VLM): `ImportError: surya-ocr is not installed. Install it with uv sync --extra surya or uv pip install surya-ocr, then ensure a vLLM (CUDA) or llama.cpp (CPU) backend is available or point SURYA_INFERENCE_URL at a running server.`
+- **surya** (Generative VLM): `ImportError: surya-ocr is not installed. Install it with uv pip install --python .venv/bin/python -e ".[surya]" or uv pip install surya-ocr, then ensure a vLLM (CUDA) or llama.cpp (CPU) backend is available or point SURYA_INFERENCE_URL at a running server.`
 
 Notes: `Extracted Glyph` evaluates robust string normalization from chatty generative outputs. `Exact Top-1` requires direct character equality. This 1300-query report supersedes the earlier 10-query pilot, whose raw results remain in `docs/unified_ocr_comparison.json`.

@@ -4,7 +4,7 @@ Embeds 62 alphanumeric classes across 25+ standard typographic clean fonts,
 and saves the FAISS index + metadata to disk for instant loading.
 
 Usage:
-    uv run python scripts/build_prototype_cache.py --num-fonts 25 --dim 768
+    uv run --no-sync python scripts/build_prototype_cache.py --num-fonts 25 --dim 768
 """
 
 from __future__ import annotations

@@ -22,9 +22,9 @@ Evaluated algorithms & engines:
    * ``oxr``       - SoMarkAI/OXR-1.0 (SoMark parse API / OpenAI-compatible)
 
 Usage:
-    uv run python scripts/benchmark_all_ocr_models.py --help
-    uv run python scripts/benchmark_all_ocr_models.py --limit 5
-    uv run python scripts/benchmark_all_ocr_models.py --engines gemma tesseract easyocr
+    uv run --no-sync python scripts/benchmark_all_ocr_models.py --help
+    uv run --no-sync python scripts/benchmark_all_ocr_models.py --limit 5
+    uv run --no-sync python scripts/benchmark_all_ocr_models.py --engines gemma tesseract easyocr
 """
 
 from __future__ import annotations

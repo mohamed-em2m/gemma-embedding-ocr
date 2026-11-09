@@ -93,7 +93,7 @@ class PaddleTextDetector:
         except ImportError as exc:
             msg = (
                 "paddleocr is not installed. Install it with "
-                "`uv sync --extra baseline` or `uv pip install paddleocr paddlepaddle`."
+                "`uv pip install --python .venv/bin/python -e '.[baseline]'` or `uv pip install paddleocr paddlepaddle`."
             )
             raise ImportError(msg) from exc
 

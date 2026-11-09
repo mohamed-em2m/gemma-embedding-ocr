@@ -11,8 +11,8 @@ The script never hard-fails when an optional dependency is missing; the error
 is recorded in the JSON report so the probe can run incrementally.
 
 Usage:
-  uv run python scripts/probe_segmentation.py --mode all --dry-run
-  uv run python scripts/probe_segmentation.py --mode embedders \
+  uv run --no-sync python scripts/probe_segmentation.py --mode all --dry-run
+  uv run --no-sync python scripts/probe_segmentation.py --mode embedders \
       --embedders gemma siglip jina --out docs/segmentation_probe.json
 """
 

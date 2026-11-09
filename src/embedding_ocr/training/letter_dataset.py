@@ -148,7 +148,7 @@ def _require_uharfbuzz() -> Any:
     except ImportError as exc:
         message = (
             "uharfbuzz is required for Arabic shaping and grapheme boxes. "
-            "Install the training extra with `uv sync --extra train`."
+            "Install the training extra with `uv pip install --python .venv/bin/python -e '.[train]'`."
         )
         raise ImportError(message) from exc
     return hb

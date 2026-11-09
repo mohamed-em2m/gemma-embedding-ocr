@@ -15,9 +15,9 @@ reported as ``unavailable`` instead of aborting the whole run, so a single
 command always produces a comparison table for whatever is runnable.
 
 Examples:
-    uv run python scripts/compare_new_ocr_models.py
-    uv run python scripts/compare_new_ocr_models.py --engines gemma lighton
-    uv run python scripts/compare_new_ocr_models.py \
+    uv run --no-sync python scripts/compare_new_ocr_models.py
+    uv run --no-sync python scripts/compare_new_ocr_models.py --engines gemma lighton
+    uv run --no-sync python scripts/compare_new_ocr_models.py \
         --oxr-base-url http://127.0.0.1:8080/v1 --limit 52
 """
 

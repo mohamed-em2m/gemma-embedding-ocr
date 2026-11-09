@@ -9,8 +9,9 @@ NVIDIA GPUs, llama.cpp otherwise)::
 
     pip install surya-ocr
 
-The package is an **optional** dependency.  Install it with ``uv sync
---extra surya`` (or ``uv pip install surya-ocr``) before using this adapter.
+The package is an **optional** dependency.  Install it with
+``uv pip install --python .venv/bin/python -e '.[surya]'`` (or
+``uv pip install surya-ocr``) before using this adapter.
 The adapter feeds the crop to ``RecognitionPredictor`` and converts the
 returned HTML blocks into plain text.
 """
@@ -74,8 +75,9 @@ class SuryaOCRRecognizer(RecognitionEngine):
         except ImportError as exc:  # pragma: no cover - depends on optional dep
             msg = (
                 "surya-ocr is not installed. Install it with "
-                "`uv sync --extra surya` or `uv pip install surya-ocr`, then "
-                "ensure a vLLM (CUDA) or llama.cpp (CPU) backend is available "
+                "`uv pip install --python .venv/bin/python -e '.[surya]'` "
+                "or `uv pip install surya-ocr`, then ensure a vLLM (CUDA) or "
+                "llama.cpp (CPU) backend is available "
                 "or point SURYA_INFERENCE_URL at a running server."
             )
             raise ImportError(msg) from exc

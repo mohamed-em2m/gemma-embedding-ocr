@@ -46,7 +46,7 @@
 - **Active Process**: Multi-font visual prototype generation & IAM handwriting benchmark.
   - Command:
     ```bash
-    uv run python scripts/test_iam_handwriting.py \
+    uv run --no-sync python scripts/test_iam_handwriting.py \
         --num-samples 50 \
         --gemma-dim 768 \
         --skip-glm \
@@ -68,7 +68,7 @@
    - The multi-font prototypes in `artifacts/vocab_cache_iam_multifont/` are persistent.
    - Run or inspect:
      ```bash
-     uv run python scripts/test_iam_handwriting.py \
+     uv run --no-sync python scripts/test_iam_handwriting.py \
          --num-samples 50 \
          --gemma-dim 768 \
          --skip-glm \
@@ -83,7 +83,7 @@
    - **Solution 2 (Image Preprocessing & Normalization)**: Deslanting (Slant correction via shear angle optimization), Otsu adaptive thresholding, and skeleton thinning before embedding.
    - **Solution 3 (Lightweight Contrastive Fine-Tuning / LoRA)**: Fine-tune `EmbeddingGemma 2` vision tower projection head on IAM handwriting word crops using InfoNCE loss.
 4. **Git Sync**:
-   - Ensure `uv run ruff check .`, `uv run mypy src`, `uv run pytest` pass.
+   - Ensure `uv run --no-sync ruff check .`, `uv run --no-sync mypy src`, `uv run --no-sync pytest` pass.
    - Commit and push report updates to `main`.
 
 ---
@@ -181,12 +181,12 @@ YOLO character/unit detector training is available through the `train` extra
 
 ```bash
 bash scripts/setup_env.sh --train
-uv run python scripts/build_letter_dataset.py \
+uv run --no-sync python scripts/build_letter_dataset.py \
     --fonts /usr/share/fonts --out artifacts/yolo_letters \
     --n 50000 --size 1280 --layout line
-uv run python scripts/train_yolo_units.py \
+uv run --no-sync python scripts/train_yolo_units.py \
     --data artifacts/yolo_letters/data.yaml
-uv run embedding-ocr recognize image.png --config configs/yolo_units.yaml
+uv run --no-sync embedding-ocr recognize image.png --config configs/yolo_units.yaml
 ```
 
 - Ultralytics YOLO is AGPL-3.0 or commercially licensed; review that before

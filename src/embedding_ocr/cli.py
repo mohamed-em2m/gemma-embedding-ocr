@@ -84,17 +84,18 @@ def ui(
         from embedding_ocr.webui import launch_ui
     except ModuleNotFoundError as exc:
         if exc.name == "gradio":
-            message = "Gradio is not installed; run `uv sync --extra ui`."
+            message = "Gradio is not installed; run `uv pip install --python .venv/bin/python -e '.[ui]'`."
         elif exc.name == "cv2":
             message = (
-                "OpenCV is not installed; run `uv sync --locked --group dev "
-                "--extra ui` or `uv pip install --python .venv/bin/python "
+                "OpenCV is not installed; run "
+                "`uv pip install --python .venv/bin/python -e '.[ui]'` "
+                "or `uv pip install --python .venv/bin/python "
                 "opencv-python-headless`."
             )
         else:
             message = (
-                f"Missing dependency {exc.name!r}; run `uv sync --locked "
-                "--group dev --extra ui`."
+                f"Missing dependency {exc.name!r}; run "
+                "`uv pip install --python .venv/bin/python -e '.[ui]'`."
             )
         typer.echo(f"error: {message}", err=True)
         raise typer.Exit(code=1) from exc
