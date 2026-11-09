@@ -35,8 +35,18 @@ multimodal model (text, image, audio) in a shared 768-d space (Matryoshka:
 
 ## Installation
 
-One-shot setup (system packages/fonts, uv, all core extras, font catalogs,
-pre-commit hooks):
+Automatic Linux/Kaggle/Colab setup (system libraries, uv, Arabic shaping,
+OpenCV repair, Gradio, and all benchmark extras):
+
+```bash
+bash scripts/setup_auto.sh                 # setup only
+bash scripts/setup_auto.sh --launch        # setup + public Gradio link
+bash scripts/setup_auto.sh --launch --no-share
+bash scripts/setup_auto.sh --with-paddle   # include the PaddleOCR baseline
+# or: make setup-auto
+```
+
+The full developer setup also installs font catalogs and pre-commit hooks:
 
 ```bash
 bash scripts/setup_env.sh

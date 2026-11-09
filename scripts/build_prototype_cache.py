@@ -14,6 +14,7 @@ import time
 from pathlib import Path
 
 from embedding_ocr.data.glyph_renderer import ALPHANUMERIC_CLASSES
+from embedding_ocr.data.ood_dataset import discover_fonts
 from embedding_ocr.recognition.embedding.embedder import EmbeddingGemma2
 from embedding_ocr.recognition.embedding.index import FaissIndex
 from embedding_ocr.recognition.embedding.prototypes import PrototypeDB
@@ -57,7 +58,25 @@ def main() -> None:
         if line.strip() and not line.startswith("#") and Path(line.strip()).exists()
     ]
 
+    if not valid_fonts:
+        print(
+            f"No fonts from {args.font_catalog} are installed; "
+            "falling back to discovered Latin fonts."
+        )
+        valid_fonts = discover_fonts("latin", limit=max(args.num_fonts, 1))
+
+    if not valid_fonts:
+        msg = (
+            "No Latin fonts found. Install fonts-dejavu-core/fonts-liberation "
+            "or pass a font catalog with existing paths."
+        )
+        raise FileNotFoundError(msg)
+
     selected_fonts = valid_fonts[: args.num_fonts]
+    if len(selected_fonts) < args.num_fonts:
+        print(
+            f"Only {len(selected_fonts)} fonts available (requested {args.num_fonts})."
+        )
     total_classes = len(ALPHANUMERIC_CLASSES)
     total_prototypes = len(selected_fonts) * total_classes
 

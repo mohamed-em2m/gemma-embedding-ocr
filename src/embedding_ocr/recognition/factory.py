@@ -101,7 +101,16 @@ def load_prototype_db(settings: AppConfig, embedder: Embedder) -> PrototypeDB:
         msg = "recognition requires index.path pointing to a saved prototype DB"
         raise ValueError(msg)
     base = Path(path)
-    index = _load_index(settings.index, base)
+    try:
+        index = _load_index(settings.index, base)
+    except FileNotFoundError as exc:
+        msg = (
+            f"Prototype index not found at {base}. Build it with "
+            "`.venv/bin/python scripts/build_prototype_cache.py --dim 768 "
+            "--output-dir artifacts/prototypes`, or use "
+            "configs/embedding_align.yaml with the hierarchical recognizer."
+        )
+        raise FileNotFoundError(msg) from exc
     saved_dim = getattr(index, "dim", None)
     if saved_dim is not None and int(saved_dim) != embedder.dim:
         msg = (
@@ -121,7 +130,15 @@ def load_prototype_db(settings: AppConfig, embedder: Embedder) -> PrototypeDB:
         index=index,
         script=settings.recognition.script,
     )
-    db.load_cache(base)
+    try:
+        db.load_cache(base)
+    except FileNotFoundError as exc:
+        msg = (
+            f"Prototype labels are missing for {base}. Rebuild the cache with "
+            "`.venv/bin/python scripts/build_prototype_cache.py --dim 768 "
+            "--output-dir artifacts/prototypes`."
+        )
+        raise FileNotFoundError(msg) from exc
     return db
 
 

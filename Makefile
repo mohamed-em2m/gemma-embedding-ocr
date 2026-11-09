@@ -1,7 +1,10 @@
-.PHONY: setup install lint format format-check typecheck test check prototypes vocabulary ui spike
+.PHONY: setup setup-auto install lint format format-check typecheck test check prototypes vocabulary ui spike
 
 setup:
 	bash scripts/setup_env.sh
+
+setup-auto:
+	bash scripts/setup_auto.sh
 
 install:
 	uv sync --group dev

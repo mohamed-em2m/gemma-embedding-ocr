@@ -119,6 +119,7 @@ if [[ $INSTALL_SYSTEM -eq 1 ]]; then
             tesseract tesseract-langpack-eng
         )
         OPTIONAL_PACKAGES=(
+            libraqm
             liberation-sans-fonts liberation-serif-fonts liberation-mono-fonts
             google-carlito-fonts open-sans
             abattis-cantarell-fonts abattis-cantarell-vf-fonts
@@ -146,6 +147,7 @@ if [[ $INSTALL_SYSTEM -eq 1 ]]; then
             tesseract-ocr tesseract-ocr-eng
         )
         OPTIONAL_PACKAGES=(
+            libraqm0
             fonts-liberation fonts-liberation2
             fonts-dejavu-core fonts-dejavu-extra
             fonts-noto-core fonts-noto-mono
@@ -401,5 +403,5 @@ echo " Run CLI:          uv run embedding-ocr --help"
 echo " Run benchmark:    uv run python scripts/compare_new_ocr_models.py"
 echo " DTLR baseline:    bash scripts/setup_env.sh --dtlr"
 echo " YOLO training:    bash scripts/setup_env.sh --train"
-echo " Web UI:           bash scripts/setup_env.sh --ui && uv run embedding-ocr ui"
+echo " Web UI:           bash scripts/setup_auto.sh --launch"
 echo "=========================================================="

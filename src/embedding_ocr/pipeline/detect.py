@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import json
+import logging
+import os
 from typing import Any, Protocol
 
 import numpy as np
@@ -72,6 +74,9 @@ def _poly_to_bbox(poly: Any, width: int, height: int) -> tuple[int, int, int, in
     return x0, y0, max(0, x1 - x0), max(0, y1 - y0)
 
 
+_LOGGER = logging.getLogger(__name__)
+
+
 class PaddleTextDetector:
     """PaddleOCR detection backend.
 
@@ -81,6 +86,8 @@ class PaddleTextDetector:
     """
 
     def __init__(self, lang: str = "en", rtl: bool = False) -> None:
+        # Paddle 3.x can crash in its oneDNN/PIR path on some CPU builds.
+        os.environ.setdefault("FLAGS_use_mkldnn", "0")
         try:
             from paddleocr import PaddleOCR  # type: ignore[import-untyped]
         except ImportError as exc:
@@ -124,10 +131,18 @@ class PaddleTextDetector:
         return []
 
     def detect(self, image: np.ndarray) -> list[TextRegion]:
-        if hasattr(self._ocr, "predict"):
-            raw_results = list(self._ocr.predict(image))
-        else:
-            raw_results = [self._ocr.ocr(image, det=True, rec=False)]
+        try:
+            if hasattr(self._ocr, "predict"):
+                raw_results = list(self._ocr.predict(image))
+            else:
+                raw_results = [self._ocr.ocr(image, det=True, rec=False)]
+        except NotImplementedError as exc:
+            _LOGGER.warning(
+                "Paddle detector failed in its oneDNN/PIR runtime (%s); "
+                "falling back to a full-image region.",
+                exc,
+            )
+            return FullImageDetector().detect(image)
 
         height, width = image.shape[:2]
         regions: list[TextRegion] = []

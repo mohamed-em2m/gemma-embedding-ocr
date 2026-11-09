@@ -100,3 +100,32 @@ def test_polygon_helpers() -> None:
         json = '{"dt_polys": [[5, 6, 7, 8]]}'
 
     assert PaddleTextDetector._iter_polys(Result()) == [[5, 6, 7, 8]]
+
+
+def test_load_prototype_db_missing_index_is_actionable(tmp_path) -> None:
+    from embedding_ocr.recognition.factory import load_prototype_db
+
+    config = AppConfig()
+    config.index.backend = "numpy"
+    config.index.path = tmp_path / "missing"
+    config.recognition.script = "latin"
+
+    with pytest.raises(FileNotFoundError, match="build_prototype_cache"):
+        load_prototype_db(config, _DummyEmbedder())  # type: ignore[arg-type]
+
+
+def test_paddle_detector_falls_back_on_onednn_error() -> None:
+    from embedding_ocr.pipeline.detect import PaddleTextDetector
+
+    class BrokenPaddle:
+        def predict(self, image: np.ndarray) -> list[object]:
+            raise NotImplementedError(
+                "ConvertPirAttribute2RuntimeAttribute not support"
+            )
+
+    detector = object.__new__(PaddleTextDetector)
+    detector.rtl = False
+    detector._ocr = BrokenPaddle()  # type: ignore[attr-defined]
+
+    regions = detector.detect(np.zeros((12, 20, 3), dtype=np.uint8))
+    assert regions[0].bbox == (0, 0, 20, 12)
