@@ -88,9 +88,19 @@ baseline extras the way a bare `uv run` sync would.
 The UI includes bundled Latin and Arabic example images that set the matching
 profile and script. It also lets you upload or capture an image, choose a YAML
 profile, override the recognizer/detector/script/device, and inspect recognized
-text, confidence, region boxes, and JSON details. The first request builds prototypes/vocabulary
-and may download `google/embeddinggemma-2`, so it can take several minutes.
-Quick mode caps the hierarchical vocabulary at 4k words / 3k subwords.
+text, confidence, region boxes, and JSON details. The first request builds
+prototypes/vocabulary and may download `google/embeddinggemma-2`, so it can take
+several minutes. Quick mode caps the hierarchical vocabulary at 4k words / 3k
+subwords.
+
+### CUDA out of memory
+
+The UI keeps only one pipeline in memory and releases the old one when the
+profile/overrides change. The embedding configs use `batch_size: 8`, and
+`embedding_ocr` sets `PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True` by
+default. If a notebook already loaded GLM-OCR or another model, restart the
+kernel before launching the UI. The UI clears its pipeline cache automatically
+after a CUDA OOM so the next request can retry.
 
 ## Commands
 

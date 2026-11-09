@@ -134,6 +134,35 @@ def test_run_ocr_uses_pipeline(monkeypatch) -> None:
     assert "Done" in status
 
 
+def test_run_ocr_clears_pipeline_cache_after_cuda_oom(monkeypatch) -> None:
+    import embedding_ocr.webui as webui
+
+    class OutOfMemoryError(Exception):
+        pass
+
+    def raise_oom(*args, **kwargs):
+        raise OutOfMemoryError("CUDA out of memory: tried to allocate 1 GiB")
+
+    cleared: list[bool] = []
+    monkeypatch.setattr(webui, "get_pipeline", raise_oom)
+    monkeypatch.setattr(webui, "clear_pipeline_cache", lambda: cleared.append(True))
+    image = np.full((32, 32, 3), 255, dtype=np.uint8)
+    _text, _confidence, details, annotated, status = webui.run_ocr(
+        image,
+        "default.yaml",
+        "cuda",
+        "config default",
+        "config default",
+        "config default",
+        True,
+    )
+
+    assert cleared == [True]
+    assert "OutOfMemoryError" in status
+    assert "error" in details
+    assert annotated is not None
+
+
 def test_public_share_link_is_enabled_by_default(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

@@ -180,6 +180,11 @@ def _cache_key(config_path: Path, overrides: UiOverrides) -> tuple[Any, ...]:
     )
 
 
+def _is_cuda_oom(exc: BaseException) -> bool:
+    """Return True when an exception is a CUDA out-of-memory error."""
+    return type(exc).__name__ == "OutOfMemoryError" and "CUDA" in str(exc)
+
+
 def _release_cuda_memory() -> None:
     """Run Python/CUDA garbage collection after dropping a pipeline."""
     gc.collect()
@@ -347,7 +352,10 @@ def run_ocr(
         )
         return result.text, float(result.confidence), details, annotated, status
     except Exception as exc:  # noqa: BLE001 - surface the error in the UI
-        _release_cuda_memory()
+        if _is_cuda_oom(exc):
+            clear_pipeline_cache()
+        else:
+            _release_cuda_memory()
         error = f"{type(exc).__name__}: {exc}"
         details = {
             "profile": profile,
