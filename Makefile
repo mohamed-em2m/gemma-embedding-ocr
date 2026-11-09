@@ -30,7 +30,7 @@ vocabulary:
 	uv run embedding-ocr build-vocabulary --config configs/default.yaml
 
 ui:
-	uv run embedding-ocr ui
+	uv run --extra ui embedding-ocr ui
 
 spike:
 	uv run python scripts/phase0_az_spike.py --config configs/spike_az.yaml

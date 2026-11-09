@@ -45,23 +45,30 @@ bash scripts/setup_env.sh --check        # also run lint/types/tests
 # or: make setup
 ```
 
-Or manage the Python environment manually (Python >= 3.11, uv only):
+Or manage the Python environment manually (Python >= 3.11, uv only). Pass all
+extras in **one** `uv sync`; each sync removes packages from extras you did not
+select. The default `setup_env.sh` already selects this combination:
 
 ```bash
-uv sync --group dev
-uv sync --extra baseline      # PaddleOCR/PaddlePaddle baseline
-uv sync --extra tesseract --extra easyocr  # conventional baselines
-uv sync --extra experiments   # datasets/accelerate for benchmark scripts
-uv sync --extra arabic        # optional Arabic shaping fallback
-uv sync --extra ui            # Gradio web interface
+uv sync --group dev \
+  --extra baseline --extra tesseract --extra easyocr \
+  --extra experiments --extra arabic --extra ui
+```
+
+If a sync removed OpenCV (`ModuleNotFoundError: No module named 'cv2'`), rerun
+the command above or install the core wheel directly:
+
+```bash
+uv pip install --python .venv/bin/python opencv-python-headless
 ```
 
 ## Web interface
 
 ```bash
-uv run embedding-ocr ui
+uv run --extra ui embedding-ocr ui          # public share link by default
+uv run --extra ui embedding-ocr ui --no-share  # local-only
 # or
-uv run embedding-ocr-ui --host 0.0.0.0 --port 7860
+uv run --extra ui embedding-ocr-ui --host 0.0.0.0 --port 7860
 ```
 
 The UI lets you upload or capture an image, choose a YAML profile, override the
@@ -78,7 +85,7 @@ uv run ruff check . && uv run ruff format .              # lint / format
 uv run mypy src                                          # type-check
 
 uv run embedding-ocr version                             # CLI smoke test
-uv run embedding-ocr ui                                  # Gradio web UI
+uv run --extra ui embedding-ocr ui                       # Gradio web UI
 uv run embedding-ocr show-config --config configs/default.yaml
 uv run embedding-ocr recognize image.png --config configs/default.yaml --json
 uv run embedding-ocr build-prototypes --config configs/embedding_seg.yaml \

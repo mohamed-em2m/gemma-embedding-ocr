@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import sys
+
 import numpy as np
 import pytest
 
@@ -13,6 +15,7 @@ from embedding_ocr.webui import (
     apply_ui_overrides,
     format_details,
     list_config_profiles,
+    parse_args,
     resolve_config_path,
 )
 
@@ -128,3 +131,13 @@ def test_run_ocr_uses_pipeline(monkeypatch) -> None:
     assert details["text"] == "hello"
     assert annotated is not None
     assert "Done" in status
+
+
+def test_public_share_link_is_enabled_by_default(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(sys, "argv", ["embedding-ocr-ui"])
+    assert parse_args().share is True
+
+    monkeypatch.setattr(sys, "argv", ["embedding-ocr-ui", "--no-share"])
+    assert parse_args().share is False

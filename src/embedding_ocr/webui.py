@@ -381,7 +381,7 @@ def launch_ui(
     config_dir: str | Path = DEFAULT_CONFIG_DIR,
     host: str = "127.0.0.1",
     port: int = 7860,
-    share: bool = False,
+    share: bool = True,
 ) -> None:
     """Launch the Gradio app."""
     demo = build_demo(config_dir)
@@ -393,7 +393,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--config-dir", default=str(DEFAULT_CONFIG_DIR))
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--port", type=int, default=7860)
-    parser.add_argument("--share", action="store_true")
+    parser.add_argument(
+        "--share",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="Create a public Gradio share link (default).",
+    )
     return parser.parse_args()
 
 
