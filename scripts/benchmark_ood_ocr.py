@@ -255,14 +255,61 @@ def _load_samples(manifest: Path, limit_per_script: int | None) -> list[OODSampl
     samples = load_ood_dataset(manifest)
     if limit_per_script is None:
         return samples
-    counts: dict[str, int] = defaultdict(int)
+
     selected: list[OODSample] = []
-    for sample in samples:
-        if counts[sample.script] >= limit_per_script:
+    for script in ("latin", "arabic"):
+        script_samples = [sample for sample in samples if sample.script == script]
+        if not script_samples:
             continue
-        counts[sample.script] += 1
-        selected.append(sample)
+        groups: dict[tuple[str, str], list[OODSample]] = defaultdict(list)
+        for sample in script_samples:
+            groups[(sample.category, sample.condition)].append(sample)
+
+        # Round-robin over condition/category groups so a small limit still
+        # covers both clean and degraded crops and multiple categories.
+        ordered_groups = [
+            groups[key] for key in sorted(groups, key=lambda key: (key[1], key[0]))
+        ]
+        script_selected: list[OODSample] = []
+        for round_index in range(
+            max((len(group) for group in ordered_groups), default=0)
+        ):
+            for group in ordered_groups:
+                if round_index >= len(group):
+                    continue
+                script_selected.append(group[round_index])
+                if len(script_selected) >= limit_per_script:
+                    break
+            if len(script_selected) >= limit_per_script:
+                break
+        selected.extend(script_selected)
     return selected
+
+
+def _ensure_dataset(manifest: Path, auto_build: bool) -> None:
+    """Create the manifest when it is missing (for fresh Kaggle/Colab runs)."""
+    if manifest.exists() and (manifest.parent / "dataset.json").exists():
+        return
+    if not auto_build:
+        msg = (
+            f"manifest not found: {manifest}. Run "
+            "`python scripts/build_ood_dataset.py` first, or omit "
+            "`--no-build-dataset`."
+        )
+        raise FileNotFoundError(msg)
+
+    from embedding_ocr.data.ood_dataset import build_ood_dataset
+
+    print(f"Dataset not found at {manifest.parent}; building it now...")
+    try:
+        build_ood_dataset(manifest.parent, overwrite=manifest.exists())
+    except Exception as exc:
+        msg = (
+            "could not build the OOD dataset. Check that the fonts listed in "
+            "`src/embedding_ocr/data/ood_dataset.py` are installed, or run "
+            f"`python scripts/build_ood_dataset.py --out {manifest.parent}` manually."
+        )
+        raise RuntimeError(msg) from exc
 
 
 def _write_markdown(report: dict[str, Any], path: Path) -> None:
@@ -331,21 +378,24 @@ def parse_args() -> argparse.Namespace:
         "--limit-per-script",
         type=int,
         default=None,
-        help="Evaluate at most N samples per script (useful for smoke tests).",
+        help=(
+            "Evaluate at most N samples per script, stratified across "
+            "categories and conditions (useful for smoke tests)."
+        ),
     )
     parser.add_argument("--skip-glm", action="store_true")
+    parser.add_argument(
+        "--no-build-dataset",
+        action="store_true",
+        help="Fail instead of generating the OOD dataset when the manifest is missing.",
+    )
     return parser.parse_args()
 
 
 def main() -> None:
     args = parse_args()
     manifest = Path(args.manifest)
-    if not manifest.exists():
-        msg = (
-            f"manifest not found: {manifest}. Run "
-            "`python scripts/build_ood_dataset.py` first."
-        )
-        raise FileNotFoundError(msg)
+    _ensure_dataset(manifest, auto_build=not args.no_build_dataset)
 
     samples = _load_samples(manifest, args.limit_per_script)
     print(f"Loaded {len(samples)} OOD samples from {manifest}")

@@ -100,3 +100,22 @@ def test_build_refuses_to_overwrite_manifest(tmp_path: Path) -> None:
     assert manifest.exists()
     with pytest.raises(FileExistsError):
         _build(tmp_path, "dataset")
+
+
+def test_resolve_font_split_falls_back_to_discovered_fonts(monkeypatch) -> None:
+    import embedding_ocr.data.ood_dataset as ood
+
+    def fake_discover(script: str, limit: int = 4) -> list[str]:
+        del limit
+        return [f"/fake/{script}-{index}.ttf" for index in range(4)]
+
+    monkeypatch.setattr(ood, "discover_fonts", fake_discover)
+    index_fonts, test_fonts = ood.resolve_font_split(
+        {"latin": (), "arabic": ()},
+        {"latin": (), "arabic": ()},
+    )
+
+    for script in ("latin", "arabic"):
+        assert index_fonts[script]
+        assert test_fonts[script]
+        assert set(index_fonts[script]).isdisjoint(test_fonts[script])

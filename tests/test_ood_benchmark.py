@@ -96,3 +96,56 @@ def test_evaluate_predictor_reports_groups(tmp_path: Path) -> None:
     assert "script:arabic" in report.groups
     assert "condition:clean" in report.groups
     assert len(report.samples) == 2
+
+
+def test_ensure_dataset_fails_without_autobuild(tmp_path: Path) -> None:
+    module = _load_script()
+    with pytest.raises(FileNotFoundError):
+        module._ensure_dataset(tmp_path / "manifest.jsonl", auto_build=False)
+
+
+def test_ensure_dataset_builds_when_missing(monkeypatch, tmp_path: Path) -> None:
+    module = _load_script()
+
+    def fake_build(out: Path, overwrite: bool = False) -> Path:
+        del overwrite
+        out.mkdir(parents=True, exist_ok=True)
+        manifest = out / "manifest.jsonl"
+        manifest.write_text("")
+        (out / "dataset.json").write_text("{}")
+        return manifest
+
+    monkeypatch.setattr("embedding_ocr.data.ood_dataset.build_ood_dataset", fake_build)
+    manifest = tmp_path / "manifest.jsonl"
+    module._ensure_dataset(manifest, auto_build=True)
+    assert manifest.exists()
+    assert (tmp_path / "dataset.json").exists()
+
+
+def test_limit_per_script_is_stratified(tmp_path: Path) -> None:
+    import json
+
+    module = _load_script()
+    manifest = tmp_path / "manifest.jsonl"
+    rows = []
+    for script in ("latin", "arabic"):
+        for category in ("word", "glyph"):
+            for condition in ("clean", "hard"):
+                rows.append(
+                    {
+                        "id": f"{script}_{category}_{condition}",
+                        "image": f"{script}_{category}_{condition}.png",
+                        "text": "x",
+                        "script": script,
+                        "category": category,
+                        "font": "/fake/font.ttf",
+                        "condition": condition,
+                    }
+                )
+    manifest.write_text(
+        "\n".join(json.dumps(row) for row in rows) + "\n", encoding="utf-8"
+    )
+
+    selected = module._load_samples(manifest, limit_per_script=2)
+    assert len(selected) == 4
+    assert {sample.category for sample in selected} == {"word", "glyph"}

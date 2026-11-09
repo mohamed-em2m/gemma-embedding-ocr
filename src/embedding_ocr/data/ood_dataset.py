@@ -149,6 +149,35 @@ OOD_TEST_FONTS: dict[str, tuple[str, ...]] = {
 
 DEFAULT_CONDITIONS: tuple[str, ...] = OOD_CONDITIONS
 
+FONT_SEARCH_DIRS: tuple[Path, ...] = (
+    Path("/usr/share/fonts"),
+    Path("/usr/local/share/fonts"),
+    Path.home() / ".fonts",
+    Path.home() / ".local/share/fonts",
+)
+ARABIC_FONT_HINTS: tuple[str, ...] = (
+    "arab",
+    "naskh",
+    "kufi",
+    "vazir",
+    "amiri",
+    "scheherazade",
+    "paktype",
+    "droidkufi",
+    "droidarabic",
+)
+NON_TEXT_FONT_HINTS: tuple[str, ...] = (
+    "emoji",
+    "symbol",
+    "icon",
+    "awesome",
+    "material",
+    "fa-solid",
+    "fa-regular",
+    "fontawesome",
+)
+FONT_SUFFIXES = {".ttf", ".otf"}
+
 
 @dataclass(frozen=True)
 class OODSample:
@@ -169,6 +198,78 @@ class OODSample:
 
 def _existing_fonts(fonts: Sequence[str]) -> list[str]:
     return [font for font in fonts if Path(font).exists()]
+
+
+def _classify_font(path: Path) -> str | None:
+    name = path.name.lower()
+    if any(hint in name for hint in NON_TEXT_FONT_HINTS):
+        return None
+    if any(hint in name for hint in ARABIC_FONT_HINTS):
+        return "arabic"
+    return "latin"
+
+
+def discover_fonts(script: str, limit: int = 4) -> list[str]:
+    """Find installed fonts for a script when configured paths are absent."""
+    found: list[str] = []
+    seen: set[str] = set()
+    for root in FONT_SEARCH_DIRS:
+        if not root.exists():
+            continue
+        for path in sorted(root.rglob("*")):
+            if path.suffix.lower() not in FONT_SUFFIXES or not path.is_file():
+                continue
+            if _classify_font(path) != script:
+                continue
+            key = str(path)
+            if key in seen:
+                continue
+            seen.add(key)
+            found.append(key)
+            if len(found) >= limit:
+                return found
+    return found
+
+
+def resolve_font_split(
+    index_fonts: dict[str, Sequence[str]] | None = None,
+    test_fonts: dict[str, Sequence[str]] | None = None,
+) -> tuple[dict[str, list[str]], dict[str, list[str]]]:
+    """Resolve configured fonts and fall back to installed fonts if needed."""
+    configured_index = index_fonts or OOD_INDEX_FONTS
+    configured_test = test_fonts or OOD_TEST_FONTS
+    resolved_index: dict[str, list[str]] = {}
+    resolved_test: dict[str, list[str]] = {}
+
+    for script in ("latin", "arabic"):
+        index = _existing_fonts(configured_index.get(script, ()))
+        test = _existing_fonts(configured_test.get(script, ()))
+        overlap = set(index) & set(test)
+        if overlap:
+            msg = f"index/test fonts overlap for {script!r}: {sorted(overlap)}"
+            raise ValueError(msg)
+
+        available = [
+            font
+            for font in discover_fonts(script)
+            if font not in set(index) | set(test)
+        ]
+        if not index and available:
+            take = max(1, len(available) // 2)
+            index, available = available[:take], available[take:]
+        if not test and available:
+            test = available
+
+        if not index:
+            msg = f"no index fonts available for script {script!r}"
+            raise ValueError(msg)
+        if not test:
+            msg = f"no held-out test fonts available for script {script!r}"
+            raise ValueError(msg)
+        resolved_index[script] = index
+        resolved_test[script] = test
+
+    return resolved_index, resolved_test
 
 
 def _condition_image(
@@ -293,22 +394,7 @@ def build_ood_dataset(
         msg = f"unknown conditions: {invalid}; choose from {DEFAULT_CONDITIONS}"
         raise ValueError(msg)
 
-    index_font_map = {
-        script: _existing_fonts(fonts)
-        for script, fonts in (index_fonts or OOD_INDEX_FONTS).items()
-    }
-    test_font_map = {
-        script: _existing_fonts(fonts)
-        for script, fonts in (test_fonts or OOD_TEST_FONTS).items()
-    }
-    for script in ("latin", "arabic"):
-        if not test_font_map.get(script):
-            msg = f"no test fonts available for script {script!r}"
-            raise ValueError(msg)
-        overlap = set(index_font_map.get(script, [])) & set(test_font_map[script])
-        if overlap:
-            msg = f"index/test fonts overlap for {script!r}: {sorted(overlap)}"
-            raise ValueError(msg)
+    index_font_map, test_font_map = resolve_font_split(index_fonts, test_fonts)
 
     default_counts = {
         "latin": {"word": 16, "phrase": 8, "glyph": 16},
