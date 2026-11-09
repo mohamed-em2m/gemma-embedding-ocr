@@ -69,6 +69,10 @@ Run the one-shot setup from a notebook cell before launching:
 Gradio. Use `--all-extras` to also install the optional jina/craft/surya/dtlr/
 train backends.
 
+`bash scripts/setup_auto.sh --launch --no-share` also runs GPU batch tuning on
+the first launch when CUDA is available and no `artifacts/gpu_tuning.json`
+cache exists. Use `--autotune` to force a fresh run or `--no-autotune` to skip.
+
 Or manage the Python environment manually (Python >= 3.11, uv only). Do **not**
 use `uv sync` on an existing/Kaggle environment: it removes packages from extras
 you did not select. Install the project and selected extras without pruning:

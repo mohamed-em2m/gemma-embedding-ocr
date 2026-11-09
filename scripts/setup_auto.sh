@@ -27,6 +27,7 @@ BUILD_PROTOTYPES=0
 RUN_CHECKS=0
 LAUNCH=0
 SHARE=1
+AUTOTUNE=auto
 
 usage() {
     cat <<'EOF'
@@ -39,6 +40,8 @@ Options:
   --build-prototypes  Build the Latin character prototype cache.
   --no-system         Skip apt/dnf system packages.
   --check             Run ruff, mypy, and pytest after setup.
+  --autotune          Force GPU batch-size tuning even if a cache exists.
+  --no-autotune       Skip GPU batch-size tuning.
   -h, --help          Show this help.
 EOF
 }
@@ -51,6 +54,8 @@ while [[ $# -gt 0 ]]; do
         --build-prototypes) BUILD_PROTOTYPES=1 ;;
         --no-system) INSTALL_SYSTEM=0 ;;
         --check) RUN_CHECKS=1 ;;
+        --autotune) AUTOTUNE=1 ;;
+        --no-autotune) AUTOTUNE=0 ;;
         -h|--help) usage; exit 0 ;;
         *)
             echo "ERROR: unknown option: $1" >&2
@@ -233,7 +238,27 @@ if [[ $RUN_CHECKS -eq 1 ]]; then
 fi
 
 # ---------------------------------------------------------------------------
-# 7. Launch
+# 7. GPU batch-size autotune
+# ---------------------------------------------------------------------------
+if [[ $AUTOTUNE != 0 ]] && "$PYTHON" -c \
+    "import torch; raise SystemExit(0 if torch.cuda.is_available() else 1)" \
+    >/dev/null 2>&1; then
+    TUNING_CACHE="$PROJECT_ROOT/artifacts/gpu_tuning.json"
+    if [[ $AUTOTUNE == 1 || ! -f "$TUNING_CACHE" ]]; then
+        run_step "Autotuning GPU batch size..."
+        if ! PYTHONPATH="$PROJECT_ROOT/src" "$PYTHON" \
+            "$PROJECT_ROOT/scripts/autotune_gpu.py" --device auto \
+            --output "$TUNING_CACHE"; then
+            echo "WARNING: GPU autotune failed; runtime heuristic will be used."
+        fi
+    else
+        run_step "GPU batch tuning..."
+        echo "Using cached $TUNING_CACHE."
+    fi
+fi
+
+# ---------------------------------------------------------------------------
+# 8. Launch
 # ---------------------------------------------------------------------------
 if [[ $LAUNCH -eq 1 ]]; then
     run_step "Launching Gradio UI..."
