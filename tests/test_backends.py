@@ -295,3 +295,44 @@ def test_build_dtlr_recognizer_forwards_settings(monkeypatch, tmp_path) -> None:
         "charset_path": tmp_path / "charset.json",
         "device": "cuda:0",
     }
+
+
+def test_oxr_retries_after_cloudflare_524(monkeypatch) -> None:
+    import io
+    import urllib.error
+
+    import embedding_ocr.recognition.oxr as oxr_module
+
+    calls = {"count": 0}
+
+    class FakeResponse:
+        headers: dict[str, str] = {}
+
+        def read(self) -> bytes:
+            return b'{"code": 0, "data": {"outputs": {"markdown": "A"}}}'
+
+        def __enter__(self) -> FakeResponse:
+            return self
+
+        def __exit__(self, *args: object) -> None:
+            return None
+
+    def fake_urlopen(request: object, timeout: float | None = None) -> FakeResponse:
+        calls["count"] += 1
+        if calls["count"] == 1:
+            raise urllib.error.HTTPError(
+                "http://example.invalid/v1/parse/sync",
+                524,
+                "A timeout occurred",
+                hdrs=None,
+                fp=io.BytesIO(b"error code: 524"),
+            )
+        return FakeResponse()
+
+    monkeypatch.setattr(oxr_module.urllib.request, "urlopen", fake_urlopen)
+    recognizer = OXRRecognizer(retries=1, retry_backoff=0.0)
+    body, _ = recognizer._open(
+        oxr_module.urllib.request.Request("http://example.invalid/v1/parse/sync")
+    )
+    assert calls["count"] == 2
+    assert _extract_parse_text(body) == "A"

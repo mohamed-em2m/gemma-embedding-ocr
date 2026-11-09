@@ -52,7 +52,9 @@ from embedding_ocr.recognition.base import RecognitionEngine, RecognitionResult
 _DEFAULT_PROMPT = "Extract all text from this image. Output only the text."
 _FREE_API_URL = "https://free-oxr.somark.ai/api/v1"
 _TAG_RE = re.compile(r"<[^>]+>")
-_RETRYABLE_HTTP = frozenset({408, 425, 429, 500, 502, 503, 504})
+_RETRYABLE_HTTP = frozenset(
+    {408, 425, 429, 500, 502, 503, 504, 520, 521, 522, 523, 524, 525, 526}
+)
 
 
 def _read_error_detail(exc: urllib.error.HTTPError) -> str:
@@ -87,6 +89,7 @@ class OXRRecognizer(RecognitionEngine):
         timeout: float = 180.0,
         retries: int = 2,
         retry_backoff: float = 1.0,
+        request_delay: float = 0.0,
     ) -> None:
         """Configure the client.
 
@@ -103,9 +106,11 @@ class OXRRecognizer(RecognitionEngine):
             max_tokens: Generation budget per crop (chat backend only).
             timeout: Per-request timeout in seconds.
             retries: Additional attempts after a timeout or transient server
-                error (HTTP 408, 429, 500, 502, 503, 504).
+                error (including Cloudflare 520-526 responses).
             retry_backoff: Base delay in seconds between retries (doubles each
                 attempt).
+            request_delay: Minimum seconds between HTTP attempts. Increase
+                this when the public API rate-limits or times out.
         """
         if backend not in {"auto", "parse", "chat"}:
             msg = f"backend must be 'auto', 'parse' or 'chat'; got {backend!r}"
@@ -123,6 +128,8 @@ class OXRRecognizer(RecognitionEngine):
         self.timeout = timeout
         self.retries = retries
         self.retry_backoff = retry_backoff
+        self.request_delay = max(0.0, request_delay)
+        self._last_request = 0.0
 
     # ------------------------------------------------------------------
     # Backend selection
@@ -240,6 +247,7 @@ class OXRRecognizer(RecognitionEngine):
         self, request: urllib.request.Request
     ) -> tuple[dict[str, Any], dict[str, str]]:
         for attempt in range(self.retries + 1):
+            self._pace()
             try:
                 with urllib.request.urlopen(request, timeout=self.timeout) as response:
                     raw = response.read().decode("utf-8")
@@ -294,6 +302,13 @@ class OXRRecognizer(RecognitionEngine):
             msg = f"OXR returned an unexpected JSON payload: {type(parsed).__name__}"
             raise RuntimeError(msg)
         return parsed, headers
+
+    def _pace(self) -> None:
+        if self.request_delay > 0:
+            elapsed = time.monotonic() - self._last_request
+            if elapsed < self.request_delay:
+                time.sleep(self.request_delay - elapsed)
+        self._last_request = time.monotonic()
 
     def _backoff(self, attempt: int) -> None:
         if self.retry_backoff > 0:

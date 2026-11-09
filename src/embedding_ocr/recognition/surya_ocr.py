@@ -54,6 +54,7 @@ class SuryaOCRRecognizer(RecognitionEngine):
         device: str = "auto",
         backend: str | None = None,
         max_new_tokens: int = 2048,
+        inference_url: str | None = None,
     ) -> None:
         """Create the inference manager and recognition predictor.
 
@@ -64,6 +65,8 @@ class SuryaOCRRecognizer(RecognitionEngine):
             backend: ``vllm``, ``llamacpp``, ``mlx`` or ``None`` for auto.
             max_new_tokens: Output budget passed to the predictor when the
                 installed surya version supports it.
+            inference_url: Optional URL of an already-running Surya server;
+                exported as ``SURYA_INFERENCE_URL`` for the installed package.
         """
         try:
             from surya.inference import SuryaInferenceManager
@@ -78,6 +81,8 @@ class SuryaOCRRecognizer(RecognitionEngine):
             raise ImportError(msg) from exc
 
         os.environ.setdefault("SURYA_MODEL_CHECKPOINT", model_id)
+        if inference_url:
+            os.environ["SURYA_INFERENCE_URL"] = inference_url
         if backend is not None:
             os.environ["SURYA_INFERENCE_BACKEND"] = backend
         elif device == "cuda":

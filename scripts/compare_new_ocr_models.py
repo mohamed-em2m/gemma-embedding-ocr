@@ -260,6 +260,7 @@ def load_generic_engine(name: str, args: argparse.Namespace) -> RecognitionEngin
             model_id=args.surya_model,
             device=args.device,
             backend=args.surya_backend,
+            inference_url=args.surya_inference_url,
         )
     if name == "oxr":
         from embedding_ocr.recognition.oxr import OXRRecognizer
@@ -269,6 +270,11 @@ def load_generic_engine(name: str, args: argparse.Namespace) -> RecognitionEngin
             model=args.oxr_model,
             prompt=args.oxr_prompt,
             backend=args.oxr_backend,
+            max_tokens=args.oxr_max_tokens,
+            timeout=args.oxr_timeout,
+            retries=args.oxr_retries,
+            retry_backoff=args.oxr_retry_backoff,
+            request_delay=args.oxr_request_delay,
         )
     msg = f"Unknown engine: {name}"
     raise ValueError(msg)
@@ -458,6 +464,11 @@ def parse_args() -> argparse.Namespace:
         help="Inference backend for surya-ocr (default: auto).",
     )
     parser.add_argument(
+        "--surya-inference-url",
+        default=None,
+        help="Reuse an already-running Surya server (SURYA_INFERENCE_URL).",
+    )
+    parser.add_argument(
         "--oxr-base-url",
         default="https://free-oxr.somark.ai/api/v1",
         help=(
@@ -475,7 +486,38 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--oxr-prompt",
-        default="Extract all text from this image. Output only the text.",
+        default="Output the single character in this image.",
+        help="Always keep this short for single-glyph benchmarks.",
+    )
+    parser.add_argument(
+        "--oxr-max-tokens",
+        type=int,
+        default=32,
+        help="Generation budget for the OXR chat backend.",
+    )
+    parser.add_argument(
+        "--oxr-timeout",
+        type=float,
+        default=240.0,
+        help="Per-request OXR timeout in seconds.",
+    )
+    parser.add_argument(
+        "--oxr-retries",
+        type=int,
+        default=3,
+        help="Additional OXR attempts after timeouts or 5xx/Cloudflare errors.",
+    )
+    parser.add_argument(
+        "--oxr-retry-backoff",
+        type=float,
+        default=2.0,
+        help="Base exponential backoff between OXR retries.",
+    )
+    parser.add_argument(
+        "--oxr-request-delay",
+        type=float,
+        default=0.0,
+        help="Minimum seconds between OXR requests; raise it for the free API.",
     )
     parser.add_argument(
         "--output",
