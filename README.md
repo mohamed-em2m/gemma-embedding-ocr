@@ -239,6 +239,26 @@ yolo_words` and the hierarchical recognizer; `detector.yolo_model`,
 Training on CPU is possible for smoke tests but a CUDA GPU is strongly
 recommended for full runs.
 
+#### Kaggle 2x T4
+
+For the Kaggle GPU runtime with two T4s, use the helper script. It prepares the
+training environment, generates the 30k word dataset, and launches YOLO26s on
+both GPUs with a total batch size of 32:
+
+```bash
+# In a Kaggle notebook cell, from the repository root:
+!bash scripts/kaggle_train_yolo_words.sh
+
+# Shorter run, or memory-adjusted batch:
+!EPOCHS=60 BATCH=24 bash scripts/kaggle_train_yolo_words.sh
+```
+
+Defaults are `DATASET=/kaggle/working/artifacts/yolo_words`,
+`RUNS=/kaggle/working/artifacts/yolo_runs`, `IMGSZ=1280`, `EPOCHS=100`,
+`DEVICES=0,1`, `BATCH=32`, `WORKERS=8`, and `CACHE=disk`. Keep the resulting
+`best.pt` in a Kaggle dataset or download it before the 12-hour session ends.
+The script uses `.venv` and `uv run --no-sync`; it never runs `uv sync`.
+
 The PaddleOCR detector requires `paddlepaddle>=3.2.2,<3.3` on CPU because
 PaddlePaddle 3.3.x crashes in its oneDNN/PIR executor. Benchmark detectors with:
 

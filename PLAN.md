@@ -207,6 +207,9 @@ uv run --no-sync python scripts/train_yolo_words.py \
 uv run --no-sync embedding-ocr recognize image.png --config configs/yolo_words.yaml
 ```
 
+- Kaggle training target: 2x T4, YOLO26s, 1280 px, 30k images, total batch 32,
+  disk cache. Use `scripts/kaggle_train_yolo_words.sh`; keep `best.pt` in a
+  Kaggle dataset or download it before the 12-hour session ends.
 - Ultralytics YOLO is AGPL-3.0 or commercially licensed; review that before
   distributing weights or integrating the backend.
 
