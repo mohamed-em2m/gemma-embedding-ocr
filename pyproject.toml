@@ -40,6 +40,7 @@ craft = ["craft-text-detector"]
 arabic = ["arabic-reshaper", "python-bidi"]
 train = ["ultralytics>=8.3.0", "uharfbuzz>=0.37.0"]
 roboflow = ["roboflow>=1.1.0"]
+hf = ["huggingface_hub>=0.24"]
 ui = ["gradio>=5.0"]
 
 [project.scripts]

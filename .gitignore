@@ -31,7 +31,7 @@ models/
 *.zip
 *.log
 search-export-*/
-datasets/
+/datasets/
 
 # Secrets / editor
 .env

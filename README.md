@@ -277,6 +277,29 @@ avoid collisions, and removes duplicate images across sources. Use
 `--max-per-source` to change that behavior. The output `manifest.json` records
 per-source counts and class mappings.
 
+#### Publishing the merged dataset
+
+The merged folder is Hugging Face ready: it carries a dataset card
+(`README.md`), `sources.json` for attribution, `stats.json` with reproducible
+statistics, `.gitattributes` with LFS rules, and `data.yaml`.
+
+```bash
+# Recompute statistics quoted in the dataset card.
+make dataset-stats
+
+# Validate the layout and preview what would be uploaded.
+make hf-dry-run
+
+# Upload (needs HF_TOKEN with write access).
+make hf-upload
+```
+
+The canonical card is `docs/datasets/yolo_words_real.md`; the upload script
+copies it into the dataset folder so the two cannot drift. All four upstream
+projects are CC BY 4.0, so the merged release is CC BY 4.0 and requires
+attribution to the four Roboflow authors.
+
+
 #### Kaggle 2x T4
 
 For the Kaggle GPU runtime with two T4s, use the helper script. It prepares the

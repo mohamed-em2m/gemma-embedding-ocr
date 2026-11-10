@@ -1,4 +1,4 @@
-.PHONY: setup setup-auto install lint format format-check typecheck test check prototypes vocabulary ui spike autotune real-dataset download-real
+.PHONY: setup setup-auto install lint format format-check typecheck test check prototypes vocabulary ui spike autotune real-dataset download-real dataset-stats eval-yolo hf-dry-run hf-upload
 
 VENV ?= .venv
 PYTHON ?= $(VENV)/bin/python
@@ -49,3 +49,16 @@ download-real:
 
 real-dataset:
 	uv run --no-sync python scripts/build_real_word_dataset.py --config configs/real_word_sources.yaml --out artifacts/yolo_words_real --overwrite
+
+dataset-stats:
+	uv run --no-sync python scripts/dataset_stats.py --root artifacts/yolo_words_real
+
+eval-yolo:
+	uv run --no-sync python scripts/eval_yolo_words.py --per-source \
+		--out artifacts/yolo_runs/eval_test.json
+
+hf-dry-run:
+	uv run --no-sync python scripts/upload_hf_dataset.py --dry-run
+
+hf-upload:
+	uv run --no-sync python scripts/upload_hf_dataset.py

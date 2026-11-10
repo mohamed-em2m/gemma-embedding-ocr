@@ -1865,6 +1865,9 @@ experiments = [
 faiss-gpu = [
     { name = "faiss-gpu-cu12" },
 ]
+hf = [
+    { name = "huggingface-hub" },
+]
 jina = [
     { name = "peft" },
     { name = "torchvision" },
@@ -1910,6 +1913,7 @@ requires-dist = [
     { name = "faiss-cpu", specifier = ">=1.8" },
     { name = "faiss-gpu-cu12", marker = "extra == 'faiss-gpu'" },
     { name = "gradio", marker = "extra == 'ui'", specifier = ">=5.0" },
+    { name = "huggingface-hub", marker = "extra == 'hf'", specifier = ">=0.24" },
     { name = "jiwer" },
     { name = "numpy" },
     { name = "opencv-python-headless" },
@@ -1940,7 +1944,7 @@ requires-dist = [
     { name = "ultralytics", marker = "extra == 'train'", specifier = ">=8.3.0" },
     { name = "yapf", marker = "extra == 'dtlr'", specifier = ">=0.40.0" },
 ]
-provides-extras = ["baseline", "tesseract", "easyocr", "experiments", "faiss-gpu", "surya", "jina", "siglip", "dtlr", "craft", "arabic", "train", "roboflow", "ui"]
+provides-extras = ["baseline", "tesseract", "easyocr", "experiments", "faiss-gpu", "surya", "jina", "siglip", "dtlr", "craft", "arabic", "train", "roboflow", "hf", "ui"]
 
 [package.metadata.requires-dev]
 dev = [
