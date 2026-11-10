@@ -327,10 +327,12 @@ Kaggle word-detector training (2026-11-10):
 - Target runtime is Kaggle 2x T4 (16 GB each). Default training is YOLO26s at
   1280 px, 30k synthetic word images, total batch 32 (16 per GPU), disk cache,
   8 workers.
-- `scripts/kaggle_train_yolo_words.sh` prepares `.venv` via
-  `scripts/setup_env.sh --train --no-system --no-ui --no-shim --no-catalogs
-  --no-hooks`, generates the dataset under `/kaggle/working/artifacts`, and
-  launches DDP on devices `0,1`. It uses `uv run --no-sync`, never `uv sync`.
+- `scripts/kaggle_train_yolo_words.sh` installs the `train` extra directly
+  into `.venv` with `uv pip install -e ".[train]"` (after creating the venv),
+  then verifies `ultralytics` and `uharfbuzz` import. This avoids a stale
+  `.venv` silently skipping the training extra. It generates the dataset under
+  `/kaggle/working/artifacts` and launches DDP on devices `0,1`. It uses
+  `uv run --no-sync`, never `uv sync`.
 - Checkpoints go to `/kaggle/working/artifacts/yolo_runs/yolo_words/weights/`;
   copy `best.pt` to a Kaggle dataset before the 12-hour session ends.
 - If T4 memory is tight, lower `BATCH` to 24 or `IMGSZ` to 1024; keep the same

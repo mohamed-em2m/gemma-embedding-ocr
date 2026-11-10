@@ -28,10 +28,22 @@ NAME="${NAME:-yolo_words}"
 DATASET="${DATASET:-$WORK_DIR/yolo_words}"
 RUNS="${RUNS:-$WORK_DIR/yolo_runs}"
 
+if ! command -v uv >/dev/null 2>&1; then
+    echo "Installing uv..."
+    curl -LsSf https://astral.sh/uv/install.sh | sh
+    export PATH="$HOME/.local/bin:$PATH"
+fi
+
 if [[ ! -x .venv/bin/python ]]; then
-    echo "Preparing the training environment (--train, no system packages)..."
-    bash scripts/setup_env.sh \
-        --train --no-system --no-ui --no-shim --no-catalogs --no-hooks
+    echo "Creating .venv with Python 3.11..."
+    uv venv --python 3.11 .venv
+fi
+
+echo "Ensuring the training extra is installed into .venv..."
+uv pip install --python "$PROJECT_ROOT/.venv/bin/python" -e "$PROJECT_ROOT[train]"
+if ! uv run --no-sync python -c "import ultralytics, uharfbuzz" >/dev/null 2>&1; then
+    echo "ERROR: ultralytics/uharfbuzz are not importable from .venv." >&2
+    exit 1
 fi
 
 echo "Generating word dataset at $DATASET ..."
