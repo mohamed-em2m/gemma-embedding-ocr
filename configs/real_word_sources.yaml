@@ -1,0 +1,70 @@
+# Real word-detection sources merged into one single-class YOLO dataset.
+#
+# All classes are collapsed to class 0 (`word`), so datasets that use `texto`,
+# `word`, `math_word`, etc. can be trained together. Classification exports
+# (one folder per class) are converted to full-image word boxes automatically.
+#
+# Download first (needs a free ROBOFLOW_API_KEY):
+#   export ROBOFLOW_API_KEY=...
+#   uv run --no-sync python scripts/download_roboflow_sources.py --config configs/real_word_sources.yaml
+#
+# Then merge:
+#   uv run --no-sync python scripts/build_real_word_dataset.py \
+#       --config configs/real_word_sources.yaml --out artifacts/yolo_words_real
+#
+# NOTE: the `version` values below were verified with the Roboflow API. Re-check
+# them on each Universe page before re-downloading (or pass a local `path` to an
+# already extracted export and remove the `roboflow` block).
+
+out: artifacts/yolo_words_real
+
+sources:
+  # https://universe.roboflow.com/aaa-8kwq1/devanagari-word-detection
+  - name: devanagari_words
+    path: artifacts/real_sources/devanagari-word-detection
+    kind: auto
+    roboflow:
+      workspace: aaa-8kwq1
+      project: devanagari-word-detection
+      version: 1
+      format: yolov8
+
+  # https://universe.roboflow.com/yogesh-jangir-3utla/word-detection-using-yolo
+  - name: word_detection_yolo
+    path: artifacts/real_sources/word-detection-using-yolo
+    kind: auto
+    roboflow:
+      workspace: yogesh-jangir-3utla
+      project: word-detection-using-yolo
+      version: 1
+      format: yolov8
+
+  # https://universe.roboflow.com/aabis-siyas-hoisi/words-5tolc
+  # Object detection with a single class `Texto`; the merger rewrites it to
+  # `word`. Version 1 has train/valid/test; version 2 has no class metadata.
+  - name: words_5tolc
+    path: artifacts/real_sources/words-5tolc
+    kind: auto
+    roboflow:
+      workspace: aabis-siyas-hoisi
+      project: words-5tolc
+      version: 1
+      format: yolov8
+
+  # https://universe.roboflow.com/kyiv-national-university/math-words
+  # The original public project has no generated version, so we use the
+  # downloadable copy `el-emam/math-words-oahhj` (same 5,297 images and four
+  # classes: Text, W, math, text). All classes are rewritten to `word`.
+  - name: math_words
+    path: artifacts/real_sources/math-words
+    kind: auto
+    roboflow:
+      workspace: el-emam
+      project: math-words-oahhj
+      version: 1
+      format: yolov8
+
+# Optional: add local exports or a synthetic dataset here.
+#  - name: synthetic_words
+#    path: artifacts/yolo_words_synthetic
+#    kind: detection

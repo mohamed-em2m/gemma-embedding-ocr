@@ -1,4 +1,4 @@
-.PHONY: setup setup-auto install lint format format-check typecheck test check prototypes vocabulary ui spike autotune
+.PHONY: setup setup-auto install lint format format-check typecheck test check prototypes vocabulary ui spike autotune real-dataset download-real
 
 VENV ?= .venv
 PYTHON ?= $(VENV)/bin/python
@@ -43,3 +43,9 @@ spike:
 
 autotune:
 	uv run --no-sync python scripts/autotune_gpu.py --device auto
+
+download-real:
+	uv run --no-sync python scripts/download_roboflow_sources.py --config configs/real_word_sources.yaml
+
+real-dataset:
+	uv run --no-sync python scripts/build_real_word_dataset.py --config configs/real_word_sources.yaml --out artifacts/yolo_words_real --overwrite

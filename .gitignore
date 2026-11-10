@@ -27,6 +27,12 @@ models/
 *.pth
 *.onnx
 
+# Dataset downloads and training output
+*.zip
+*.log
+search-export-*/
+datasets/
+
 # Secrets / editor
 .env
 .env.*

@@ -4,6 +4,21 @@
 # Run from a Kaggle notebook cell:
 #   !bash scripts/kaggle_train_yolo_words.sh
 #
+# Dataset modes:
+#   DATASET_MODE=synthetic  render synthetic words (default)
+#   DATASET_MODE=real       merge only real Roboflow/YOLO sources
+#   DATASET_MODE=mixed      merge real sources + synthetic words
+#
+# Real sources can come from configs/real_word_sources.yaml and/or a
+# colon-separated REAL_SOURCES list of extracted exports or .zip files:
+#   !DATASET_MODE=mixed \
+#    REAL_SOURCES=/kaggle/input/words-a:/kaggle/input/words-b \
+#    bash scripts/kaggle_train_yolo_words.sh
+#
+# Download Roboflow sources first (needs a free API key):
+#   !DATASET_MODE=real DOWNLOAD=1 ROBOFLOW_API_KEY=xxxx \
+#    bash scripts/kaggle_train_yolo_words.sh
+#
 # Override any default with an environment variable, e.g.:
 #   !EPOCHS=60 BATCH=24 bash scripts/kaggle_train_yolo_words.sh
 
@@ -16,7 +31,6 @@ cd "$PROJECT_ROOT"
 
 WORK_DIR="${WORK_DIR:-/kaggle/working/artifacts}"
 FONTS="${FONTS:-/usr/share/fonts}"
-N="${N:-30000}"
 IMGSZ="${IMGSZ:-1280}"
 EPOCHS="${EPOCHS:-100}"
 MODEL="${MODEL:-yolo26s.pt}"
@@ -27,6 +41,26 @@ CACHE="${CACHE:-disk}"
 NAME="${NAME:-yolo_words}"
 DATASET="${DATASET:-$WORK_DIR/yolo_words}"
 RUNS="${RUNS:-$WORK_DIR/yolo_runs}"
+
+# Dataset construction.
+DATASET_MODE="${DATASET_MODE:-synthetic}"          # synthetic | real | mixed
+REAL_CONFIG="${REAL_CONFIG:-}"                     # YAML source list
+REAL_SOURCES="${REAL_SOURCES:-}"                   # colon-separated dirs/zips
+DOWNLOAD="${DOWNLOAD:-0}"                          # 1 = download Roboflow sources
+ROBOFLOW_API_KEY="${ROBOFLOW_API_KEY:-}"
+SYNTHETIC_N="${SYNTHETIC_N:-${N:-30000}}"          # N kept as a legacy alias
+OVERWRITE="${OVERWRITE:-1}"                        # rebuild the merged dataset
+SYNTH_DIR="${SYNTH_DIR:-$WORK_DIR/yolo_words_synthetic}"
+
+# Use the repo's source list only when the caller did not provide sources.
+if [[ -z "$REAL_CONFIG" && -z "$REAL_SOURCES" ]]; then
+    REAL_CONFIG="configs/real_word_sources.yaml"
+fi
+
+if [[ "$DATASET_MODE" != "synthetic" && "$DATASET_MODE" != "real" && "$DATASET_MODE" != "mixed" ]]; then
+    echo "ERROR: DATASET_MODE must be synthetic, real or mixed (got $DATASET_MODE)" >&2
+    exit 2
+fi
 
 if ! command -v uv >/dev/null 2>&1; then
     echo "Installing uv..."
@@ -46,13 +80,75 @@ if ! uv run --no-sync python -c "import ultralytics, uharfbuzz" >/dev/null 2>&1;
     exit 1
 fi
 
-echo "Generating word dataset at $DATASET ..."
-uv run --no-sync python scripts/build_word_dataset.py \
-    --fonts "$FONTS" \
-    --out "$DATASET" \
-    --n "$N" \
-    --size "$IMGSZ" \
-    --layout mixed
+if [[ "$DOWNLOAD" == "1" ]]; then
+    if [[ -z "$ROBOFLOW_API_KEY" ]]; then
+        echo "ERROR: DOWNLOAD=1 needs ROBOFLOW_API_KEY." >&2
+        exit 2
+    fi
+    if [[ -z "$REAL_CONFIG" || ! -f "$REAL_CONFIG" ]]; then
+        echo "ERROR: DOWNLOAD=1 needs a REAL_CONFIG file." >&2
+        exit 2
+    fi
+    echo "Installing the Roboflow SDK..."
+    uv pip install --python "$PROJECT_ROOT/.venv/bin/python" roboflow
+    download_args=(--config "$REAL_CONFIG" --api-key "$ROBOFLOW_API_KEY")
+    if [[ "$OVERWRITE" == "1" ]]; then
+        download_args+=(--overwrite)
+    fi
+    uv run --no-sync python scripts/download_roboflow_sources.py "${download_args[@]}"
+fi
+
+merge_args=(--out "$DATASET")
+if [[ -f "$REAL_CONFIG" ]]; then
+    merge_args+=(--config "$REAL_CONFIG")
+fi
+if [[ -n "$REAL_SOURCES" ]]; then
+    IFS=':' read -r -a source_parts <<< "$REAL_SOURCES"
+    for source in "${source_parts[@]}"; do
+        if [[ -n "$source" ]]; then
+            merge_args+=(--source "$source")
+        fi
+    done
+fi
+if [[ "$OVERWRITE" == "1" ]]; then
+    merge_args+=(--overwrite)
+fi
+
+build_synthetic() {
+    echo "Generating synthetic word dataset at $SYNTH_DIR ..."
+    uv run --no-sync python scripts/build_word_dataset.py \
+        --fonts "$FONTS" \
+        --out "$SYNTH_DIR" \
+        --n "$SYNTHETIC_N" \
+        --size "$IMGSZ" \
+        --layout mixed
+}
+
+case "$DATASET_MODE" in
+    synthetic)
+        echo "Generating synthetic word dataset at $DATASET ..."
+        uv run --no-sync python scripts/build_word_dataset.py \
+            --fonts "$FONTS" \
+            --out "$DATASET" \
+            --n "$SYNTHETIC_N" \
+            --size "$IMGSZ" \
+            --layout mixed
+        ;;
+    real)
+        if [[ ! -f "$REAL_CONFIG" && -z "$REAL_SOURCES" ]]; then
+            echo "ERROR: DATASET_MODE=real needs REAL_CONFIG or REAL_SOURCES." >&2
+            exit 2
+        fi
+        echo "Merging real word datasets into $DATASET ..."
+        uv run --no-sync python scripts/build_real_word_dataset.py "${merge_args[@]}"
+        ;;
+    mixed)
+        build_synthetic
+        merge_args+=(--source "$SYNTH_DIR")
+        echo "Merging real + synthetic word datasets into $DATASET ..."
+        uv run --no-sync python scripts/build_real_word_dataset.py "${merge_args[@]}"
+        ;;
+esac
 
 echo "Training on GPU devices $DEVICES ..."
 uv run --no-sync python scripts/train_yolo_words.py \

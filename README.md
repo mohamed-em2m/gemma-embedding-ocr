@@ -239,11 +239,49 @@ yolo_words` and the hierarchical recognizer; `detector.yolo_model`,
 Training on CPU is possible for smoke tests but a CUDA GPU is strongly
 recommended for full runs.
 
+#### Real datasets (Roboflow Universe)
+
+Real exports can be merged into the same one-class dataset. Every source class
+(`word`, `texto`, ...) is rewritten to class `0`, and classification exports
+are converted to one full-image `word` box per image.
+
+```bash
+# 1. Download public Roboflow Universe datasets (needs a free API key).
+export ROBOFLOW_API_KEY=...
+uv run --no-sync python scripts/download_roboflow_sources.py \
+    --config configs/real_word_sources.yaml
+
+# 2. Merge all sources listed in the config.
+uv run --no-sync python scripts/build_real_word_dataset.py \
+    --config configs/real_word_sources.yaml \
+    --out artifacts/yolo_words_real
+
+# 3. Train on the merged dataset.
+uv run --no-sync python scripts/train_yolo_words.py \
+    --data artifacts/yolo_words_real/data.yaml --model yolo26s.pt
+```
+
+Already-extracted directories and `.zip` exports can be passed directly with
+`--source` (repeatable). Add a synthetic dataset as another `--source` to mix
+real and synthetic words. `configs/real_word_sources.yaml` contains the
+Devanagari, word-detection, `words-5tolc` (object detection with class
+`Texto`) and math-words sources. The original math-words project has no
+generated version, so the config uses the downloadable
+`el-emam/math-words-oahhj` copy (same 5,297 images). Verify each `version` on
+its Universe page before re-downloading.
+
+The merger keeps each source's train/valid/test split when present, carves a
+validation split from train when missing, prefixes filenames per source to
+avoid collisions, and removes duplicate images across sources. Use
+`--no-dedupe`, `--no-preserve-splits`, `--drop-empty`, `--copy-mode`, and
+`--max-per-source` to change that behavior. The output `manifest.json` records
+per-source counts and class mappings.
+
 #### Kaggle 2x T4
 
 For the Kaggle GPU runtime with two T4s, use the helper script. It prepares the
-training environment, generates the 30k word dataset, and launches YOLO26s on
-both GPUs with a total batch size of 32:
+training environment, builds the dataset, and launches YOLO26s on both GPUs
+with a total batch size of 32:
 
 ```bash
 # In a Kaggle notebook cell, from the repository root:
@@ -251,13 +289,23 @@ both GPUs with a total batch size of 32:
 
 # Shorter run, or memory-adjusted batch:
 !EPOCHS=60 BATCH=24 bash scripts/kaggle_train_yolo_words.sh
+
+# Merge real Roboflow sources (download first with DOWNLOAD=1).
+!DATASET_MODE=mixed DOWNLOAD=1 ROBOFLOW_API_KEY=xxxx \
+    bash scripts/kaggle_train_yolo_words.sh
+
+# Or point at datasets already attached to the notebook.
+!DATASET_MODE=mixed \
+    REAL_SOURCES=/kaggle/input/words-a:/kaggle/input/words-b \
+    bash scripts/kaggle_train_yolo_words.sh
 ```
 
-Defaults are `DATASET=/kaggle/working/artifacts/yolo_words`,
+Defaults are `DATASET_MODE=synthetic`, `DATASET=/kaggle/working/artifacts/yolo_words`,
 `RUNS=/kaggle/working/artifacts/yolo_runs`, `IMGSZ=1280`, `EPOCHS=100`,
-`DEVICES=0,1`, `BATCH=32`, `WORKERS=8`, and `CACHE=disk`. Keep the resulting
-`best.pt` in a Kaggle dataset or download it before the 12-hour session ends.
-The script uses `.venv` and `uv run --no-sync`; it never runs `uv sync`.
+`DEVICES=0,1`, `BATCH=32`, `WORKERS=8`, and `CACHE=disk`. `DATASET_MODE` can
+be `synthetic`, `real`, or `mixed`. Keep the resulting `best.pt` in a Kaggle
+dataset or download it before the 12-hour session ends. The script uses `.venv`
+and `uv run --no-sync`; it never runs `uv sync`.
 
 The PaddleOCR detector requires `paddlepaddle>=3.2.2,<3.3` on CPU because
 PaddlePaddle 3.3.x crashes in its oneDNN/PIR executor. Benchmark detectors with:

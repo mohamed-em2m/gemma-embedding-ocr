@@ -207,6 +207,13 @@ uv run --no-sync python scripts/train_yolo_words.py \
 uv run --no-sync embedding-ocr recognize image.png --config configs/yolo_words.yaml
 ```
 
+- Real datasets: `scripts/build_real_word_dataset.py` merges Roboflow/YOLO
+  exports (detection or classification) into one `word` class;
+  `configs/real_word_sources.yaml` lists the Devanagari, word-detection,
+  `words-5tolc` (`texto`, classification) and math-words sources.
+  `scripts/download_roboflow_sources.py` downloads them with a free API key.
+  The Kaggle helper supports `DATASET_MODE=synthetic|real|mixed` and a
+  colon-separated `REAL_SOURCES` list.
 - Kaggle training target: 2x T4, YOLO26s, 1280 px, 30k images, total batch 32,
   disk cache. Use `scripts/kaggle_train_yolo_words.sh`; keep `best.pt` in a
   Kaggle dataset or download it before the 12-hour session ends.
