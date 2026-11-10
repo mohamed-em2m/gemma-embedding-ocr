@@ -9,6 +9,7 @@ from __future__ import annotations
 import argparse
 import gc
 import threading
+import time
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any
@@ -49,8 +50,16 @@ DETECTOR_CHOICES = (
 SCRIPT_CHOICES = (DEFAULT_SCRIPT, "latin", "arabic")
 DEVICE_CHOICES = ("auto", "cpu", "cuda")
 
+MODE_OCR = "OCR (detect + read)"
+MODE_WORDS = "Words only (YOLO)"
+MODE_CHOICES = (MODE_OCR, MODE_WORDS)
+YOLO_IMGSZ_CHOICES = ("640", "960", "1280", "1600")
+DEFAULT_YOLO_CONF = 0.25
+DEFAULT_YOLO_IMGSZ = "960"
+
 _PIPELINE_CACHE: dict[tuple[Any, ...], OCRPipeline] = {}
 _CACHE_LOCK = threading.Lock()
+_YOLO_CACHE: dict[tuple[str, float], Any] = {}
 
 
 @dataclass(frozen=True)
@@ -62,6 +71,9 @@ class UiOverrides:
     detector: str = DEFAULT_DETECTOR
     script: str = DEFAULT_SCRIPT
     quick: bool = True
+    yolo_model: str | None = None
+    yolo_conf: float = DEFAULT_YOLO_CONF
+    yolo_imgsz: int = int(DEFAULT_YOLO_IMGSZ)
 
 
 def list_example_images() -> list[str]:
@@ -133,6 +145,27 @@ def resolve_config_path(
     return directory / name
 
 
+def list_yolo_checkpoints(root: str | Path = "artifacts") -> list[str]:
+    """Return trained word-detection checkpoints, newest first.
+
+    Only ``best.pt``/``last.pt`` files under the artifacts tree are listed, so
+    generic COCO checkpoints (which do not detect words) are not offered.
+    """
+    base = Path(root)
+    if not base.is_dir():
+        return []
+    found: dict[Path, float] = {}
+    for pattern in ("**/weights/best.pt", "**/weights/last.pt", "**/best.pt"):
+        for path in base.glob(pattern):
+            if path.is_file():
+                try:
+                    found[path.resolve()] = path.stat().st_mtime
+                except OSError:
+                    continue
+    ordered = sorted(found.items(), key=lambda item: item[1], reverse=True)
+    return [str(path) for path, _ in ordered]
+
+
 def _clean_choice(value: str | None) -> str | None:
     if value is None or value in {
         "",
@@ -155,6 +188,13 @@ def apply_ui_overrides(config: AppConfig, overrides: UiOverrides) -> AppConfig:
     detector = _clean_choice(overrides.detector)
     if detector is not None:
         config.detector.backend = detector
+
+    if overrides.yolo_model:
+        # Picking a checkpoint implies the YOLO detector backend.
+        config.detector.backend = "yolo_words"
+        config.detector.yolo_model = Path(overrides.yolo_model).expanduser()
+        config.detector.yolo_conf = float(overrides.yolo_conf)
+        config.detector.yolo_imgsz = int(overrides.yolo_imgsz)
 
     script = _clean_choice(overrides.script)
     if script is not None:
@@ -180,6 +220,9 @@ def _cache_key(config_path: Path, overrides: UiOverrides) -> tuple[Any, ...]:
         overrides.detector,
         overrides.script,
         overrides.quick,
+        overrides.yolo_model,
+        overrides.yolo_conf,
+        overrides.yolo_imgsz,
     )
 
 
@@ -235,6 +278,46 @@ def clear_pipeline_cache() -> None:
         pipelines = list(_PIPELINE_CACHE.values())
         _PIPELINE_CACHE.clear()
     _release_pipelines(pipelines)
+
+
+def get_yolo_detector(
+    model_path: str | Path,
+    conf: float = DEFAULT_YOLO_CONF,
+    imgsz: int = int(DEFAULT_YOLO_IMGSZ),
+    device: str | None = None,
+) -> Any:
+    """Load (and cache) a YOLO word detector for the given checkpoint."""
+    from embedding_ocr.pipeline.detect import YoloWordDetector
+
+    path = Path(str(model_path)).expanduser()
+    if not path.is_file():
+        msg = f"YOLO checkpoint not found: {path}"
+        raise FileNotFoundError(msg)
+    key = (str(path.resolve()), path.stat().st_mtime)
+    with _CACHE_LOCK:
+        detector = _YOLO_CACHE.get(key)
+        if detector is None:
+            detector = YoloWordDetector(
+                model_path=path,
+                conf=float(conf),
+                iou=0.5,
+                imgsz=int(imgsz),
+                device=device or None,
+                max_det=1000,
+            )
+            _YOLO_CACHE[key] = detector
+    # Cheap attributes: keep the cached model but honour the current controls.
+    detector.conf = float(conf)
+    detector.imgsz = int(imgsz)
+    detector.device = device or None
+    return detector
+
+
+def clear_yolo_cache() -> None:
+    """Drop cached YOLO detectors and release their GPU memory."""
+    with _CACHE_LOCK:
+        _YOLO_CACHE.clear()
+    _release_cuda_memory()
 
 
 def _to_rgb(image: Any) -> np.ndarray:
@@ -314,6 +397,101 @@ def annotate_result(image: np.ndarray, result: OCRResult) -> np.ndarray:
     return np.asarray(canvas, dtype=np.uint8)
 
 
+def annotate_word_regions(image: np.ndarray, regions: list[Any]) -> np.ndarray:
+    """Draw detected word boxes with their confidence over the image."""
+    canvas = Image.fromarray(_to_rgb(image)).convert("RGB")
+    draw = ImageDraw.Draw(canvas)
+    try:
+        font = ImageFont.load_default()
+    except OSError:  # pragma: no cover - Pillow always ships a default font
+        font = None
+
+    color = (220, 38, 38)
+    for index, region in enumerate(regions, start=1):
+        x, y, width, height = (int(value) for value in region.bbox)
+        draw.rectangle(
+            (x, y, x + max(1, width), y + max(1, height)), outline=color, width=2
+        )
+        label = f"{index}: {float(region.confidence):.2f}"
+        if font is not None:
+            draw.text((x + 2, max(0, y - 12)), label, fill=color, font=font)
+        else:  # pragma: no cover
+            draw.text((x + 2, max(0, y - 12)), label, fill=color)
+
+    return np.asarray(canvas, dtype=np.uint8)
+
+
+def run_word_detection(
+    image: Any,
+    model_path: str,
+    conf: float = DEFAULT_YOLO_CONF,
+    imgsz: int = int(DEFAULT_YOLO_IMGSZ),
+    device: str | None = None,
+    progress: Any = None,
+) -> tuple[
+    str,
+    float,
+    dict[str, Any],
+    np.ndarray | None,
+    np.ndarray | None,
+    str,
+]:
+    """Run a YOLO checkpoint on its own and return word boxes only."""
+    try:
+        array = _to_rgb(image)
+        _notify(progress, 0.2, "Loading YOLO word detector...")
+        detector = get_yolo_detector(model_path, conf=conf, imgsz=imgsz, device=device)
+        _notify(progress, 0.6, "Detecting words...")
+        started = time.perf_counter()
+        regions = detector.detect(array)
+        latency_ms = (time.perf_counter() - started) * 1000.0
+        annotated = annotate_word_regions(array, regions)
+        scores = [float(region.confidence) for region in regions]
+        mean_conf = sum(scores) / len(scores) if scores else 0.0
+        details = {
+            "mode": MODE_WORDS,
+            "checkpoint": str(model_path),
+            "conf": float(conf),
+            "imgsz": int(imgsz),
+            "device": device or "auto",
+            "word_count": len(regions),
+            "latency_ms": round(latency_ms, 2),
+            "words": [
+                {
+                    "index": index,
+                    "bbox": list(region.bbox),
+                    "confidence": round(float(region.confidence), 4),
+                }
+                for index, region in enumerate(regions, start=1)
+            ],
+        }
+        status = (
+            "### Done\n"
+            f"- Mode: `{MODE_WORDS}`\n"
+            f"- Checkpoint: `{Path(str(model_path)).name}`\n"
+            f"- Words: {len(regions)}\n"
+            f"- Mean confidence: {mean_conf:.3f}\n"
+            f"- Latency: {latency_ms:.1f} ms"
+        )
+        return (
+            f"{len(regions)} words detected",
+            mean_conf,
+            details,
+            annotated,
+            annotated,
+            status,
+        )
+    except Exception as exc:  # noqa: BLE001 - surface the error in the UI
+        if _is_cuda_oom(exc):
+            clear_yolo_cache()
+        else:
+            _release_cuda_memory()
+        error = f"{type(exc).__name__}: {exc}"
+        details = {"mode": MODE_WORDS, "checkpoint": str(model_path), "error": error}
+        fallback = _to_rgb(image) if image is not None else None
+        return "", 0.0, details, fallback, fallback, f"### Error\n`{error}`"
+
+
 def format_details(
     profile: str | None,
     overrides: UiOverrides,
@@ -328,6 +506,9 @@ def format_details(
             "detector": overrides.detector,
             "script": overrides.script,
             "quick": overrides.quick,
+            "yolo_model": overrides.yolo_model,
+            "yolo_conf": overrides.yolo_conf,
+            "yolo_imgsz": overrides.yolo_imgsz,
         },
         "text": result.text,
         "confidence": result.confidence,
@@ -361,6 +542,12 @@ def run_ocr(
     script: str,
     quick: bool,
     progress: Any = None,
+    *,
+    mode: str = MODE_OCR,
+    yolo_model: str | None = None,
+    yolo_conf: float = DEFAULT_YOLO_CONF,
+    yolo_imgsz: int = int(DEFAULT_YOLO_IMGSZ),
+    yolo_device: str | None = None,
 ) -> tuple[
     str,
     float,
@@ -370,12 +557,35 @@ def run_ocr(
     str,
 ]:
     """Run the selected pipeline and return Gradio-compatible outputs."""
+    if mode == MODE_WORDS:
+        if not yolo_model:
+            message = "### Error\n`no YOLO checkpoint selected`"
+            return (
+                "",
+                0.0,
+                {"mode": MODE_WORDS, "error": "no checkpoint"},
+                None,
+                None,
+                message,
+            )
+        return run_word_detection(
+            image,
+            yolo_model,
+            conf=yolo_conf,
+            imgsz=yolo_imgsz,
+            device=yolo_device or device,
+            progress=progress,
+        )
+
     overrides = UiOverrides(
         device=device,
         recognizer=recognizer,
         detector=detector,
         script=script,
         quick=quick,
+        yolo_model=yolo_model or None,
+        yolo_conf=yolo_conf,
+        yolo_imgsz=yolo_imgsz,
     )
     try:
         array = _to_rgb(image)
@@ -428,7 +638,10 @@ def _clear() -> tuple[None, str, float, None, None, dict[str, Any], str]:
     return None, "", 0.0, None, None, {}, ""
 
 
-def build_demo(config_dir: str | Path = DEFAULT_CONFIG_DIR) -> Any:
+def build_demo(
+    config_dir: str | Path = DEFAULT_CONFIG_DIR,
+    default_checkpoint: str | None = None,
+) -> Any:
     """Create the Gradio Blocks application."""
     try:
         import gradio as gr
@@ -450,11 +663,18 @@ def build_demo(config_dir: str | Path = DEFAULT_CONFIG_DIR) -> Any:
             "# EmbeddingOCR\n"
             "Upload an image, choose a profile, and run visual-embedding OCR. "
             "The first run can take a while because models and vocabulary "
-            "indexes may need to be built."
+            "indexes may need to be built.\n\n"
+            "Switch **Mode** to *Words only (YOLO)* to run a trained `.pt` "
+            "checkpoint on its own and get word boxes without recognition."
         )
         with gr.Row():
             with gr.Column(scale=1):
                 image = gr.Image(type="numpy", label="Input image")
+                mode = gr.Radio(
+                    choices=list(MODE_CHOICES),
+                    value=MODE_OCR,
+                    label="Mode",
+                )
                 profile = gr.Dropdown(
                     choices=profiles,
                     value=default_profile,
@@ -484,6 +704,35 @@ def build_demo(config_dir: str | Path = DEFAULT_CONFIG_DIR) -> Any:
                     quick = gr.Checkbox(
                         value=True,
                         label="Quick vocabulary (4k words / 3k subwords; uncheck for full)",
+                    )
+                with gr.Accordion("YOLO word detector", open=True):
+                    checkpoint_choices = list_yolo_checkpoints()
+                    initial_checkpoint = default_checkpoint or (
+                        checkpoint_choices[0] if checkpoint_choices else None
+                    )
+                    if (
+                        initial_checkpoint
+                        and initial_checkpoint not in checkpoint_choices
+                    ):
+                        checkpoint_choices = [initial_checkpoint, *checkpoint_choices]
+                    yolo_model = gr.Dropdown(
+                        choices=checkpoint_choices,
+                        value=initial_checkpoint,
+                        label="Checkpoint (.pt)",
+                        allow_custom_value=True,
+                        info="Trained word checkpoints under artifacts/ (a path also works).",
+                    )
+                    yolo_conf = gr.Slider(
+                        minimum=0.05,
+                        maximum=0.95,
+                        value=DEFAULT_YOLO_CONF,
+                        step=0.05,
+                        label="Confidence threshold",
+                    )
+                    yolo_imgsz = gr.Dropdown(
+                        choices=list(YOLO_IMGSZ_CHOICES),
+                        value=DEFAULT_YOLO_IMGSZ,
+                        label="Inference size",
                     )
                 examples = example_rows(profiles)
                 if examples:
@@ -516,9 +765,54 @@ def build_demo(config_dir: str | Path = DEFAULT_CONFIG_DIR) -> Any:
                 details = gr.JSON(label="Details")
                 status = gr.Markdown()
 
+        def _run(
+            image_value: Any,
+            profile_value: str | None,
+            device_value: str,
+            recognizer_value: str,
+            detector_value: str,
+            script_value: str,
+            quick_value: bool,
+            mode_value: str,
+            yolo_model_value: str | None,
+            yolo_conf_value: float,
+            yolo_imgsz_value: str,
+            progress: Any = gr.Progress(),  # noqa: B008 - required by Gradio
+        ) -> tuple[str, float, dict[str, Any], Any, Any, str]:
+            return run_ocr(
+                image_value,
+                profile_value,
+                device_value,
+                recognizer_value,
+                detector_value,
+                script_value,
+                quick_value,
+                progress,
+                mode=mode_value,
+                yolo_model=yolo_model_value,
+                yolo_conf=float(
+                    yolo_conf_value
+                    if yolo_conf_value is not None
+                    else DEFAULT_YOLO_CONF
+                ),
+                yolo_imgsz=int(yolo_imgsz_value or DEFAULT_YOLO_IMGSZ),
+            )
+
         run_button.click(
-            fn=run_ocr,
-            inputs=[image, profile, device, recognizer, detector, script, quick],
+            fn=_run,
+            inputs=[
+                image,
+                profile,
+                device,
+                recognizer,
+                detector,
+                script,
+                quick,
+                mode,
+                yolo_model,
+                yolo_conf,
+                yolo_imgsz,
+            ],
             outputs=[text, confidence, details, annotated, word_debug, status],
         )
         clear_button.click(
@@ -535,9 +829,10 @@ def launch_ui(
     host: str = "127.0.0.1",
     port: int = 7860,
     share: bool = True,
+    yolo_model: str | None = None,
 ) -> None:
     """Launch the Gradio app."""
-    demo = build_demo(config_dir)
+    demo = build_demo(config_dir, default_checkpoint=yolo_model)
     demo.launch(server_name=host, server_port=port, share=share, show_error=True)
 
 
@@ -552,6 +847,11 @@ def parse_args() -> argparse.Namespace:
         default=True,
         help="Create a public Gradio share link (default).",
     )
+    parser.add_argument(
+        "--yolo-model",
+        default=None,
+        help="Default YOLO word checkpoint preselected in the UI.",
+    )
     return parser.parse_args()
 
 
@@ -562,6 +862,7 @@ def main() -> None:
         host=args.host,
         port=args.port,
         share=args.share,
+        yolo_model=args.yolo_model,
     )
 
 

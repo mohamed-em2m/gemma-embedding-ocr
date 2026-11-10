@@ -243,3 +243,113 @@ def test_pipeline_cache_keeps_only_one_model(monkeypatch) -> None:
     assert len(webui._PIPELINE_CACHE) == 1
     assert DummyPipeline.released >= 1
     webui.clear_pipeline_cache()
+
+
+def test_list_yolo_checkpoints_finds_trained_weights(tmp_path: Path) -> None:
+    from embedding_ocr.webui import list_yolo_checkpoints
+
+    weights = tmp_path / "runs" / "exp" / "weights"
+    weights.mkdir(parents=True)
+    (weights / "best.pt").write_bytes(b"x")
+    (weights / "last.pt").write_bytes(b"x")
+    (tmp_path / "runs" / "exp" / "results.csv").write_text("epoch\n")
+
+    found = list_yolo_checkpoints(tmp_path)
+
+    assert len(found) == 2
+    assert all(path.endswith(".pt") for path in found)
+    assert list_yolo_checkpoints(tmp_path / "missing") == []
+
+
+def test_yolo_checkpoint_override_selects_detector_backend() -> None:
+    config = AppConfig()
+    overrides = UiOverrides(
+        yolo_model="artifacts/yolo_runs/words_960/weights/best.pt",
+        yolo_conf=0.4,
+        yolo_imgsz=1280,
+    )
+
+    updated = apply_ui_overrides(config, overrides)
+
+    assert updated.detector.backend == "yolo_words"
+    assert updated.detector.yolo_conf == pytest.approx(0.4)
+    assert updated.detector.yolo_imgsz == 1280
+    assert updated.detector.yolo_model is not None
+
+
+def test_run_word_detection_uses_yolo_detector(monkeypatch) -> None:
+    import embedding_ocr.webui as webui
+
+    class DummyDetector:
+        def detect(self, image: np.ndarray) -> list[TextRegion]:
+            return [
+                TextRegion(bbox=(2, 2, 10, 10), confidence=0.8),
+                TextRegion(bbox=(20, 2, 10, 10), confidence=0.6),
+            ]
+
+    monkeypatch.setattr(webui, "get_yolo_detector", lambda *a, **k: DummyDetector())
+    image = np.full((32, 64, 3), 255, dtype=np.uint8)
+
+    text, confidence, details, annotated, word_debug, status = webui.run_word_detection(
+        image, "dummy.pt", conf=0.3, imgsz=640, device="cpu"
+    )
+
+    assert text == "2 words detected"
+    assert confidence == pytest.approx(0.7)
+    assert details["word_count"] == 2
+    assert details["mode"] == webui.MODE_WORDS
+    assert len(details["words"]) == 2
+    assert annotated is not None
+    assert annotated.shape == image.shape
+    assert word_debug is not None
+    assert "Words: 2" in status
+
+
+def test_run_ocr_words_mode_requires_checkpoint() -> None:
+    import embedding_ocr.webui as webui
+
+    image = np.full((16, 16, 3), 255, dtype=np.uint8)
+    text, confidence, details, _annotated, _debug, status = webui.run_ocr(
+        image,
+        "default.yaml",
+        "cpu",
+        "config default",
+        "config default",
+        "config default",
+        True,
+        mode=webui.MODE_WORDS,
+        yolo_model=None,
+    )
+
+    assert text == ""
+    assert confidence == 0.0
+    assert "error" in details
+    assert "no YOLO checkpoint" in status
+
+
+def test_run_ocr_words_mode_dispatches_to_detector(monkeypatch) -> None:
+    import embedding_ocr.webui as webui
+
+    calls: list[str] = []
+
+    def fake_detection(image, model_path, **kwargs):
+        calls.append(model_path)
+        return "1 words detected", 0.9, {"word_count": 1}, image, image, "### Done"
+
+    monkeypatch.setattr(webui, "run_word_detection", fake_detection)
+    image = np.full((16, 16, 3), 255, dtype=np.uint8)
+
+    text, _confidence, _details, _annotated, _debug, _status = webui.run_ocr(
+        image,
+        "default.yaml",
+        "cpu",
+        "config default",
+        "config default",
+        "config default",
+        True,
+        mode=webui.MODE_WORDS,
+        yolo_model="best.pt",
+    )
+
+    assert calls == ["best.pt"]
+    assert text == "1 words detected"

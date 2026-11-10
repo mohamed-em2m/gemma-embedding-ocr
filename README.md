@@ -118,6 +118,25 @@ several minutes. Quick mode caps the hierarchical vocabulary at 4k words / 3k
 subwords; uncheck it to use the full tokenizer vocabulary. Small caps can omit
 rare words because tokenizer ids are not frequency-ordered.
 
+#### Words-only mode (YOLO checkpoint)
+
+Set **Mode** to *Words only (YOLO)* to run a trained `.pt` on its own and get
+word boxes without any recognition — no embedder, no vocabulary, no prototypes.
+The **YOLO word detector** panel lists every `best.pt`/`last.pt` under
+`artifacts/` (newest first) and accepts a typed path; it also exposes the
+confidence threshold and inference size.
+
+```bash
+make ui UI_ARGS="--yolo-model artifacts/yolo_runs/words_960/weights/best.pt"
+```
+
+That mode returns the number of words, mean box confidence, latency, and a JSON
+list of every box with its score. It is the fastest way to sanity-check a
+checkpoint before wiring it into the full pipeline. Leaving **Mode** on *OCR*
+and picking the `yolo_words` detector instead feeds the same checkpoint into
+detection + recognition.
+
+
 ### GPU selection and batch auto-tuning
 
 `device: auto` checks every visible CUDA device and picks the one with the
