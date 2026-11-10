@@ -15,12 +15,14 @@ class CraftWordDetector:
         text_threshold: float = 0.7,
         link_threshold: float = 0.2,
         low_text: float = 0.4,
+        fallback_full_image: bool = True,
     ) -> None:
         self.cuda = cuda
         self.refiner = refiner
         self.text_threshold = text_threshold
         self.link_threshold = link_threshold
         self.low_text = low_text
+        self.fallback_full_image = fallback_full_image
         self._craft = None
 
     def _ensure_loaded(self) -> None:
@@ -84,4 +86,8 @@ class CraftWordDetector:
 
         # Sort in reading order (LTR ascending, RTL descending)
         word_boxes.sort(key=lambda b: b[0], reverse=rtl)
-        return word_boxes if word_boxes else [(0, 0, w_img, h_img)]
+        if word_boxes:
+            return word_boxes
+        if not self.fallback_full_image:
+            return []
+        return [(0, 0, w_img, h_img)]

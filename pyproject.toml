@@ -25,7 +25,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-baseline = ["paddleocr>=3.7.0", "paddlepaddle>=3.3.0"]
+baseline = ["paddleocr>=3.7.0", "paddlepaddle>=3.2.2,<3.3"]
 tesseract = ["pytesseract>=0.3.13"]
 easyocr = ["easyocr>=1.7.2"]
 experiments = ["datasets>=5.1.0", "accelerate>=1.15.0", "qwen-vl-utils>=0.0.14"]

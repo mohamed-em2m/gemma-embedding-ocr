@@ -214,7 +214,7 @@ def test_example_rows_select_arabic_profile_and_script() -> None:
     assert arabic_rows
     assert arabic_rows[0][1] == "embedding_align.yaml"
     assert arabic_rows[0][3] == "hierarchical"
-    assert arabic_rows[0][4] == "full"
+    assert arabic_rows[0][4] == "config default"
     assert arabic_rows[0][5] == "arabic"
     assert all(len(row) == 7 for row in rows)
 

@@ -183,7 +183,7 @@ uv run --no-sync python scripts/test_iam_handwriting.py \
 | Field | Values | Effect |
 | --- | --- | --- |
 | `recognition.backend` | `hierarchical`, `embedding`, `paddle`, `tesseract`, `easyocr` | Chooses the recognizer only |
-| `detector.backend` | `full`, `visual`, `craft`, `paddle` | Chooses the text detector |
+| `detector.backend` | `auto`, `paddle`, `paddle_mobile`, `craft`, `lines`, `visual`, `full` | `auto` prefers PaddleOCR `PP-OCRv5_server_det`, then CRAFT, then line segmentation. Use `full` only for already-cropped images. |
 | `recognition.script` | `latin`, `arabic` | Sets classes, RTL order, and case rules |
 | `embedder.backend` | `gemma`, `siglip`, `jina` | Swaps the visual embedder |
 | `embedder.device` | `auto`, `cpu`, `cuda`, `cuda:N` | `auto` picks the least-used GPU |
@@ -194,6 +194,17 @@ Use `configs/baseline_paddle.yaml`, `configs/embedding_seg.yaml`, and
 `configs/embedding_align.yaml` as starting points. Detection boxes are cached
 under `pipeline.detection_cache` so baseline and embedding runs use identical
 crops.
+
+The PaddleOCR detector requires `paddlepaddle>=3.2.2,<3.3` on CPU because
+PaddlePaddle 3.3.x crashes in its oneDNN/PIR executor. Benchmark detectors with:
+
+```bash
+uv run --no-sync python scripts/benchmark_detection.py --backend auto --synthetic
+uv run --no-sync python scripts/benchmark_detection.py --all --images tests/images
+```
+
+Annotations use `{"image.jpg": {"boxes": [[x, y, w, h], ...]}}`; images without
+annotations still produce red/green overlay images.
 
 ---
 

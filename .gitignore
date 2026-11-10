@@ -8,7 +8,7 @@ __pycache__/
 .coverage
 htmlcov/
 dist/
-
+tests/images
 # Project artifacts (never commit)
 data/*
 !data/standard_clean_fonts.txt

@@ -38,10 +38,12 @@ RECOGNIZER_CHOICES = (
 )
 DETECTOR_CHOICES = (
     DEFAULT_DETECTOR,
-    "full",
-    "visual",
+    "auto",
     "paddle",
     "craft",
+    "lines",
+    "visual",
+    "full",
 )
 SCRIPT_CHOICES = (DEFAULT_SCRIPT, "latin", "arabic")
 DEVICE_CHOICES = ("auto", "cpu", "cuda")
@@ -94,7 +96,7 @@ def example_rows(profiles: list[str]) -> list[list[Any]]:
                 arabic_profile if is_arabic else default_profile,
                 DEFAULT_DEVICE,
                 "hierarchical" if is_arabic else DEFAULT_RECOGNIZER,
-                "full" if is_arabic else DEFAULT_DETECTOR,
+                DEFAULT_DETECTOR,
                 "arabic" if is_arabic else "latin",
                 True,
             ]

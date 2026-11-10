@@ -185,7 +185,7 @@ def test_pruned_alignment_embeds_few_candidates_for_long_word() -> None:
     assert result.stats.strategy == "pruned"
     assert result.stats.fallback_used is False
     assert result.stats.candidate_windows == result.stats.embedded_windows
-    assert result.stats.candidate_windows <= 50
+    assert result.stats.candidate_windows <= 70
     assert result.stats.embedded_windows < 100
 
 

@@ -119,7 +119,7 @@ class EmbeddingAlignmentSegmenter:
         strategy: str = "pruned",
         max_cut_candidates: int | None = None,
         min_cut_spacing: float | None = None,
-        max_edges_per_start: int = 2,
+        max_edges_per_start: int = 3,
         fallback_exhaustive: bool = True,
     ) -> None:
         if strategy not in self._STRATEGIES:

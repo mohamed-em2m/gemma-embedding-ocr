@@ -29,6 +29,12 @@ def test_build_full_detector() -> None:
     assert regions[0].bbox == (0, 0, 20, 10)
 
 
+def test_build_line_detector() -> None:
+    detector = build_detector(DetectorSettings(backend="lines"))
+    blank = np.full((10, 20, 3), 255, dtype=np.uint8)
+    assert detector.detect(blank) == []
+
+
 def test_resolve_rtl_from_script() -> None:
     config = AppConfig()
     config.recognition.script = "arabic"
@@ -125,7 +131,8 @@ def test_paddle_detector_falls_back_on_onednn_error() -> None:
 
     detector = object.__new__(PaddleTextDetector)
     detector.rtl = False
-    detector._ocr = BrokenPaddle()  # type: ignore[attr-defined]
+    detector._backend = "legacy"
+    detector._legacy_ocr = BrokenPaddle()
 
-    regions = detector.detect(np.zeros((12, 20, 3), dtype=np.uint8))
-    assert regions[0].bbox == (0, 0, 20, 12)
+    regions = detector.detect(np.full((12, 20, 3), 255, dtype=np.uint8))
+    assert regions == []

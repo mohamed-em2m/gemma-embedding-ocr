@@ -41,11 +41,16 @@ class IndexSettings(_Model):
 class DetectorSettings(_Model):
     """Text detection settings."""
 
-    backend: str = "full"
+    backend: str = "auto"
     rtl: bool | None = None
+    device: str = "auto"
     min_component_area: int = 8
     craft_cuda: bool = False
     lang: str = "en"
+    paddle_model: str = "PP-OCRv5_server_det"
+    paddle_mobile_model: str = "PP-OCRv5_mobile_det"
+    min_confidence: float = 0.3
+    box_padding: int = 2
 
 
 class VocabularySettings(_Model):
@@ -67,7 +72,7 @@ class AlignmentSettings(_Model):
     strategy: Literal["pruned", "exhaustive"] = "pruned"
     max_cut_candidates: int | None = None
     min_cut_spacing: float | None = None
-    max_edges_per_start: int = 2
+    max_edges_per_start: int = 3
     fallback_exhaustive: bool = True
 
 

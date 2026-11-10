@@ -269,3 +269,22 @@ Follow-up after the first OOD run (2026-11-09):
 - `configs/default.yaml` now uses the full tokenizer vocabulary
   (`max_words: null`, `max_subwords: null`). The UI quick mode remains an
   explicit 4k/3k speed cap.
+
+Detection-first fix (2026-11-10):
+- Root cause of misplaced/missed words on full images: `detector.backend: full`
+  plus a word segmenter that sorted connected components by x only, merging
+  multiple text lines into one crop.
+- `detector.backend` now defaults to `auto`: PaddleOCR `TextDetection`
+  (`PP-OCRv5_server_det` by default, `PP-OCRv5_mobile_det` available) with
+  CRAFT and a dependency-free line detector as fallbacks. `full` remains only
+  for images that are already cropped.
+- PaddleOCR is loaded through the standalone `TextDetection` module so the
+  recognition model is not loaded during detection.
+- PaddlePaddle is pinned to `>=3.2.2,<3.3` for CPU because 3.3.x crashes in its
+  oneDNN/PIR executor (`ConvertPirAttribute2RuntimeAttribute`).
+- `VisualWordSegmenter` groups components into line bands before splitting
+  words, chooses foreground polarity for light-on-dark images, and retries with
+  Otsu for low-contrast inputs.
+- Added `scripts/benchmark_detection.py` with per-image precision/recall/F1,
+  synthetic multi-line samples, JSON reports and red/green overlays. Real
+  images need JSON annotation; unannotated images still produce overlays.

@@ -44,13 +44,41 @@ class VisualWordSegmenter:
             return cv2.cvtColor(image, cv2.COLOR_RGB2GRAY)
         return image[..., 0]
 
+    def _select_polarity(
+        self, gray: np.ndarray, dark_ink: np.ndarray, light_ink: np.ndarray
+    ) -> np.ndarray:
+        dark_fraction = float(np.count_nonzero(dark_ink)) / dark_ink.size
+        light_fraction = float(np.count_nonzero(light_ink)) / light_ink.size
+        if dark_fraction > 0.5 and light_fraction < dark_fraction:
+            return light_ink
+        if light_fraction > 0.5 and dark_fraction < light_fraction:
+            return dark_ink
+        border = np.concatenate((gray[0, :], gray[-1, :], gray[:, 0], gray[:, -1]))
+        if float(np.median(border)) < self.binarize_thresh / 2:
+            return light_ink
+        return dark_ink
+
     def binarize(self, image: np.ndarray) -> np.ndarray:
-        """Convert RGB image to inverted binary (white text on black background)."""
+        """Convert an image to binary ink (foreground white on black).
+
+        White-background crops use inverse thresholding. Dark-background crops
+        (scene images, dark slides) use normal thresholding; otherwise the
+        background becomes one giant connected component.
+        """
         gray = self._to_gray(image)
-        _, binary = cv2.threshold(
+        _, dark_ink = cv2.threshold(
             gray, self.binarize_thresh, 255, cv2.THRESH_BINARY_INV
         )
-        return binary
+        _, light_ink = cv2.threshold(gray, self.binarize_thresh, 255, cv2.THRESH_BINARY)
+        return self._select_polarity(gray, dark_ink, light_ink)
+
+    def _otsu_binarize(self, image: np.ndarray) -> np.ndarray:
+        gray = self._to_gray(image)
+        _, dark_ink = cv2.threshold(
+            gray, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU
+        )
+        _, light_ink = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+        return self._select_polarity(gray, dark_ink, light_ink)
 
     def propose_cut_candidates(
         self,
@@ -184,25 +212,11 @@ class VisualWordSegmenter:
             CutCandidate(x=x, score=float(scores[x]) if x < w else 0.0) for x in ordered
         ]
 
-    def extract_word_boxes(
-        self, image: np.ndarray, rtl: bool = False
-    ) -> list[tuple[int, int, int, int]]:
-        """Derive word proposals from text-line regions using whitespace gaps and connected components.
-
-        Args:
-            image: uint8 numpy array (H, W, 3) or (H, W).
-            rtl: If True, return boxes in right-to-left reading order.
-
-        Returns:
-            List of (x, y, w, h) bounding boxes for words in reading order.
-        """
-        binary = self.binarize(image)
-        h_img, w_img = binary.shape
-
-        num_labels, labels, stats, centroids = cv2.connectedComponentsWithStats(
+    def _components(self, binary: np.ndarray) -> list[tuple[int, int, int, int]]:
+        """Extract filtered connected components as ``(x, y, w, h)`` boxes."""
+        num_labels, _labels, stats, _centroids = cv2.connectedComponentsWithStats(
             binary, connectivity=8
         )
-
         components: list[tuple[int, int, int, int]] = []
         for i in range(1, num_labels):
             x = int(stats[i, cv2.CC_STAT_LEFT])
@@ -210,37 +224,91 @@ class VisualWordSegmenter:
             w = int(stats[i, cv2.CC_STAT_WIDTH])
             h = int(stats[i, cv2.CC_STAT_HEIGHT])
             area = int(stats[i, cv2.CC_STAT_AREA])
-
-            if area < self.min_component_area or w < 2 or h < 4:
+            if area < self.min_component_area or w < 2 or h < 3:
                 continue
             components.append((x, y, w, h))
+        return components
 
-        if not components:
-            return [(0, 0, w_img, h_img)]
+    @staticmethod
+    def _center_y(box: tuple[int, int, int, int]) -> float:
+        return float(box[1]) + float(box[3]) / 2.0
 
-        components.sort(key=lambda c: c[0], reverse=rtl)
+    @classmethod
+    def _line_bounds(
+        cls, line: list[tuple[int, int, int, int]]
+    ) -> tuple[int, int, int, int]:
+        min_x = min(box[0] for box in line)
+        min_y = min(box[1] for box in line)
+        max_x = max(box[0] + box[2] for box in line)
+        max_y = max(box[1] + box[3] for box in line)
+        return min_x, min_y, max_x - min_x, max_y - min_y
 
-        widths = [c[2] for c in components]
-        heights = [c[3] for c in components]
+    @classmethod
+    def _group_components_into_lines(
+        cls, components: list[tuple[int, int, int, int]]
+    ) -> list[list[tuple[int, int, int, int]]]:
+        """Group components by vertical overlap instead of assuming one line."""
+        lines: list[list[tuple[int, int, int, int]]] = []
+        for component in sorted(
+            components, key=lambda box: (cls._center_y(box), box[0])
+        ):
+            top = float(component[1])
+            bottom = top + float(component[3])
+            center = cls._center_y(component)
+            best_index: int | None = None
+            best_overlap = 0.0
+            best_center_distance = float("inf")
+            for index, line in enumerate(lines):
+                _, line_y, _, line_h = cls._line_bounds(line)
+                line_top = float(line_y)
+                line_bottom = line_top + float(line_h)
+                overlap = max(0.0, min(bottom, line_bottom) - max(top, line_top))
+                min_height = min(float(component[3]), float(line_h))
+                overlap_ratio = overlap / min_height if min_height > 0 else 0.0
+                line_center = line_top + float(line_h) / 2.0
+                center_distance = abs(center - line_center)
+                if overlap_ratio < 0.30:
+                    continue
+                if overlap_ratio > best_overlap or (
+                    overlap_ratio == best_overlap
+                    and center_distance < best_center_distance
+                ):
+                    best_index = index
+                    best_overlap = overlap_ratio
+                    best_center_distance = center_distance
+            if best_index is None:
+                lines.append([component])
+            else:
+                lines[best_index].append(component)
+        lines.sort(
+            key=lambda line: (cls._line_bounds(line)[1], cls._line_bounds(line)[0])
+        )
+        return lines
+
+    def _line_to_word_boxes(
+        self,
+        line: list[tuple[int, int, int, int]],
+        image_width: int,
+        image_height: int,
+        rtl: bool,
+    ) -> list[tuple[int, int, int, int]]:
+        """Split one visual line into word boxes using gap statistics."""
+        ordered = sorted(line, key=lambda box: box[0], reverse=rtl)
+        widths = [box[2] for box in ordered]
+        heights = [box[3] for box in ordered]
         typical_w = float(np.median(widths)) if widths else 20.0
         typical_h = float(np.median(heights)) if heights else 30.0
 
-        # Inter-character gaps in reading order. For RTL, the previous
-        # component sits to the right of the current one.
         gaps: list[float] = []
-        for i in range(1, len(components)):
-            prev_x, _, prev_w, _ = components[i - 1]
-            curr_x, _, curr_w, _ = components[i]
+        for index in range(1, len(ordered)):
+            prev_x, _, prev_w, _ = ordered[index - 1]
+            curr_x, _, curr_w, _ = ordered[index]
             if rtl:
                 gap = float(prev_x - (curr_x + curr_w))
             else:
                 gap = float(curr_x - (prev_x + prev_w))
             gaps.append(max(0.0, gap))
 
-        # Dynamic inter-word space threshold. Start conservatively: a gap must
-        # be clearly larger than typical intra-word letter spacing. The old
-        # 0.35*width threshold split words like "fjord" and "sphinx" into
-        # multiple pseudo-words on wide/tracked fonts.
         space_threshold = max(8.0, 0.40 * typical_h)
         if len(gaps) >= 2:
             sorted_gaps = sorted(gaps)
@@ -249,56 +317,89 @@ class VisualWordSegmenter:
             ]
             max_jump_idx = int(np.argmax(diffs))
             jump_size = diffs[max_jump_idx]
-            cand = (sorted_gaps[max_jump_idx] + sorted_gaps[max_jump_idx + 1]) / 2.0
-            if jump_size >= 4.0 and 6.0 <= cand <= max(12.0, typical_w * 2.0):
-                # Never lower the conservative baseline; a large jump may raise
-                # it when the gap distribution is clearly bimodal.
-                space_threshold = max(space_threshold, cand)
+            candidate = (
+                sorted_gaps[max_jump_idx] + sorted_gaps[max_jump_idx + 1]
+            ) / 2.0
+            if jump_size >= 4.0 and 6.0 <= candidate <= max(12.0, typical_w * 2.0):
+                space_threshold = max(space_threshold, candidate)
 
-        # Group components into words
-        word_boxes: list[tuple[int, int, int, int]] = []
-        cur_group: list[tuple[int, int, int, int]] = [components[0]]
-
-        for i in range(1, len(components)):
-            gap = gaps[i - 1]
-            if gap >= space_threshold:
-                # Finish current word group
-                min_x = min(c[0] for c in cur_group)
-                min_y = min(c[1] for c in cur_group)
-                max_x = max(c[0] + c[2] for c in cur_group)
-                max_y = max(c[1] + c[3] for c in cur_group)
-                # Add light padding
-                px = 2
-                py = 2
-                word_boxes.append(
-                    (
-                        max(0, min_x - px),
-                        max(0, min_y - py),
-                        min(w_img - min_x, max_x - min_x + 2 * px),
-                        min(h_img - min_y, max_y - min_y + 2 * py),
-                    )
-                )
-                cur_group = [components[i]]
+        groups: list[list[tuple[int, int, int, int]]] = [[ordered[0]]]
+        for index in range(1, len(ordered)):
+            if gaps[index - 1] >= space_threshold:
+                groups.append([ordered[index]])
             else:
-                cur_group.append(components[i])
+                groups[-1].append(ordered[index])
 
-        if cur_group:
-            min_x = min(c[0] for c in cur_group)
-            min_y = min(c[1] for c in cur_group)
-            max_x = max(c[0] + c[2] for c in cur_group)
-            max_y = max(c[1] + c[3] for c in cur_group)
-            px = 2
-            py = 2
-            word_boxes.append(
-                (
-                    max(0, min_x - px),
-                    max(0, min_y - py),
-                    min(w_img - min_x, max_x - min_x + 2 * px),
-                    min(h_img - min_y, max_y - min_y + 2 * py),
-                )
-            )
+        boxes: list[tuple[int, int, int, int]] = []
+        for group in groups:
+            min_x = min(box[0] for box in group)
+            min_y = min(box[1] for box in group)
+            max_x = max(box[0] + box[2] for box in group)
+            max_y = max(box[1] + box[3] for box in group)
+            padding_x = 2
+            padding_y = 2
+            x = max(0, min_x - padding_x)
+            y = max(0, min_y - padding_y)
+            width = min(image_width - x, max_x - min_x + 2 * padding_x)
+            height = min(image_height - y, max_y - min_y + 2 * padding_y)
+            if width > 1 and height > 1:
+                boxes.append((x, y, width, height))
+        return boxes
 
+    def extract_word_boxes(
+        self, image: np.ndarray, rtl: bool = False
+    ) -> list[tuple[int, int, int, int]]:
+        """Derive word proposals from lines using connected components.
+
+        Components are first grouped into visual lines by vertical overlap, then
+        each line is split into words using gap statistics. This is required for
+        page-level images; the previous single-line assumption merged rows.
+
+        Args:
+            image: uint8 numpy array (H, W, 3) or (H, W).
+            rtl: If True, order words right-to-left within each line.
+
+        Returns:
+            List of (x, y, w, h) word boxes in line-major reading order.
+        """
+        binary = self.binarize(image)
+        h_img, w_img = binary.shape
+        components = self._components(binary)
+        if not components:
+            # Retry with Otsu so low-contrast scans are not silently dropped.
+            components = self._components(self._otsu_binarize(image))
+        if not components:
+            return []
+
+        lines = self._group_components_into_lines(components)
+        word_boxes: list[tuple[int, int, int, int]] = []
+        for line in lines:
+            word_boxes.extend(self._line_to_word_boxes(line, w_img, h_img, rtl=rtl))
         return word_boxes
+
+    def extract_line_boxes(
+        self, image: np.ndarray, rtl: bool = False
+    ) -> list[tuple[int, int, int, int]]:
+        """Return one bounding box per visual text line in reading order."""
+        del rtl
+        binary = self.binarize(image)
+        components = self._components(binary)
+        if not components:
+            components = self._components(self._otsu_binarize(image))
+        if not components:
+            return []
+        lines = self._group_components_into_lines(components)
+        h_img, w_img = binary.shape
+        boxes: list[tuple[int, int, int, int]] = []
+        for line in lines:
+            x, y, width, height = self._line_bounds(line)
+            x = max(0, x - 2)
+            y = max(0, y - 2)
+            width = min(w_img - x, width + 4)
+            height = min(h_img - y, height + 4)
+            if width > 1 and height > 1:
+                boxes.append((x, y, width, height))
+        return boxes
 
     def find_optimal_cut_boundary(
         self,

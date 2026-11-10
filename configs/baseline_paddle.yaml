@@ -6,7 +6,11 @@ embedder:
 detector:
   backend: paddle
   rtl: null
+  device: auto
   lang: en
+  paddle_model: PP-OCRv5_server_det
+  min_confidence: 0.3
+  box_padding: 2
 
 index:
   backend: faiss
