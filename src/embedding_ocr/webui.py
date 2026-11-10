@@ -41,6 +41,7 @@ DETECTOR_CHOICES = (
     "auto",
     "paddle",
     "craft",
+    "yolo_words",
     "lines",
     "visual",
     "full",

@@ -52,7 +52,7 @@ def make_synthetic_sample(output_dir: Path) -> DetectionSample:
         x, y = 30, 30 + index * 120
         draw.text((x, y), text, font=font, fill="black")
         left, top, right, bottom = draw.textbbox((x, y), text, font=font)
-        boxes.append((left, top, right - left, bottom - top))
+        boxes.append((int(left), int(top), int(right - left), int(bottom - top)))
     image.save(path)
     return DetectionSample(
         name=path.name,
@@ -101,12 +101,15 @@ def evaluate_backend(
     base_settings: DetectorSettings,
     device: str,
     model_name: str | None,
+    yolo_model: Path | None,
     iou_threshold: float,
     output_dir: Path,
 ) -> tuple[dict[str, object], list[DetectionMetrics]]:
     overrides: dict[str, object] = {"backend": backend, "device": device}
     if model_name is not None:
         overrides["paddle_model"] = model_name
+    if yolo_model is not None:
+        overrides["yolo_model"] = yolo_model
     settings = base_settings.model_copy(update=overrides)
     detector = build_detector(settings)
     resolved = getattr(detector, "resolved_name", backend)
@@ -156,7 +159,13 @@ def main() -> None:
     parser.add_argument("--backend", default=None)
     parser.add_argument("--all", action="store_true", help="Compare every backend.")
     parser.add_argument("--device", default="auto")
-    parser.add_argument("--model", default=None)
+    parser.add_argument("--model", default=None, help="PaddleOCR detection model name.")
+    parser.add_argument(
+        "--yolo-model",
+        type=Path,
+        default=None,
+        help="Checkpoint for --backend yolo_words.",
+    )
     parser.add_argument("--iou", type=float, default=0.5)
     parser.add_argument(
         "--output", type=Path, default=Path("artifacts/detection_bench")
@@ -198,6 +207,7 @@ def main() -> None:
                 settings,
                 args.device,
                 args.model,
+                args.yolo_model,
                 args.iou,
                 output_dir,
             )

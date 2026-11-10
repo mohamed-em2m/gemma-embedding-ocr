@@ -183,7 +183,7 @@ uv run --no-sync python scripts/test_iam_handwriting.py \
 | Field | Values | Effect |
 | --- | --- | --- |
 | `recognition.backend` | `hierarchical`, `embedding`, `paddle`, `tesseract`, `easyocr` | Chooses the recognizer only |
-| `detector.backend` | `auto`, `paddle`, `paddle_mobile`, `craft`, `lines`, `visual`, `full` | `auto` prefers PaddleOCR `PP-OCRv5_server_det`, then CRAFT, then line segmentation. Use `full` only for already-cropped images. |
+| `detector.backend` | `auto`, `paddle`, `paddle_mobile`, `craft`, `yolo_words`, `lines`, `visual`, `full` | `auto` prefers PaddleOCR `PP-OCRv5_server_det`, then CRAFT, then line segmentation. `yolo_words` loads a word-box checkpoint. Use `full` only for already-cropped images. |
 | `recognition.script` | `latin`, `arabic` | Sets classes, RTL order, and case rules |
 | `embedder.backend` | `gemma`, `siglip`, `jina` | Swaps the visual embedder |
 | `embedder.device` | `auto`, `cpu`, `cuda`, `cuda:N` | `auto` picks the least-used GPU |
@@ -215,6 +215,29 @@ Use `configs/baseline_paddle.yaml`, `configs/embedding_seg.yaml`, and
 `configs/embedding_align.yaml` as starting points. Detection boxes are cached
 under `pipeline.detection_cache` so baseline and embedding runs use identical
 crops.
+
+### YOLO word detector
+
+Train a one-class YOLO detector that predicts word boxes, then feed those
+boxes into any recognizer:
+
+```bash
+bash scripts/setup_env.sh --train
+uv run --no-sync python scripts/build_word_dataset.py \
+    --fonts /usr/share/fonts --out artifacts/yolo_words \
+    --n 30000 --size 1280 --layout mixed
+uv run --no-sync python scripts/train_yolo_words.py \
+    --data artifacts/yolo_words/data.yaml --model yolo26s.pt --epochs 100
+uv run --no-sync embedding-ocr recognize image.png --config configs/yolo_words.yaml
+```
+
+The generator renders Latin and Arabic words with real font shaping, writes one
+YOLO class (`word`) per rendered word, and keeps validation/test fonts disjoint
+from training fonts. `configs/yolo_words.yaml` uses `detector.backend:
+yolo_words` and the hierarchical recognizer; `detector.yolo_model`,
+`yolo_conf`, `yolo_iou`, `yolo_imgsz`, and `yolo_max_det` are configurable.
+Training on CPU is possible for smoke tests but a CUDA GPU is strongly
+recommended for full runs.
 
 The PaddleOCR detector requires `paddlepaddle>=3.2.2,<3.3` on CPU because
 PaddlePaddle 3.3.x crashes in its oneDNN/PIR executor. Benchmark detectors with:

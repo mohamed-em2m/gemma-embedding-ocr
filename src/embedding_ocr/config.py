@@ -55,6 +55,12 @@ class DetectorSettings(_Model):
     paddle_mobile_model: str = "PP-OCRv5_mobile_det"
     min_confidence: float = 0.3
     box_padding: int = 2
+    yolo_model: Path | None = None
+    yolo_conf: float = 0.25
+    yolo_iou: float = 0.5
+    yolo_imgsz: int = 1280
+    yolo_device: str | None = None
+    yolo_max_det: int = 1000
 
 
 class VocabularySettings(_Model):

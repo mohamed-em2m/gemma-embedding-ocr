@@ -105,6 +105,9 @@ DETECTION_CLASSES: list[str] = _dedupe(
 CLASS_TO_ID: dict[str, int] = {
     name: index for index, name in enumerate(DETECTION_CLASSES)
 }
+WORD_CLASSES: list[str] = ["word"]
+WORD_CLASS_TO_ID: dict[str, int] = {"word": 0}
+LABEL_LEVELS = ("unit", "word")
 
 
 @dataclass(frozen=True)
@@ -600,6 +603,7 @@ def _make_collage(
     min_font_size: int,
     max_font_size: int,
     max_words: int,
+    label_level: str = "unit",
 ) -> tuple[Image.Image, list[DatasetLabel]]:
     background = make_background(size, rng, np_rng, background_paths).convert("RGBA")
     labels: list[DatasetLabel] = []
@@ -630,7 +634,16 @@ def _make_collage(
                 continue
             color = contrast_color(background, box, rng)
             background.alpha_composite(_colorize(layer, color), (x, y))
-            labels.extend(_labels_from_units(units, x, y, size))
+            if label_level == "word":
+                labels.append(
+                    DatasetLabel(
+                        class_id=WORD_CLASS_TO_ID["word"],
+                        text=text,
+                        bbox=(float(x), float(y), float(x + width), float(y + height)),
+                    )
+                )
+            else:
+                labels.extend(_labels_from_units(units, x, y, size))
             placed.append(box)
             break
     return background.convert("RGB"), labels
@@ -647,6 +660,7 @@ def _make_line_layout(
     max_font_size: int,
     max_words: int,
     max_lines: int,
+    label_level: str = "unit",
 ) -> tuple[Image.Image, list[DatasetLabel]]:
     background = make_background(size, rng, np_rng, background_paths).convert("RGBA")
     labels: list[DatasetLabel] = []
@@ -724,7 +738,21 @@ def _make_line_layout(
             box = (px, py, px + word.width, py + word.height)
             color = contrast_color(background, box, rng)
             background.alpha_composite(_colorize(word.image, color), (px, py))
-            labels.extend(_labels_from_units(word.units, px, py, size))
+            if label_level == "word":
+                labels.append(
+                    DatasetLabel(
+                        class_id=WORD_CLASS_TO_ID["word"],
+                        text="word",
+                        bbox=(
+                            float(px),
+                            float(py),
+                            float(px + word.width),
+                            float(py + word.height),
+                        ),
+                    )
+                )
+            else:
+                labels.extend(_labels_from_units(word.units, px, py, size))
             if rtl:
                 x -= gap
             else:
@@ -745,8 +773,12 @@ def make_image(
     max_words: int = 6,
     max_lines: int = 4,
     empty_fraction: float = 0.0,
+    label_level: str = "unit",
 ) -> tuple[Image.Image, list[DatasetLabel]]:
     """Generate one image and its pixel-coordinate labels."""
+    if label_level not in LABEL_LEVELS:
+        message = f"Unknown label_level: {label_level!r}"
+        raise ValueError(message)
     if empty_fraction > 0.0 and rng.random() < empty_fraction:
         return (
             make_background(size, rng, np_rng, background_paths).convert("RGB"),
@@ -768,6 +800,7 @@ def make_image(
             min_font_size,
             max_font_size,
             max_words,
+            label_level=label_level,
         )
     else:
         image, labels = _make_line_layout(
@@ -781,6 +814,7 @@ def make_image(
             max_font_size,
             max_words,
             max_lines,
+            label_level=label_level,
         )
 
     if rng.random() < 0.4:
@@ -889,6 +923,7 @@ def generate_dataset(
     max_lines: int = 4,
     empty_fraction: float = 0.0,
     preview_count: int = 30,
+    label_level: str = "unit",
 ) -> dict[str, Any]:
     """Generate a YOLO detection dataset and return its manifest."""
     if n <= 0:
@@ -899,6 +934,9 @@ def generate_dataset(
         raise ValueError(message)
     if layout not in {"collage", "line", "mixed"}:
         message = f"Unknown layout: {layout!r}"
+        raise ValueError(message)
+    if label_level not in LABEL_LEVELS:
+        message = f"Unknown label_level: {label_level!r}"
         raise ValueError(message)
 
     default_min, default_max = default_font_size_range(size)
@@ -952,6 +990,7 @@ def generate_dataset(
             max_words=max_words,
             max_lines=max_lines,
             empty_fraction=empty_fraction,
+            label_level=label_level,
         )
         name = f"{index:06d}"
         image.save(
@@ -973,7 +1012,8 @@ def generate_dataset(
             _write_preview(image, labels, output / "previews" / f"{split}_{name}.jpg")
             previews_written += 1
 
-    classes = list(DETECTION_CLASSES)
+    classes = list(WORD_CLASSES if label_level == "word" else DETECTION_CLASSES)
+    class_to_id = dict(WORD_CLASS_TO_ID if label_level == "word" else CLASS_TO_ID)
     data = {
         "path": str(output.resolve()),
         "train": "images/train",
@@ -990,7 +1030,7 @@ def generate_dataset(
         json.dumps(
             {
                 "classes": classes,
-                "class_to_id": CLASS_TO_ID,
+                "class_to_id": class_to_id,
                 "arabic_ligatures": list(ARABIC_LIGATURES),
             },
             ensure_ascii=False,
@@ -1011,6 +1051,7 @@ def generate_dataset(
         "max_words": max_words,
         "max_lines": max_lines,
         "empty_fraction": empty_fraction,
+        "label_level": label_level,
         "classes": classes,
         "image_counts": image_counts,
         "label_counts": label_counts,
@@ -1047,6 +1088,7 @@ def build_dataset(
     empty_fraction: float = 0.0,
     preview_count: int = 30,
     max_fonts: int | None = None,
+    label_level: str = "unit",
 ) -> dict[str, Any]:
     """Discover fonts, build word lists, and generate a dataset."""
     fonts = discover_fonts(fonts_dir)
@@ -1088,4 +1130,5 @@ def build_dataset(
         max_lines=max_lines,
         empty_fraction=empty_fraction,
         preview_count=preview_count,
+        label_level=label_level,
     )

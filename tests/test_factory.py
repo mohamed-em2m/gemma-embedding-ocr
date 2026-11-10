@@ -29,6 +29,11 @@ def test_build_full_detector() -> None:
     assert regions[0].bbox == (0, 0, 20, 10)
 
 
+def test_build_yolo_word_detector_requires_model() -> None:
+    with pytest.raises(ValueError, match="yolo_model"):
+        build_detector(DetectorSettings(backend="yolo_words"))
+
+
 def test_build_line_detector() -> None:
     detector = build_detector(DetectorSettings(backend="lines"))
     blank = np.full((10, 20, 3), 255, dtype=np.uint8)

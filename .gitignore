@@ -23,6 +23,9 @@ runs/
 wandb/
 models/
 *.safetensors
+*.pt
+*.pth
+*.onnx
 
 # Secrets / editor
 .env

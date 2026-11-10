@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+from pathlib import Path
 from typing import Any, Protocol
 
 import numpy as np
@@ -170,6 +171,118 @@ class CraftWordDetectorAdapter:
                 padded.append((x0, y0, x1 - x0, y1 - y0))
         ordered = order_boxes(_dedupe_boxes(padded), rtl=self.rtl)
         return [TextRegion(bbox=box) for box in ordered]
+
+
+def _as_numpy(value: Any) -> np.ndarray:
+    if hasattr(value, "cpu"):
+        value = value.cpu()
+    return np.asarray(value)
+
+
+class YoloWordDetector:
+    """Word-box detector backed by an Ultralytics YOLO checkpoint."""
+
+    name = "yolo_words"
+
+    def __init__(
+        self,
+        model_path: str | Path | None = None,
+        model: Any | None = None,
+        conf: float = 0.25,
+        iou: float = 0.5,
+        imgsz: int = 1280,
+        device: str | None = None,
+        max_det: int = 1000,
+        rtl: bool = False,
+        box_padding: int = 2,
+        min_box_side: float = 3.0,
+        color_order: str = "rgb",
+    ) -> None:
+        if model is None:
+            if model_path is None:
+                msg = "model_path is required when model is not provided"
+                raise ValueError(msg)
+            try:
+                from ultralytics import YOLO  # type: ignore[import-untyped]
+            except ImportError as exc:
+                msg = (
+                    "ultralytics is not installed. Install it with "
+                    "`uv pip install --python .venv/bin/python -e '.[train]'`."
+                )
+                raise ImportError(msg) from exc
+
+            self.model_path: Path | None = Path(model_path)
+            if not self.model_path.exists():
+                msg = f"YOLO word model not found: {self.model_path}"
+                raise FileNotFoundError(msg)
+            model = YOLO(str(self.model_path))
+        else:
+            self.model_path = Path(model_path) if model_path is not None else None
+        self._model = model
+        self.conf = conf
+        self.iou = iou
+        self.imgsz = imgsz
+        self.device = device
+        self.max_det = max_det
+        self.rtl = rtl
+        self.box_padding = box_padding
+        self.min_box_side = min_box_side
+        self.color_order = color_order
+
+    @staticmethod
+    def _to_bgr(image: np.ndarray) -> np.ndarray:
+        if image.ndim == 2:
+            return np.repeat(image[:, :, None], 3, axis=2)
+        if image.shape[2] == 4:
+            return image[:, :, :3]
+        return image[:, :, ::-1]
+
+    def detect(self, image: np.ndarray) -> list[TextRegion]:
+        """Detect word boxes and return them in reading order."""
+        if image is None or image.size == 0:
+            return []
+        source = self._to_bgr(image) if self.color_order == "rgb" else image
+        results: Any = self._model.predict(
+            source=np.ascontiguousarray(source),
+            conf=self.conf,
+            iou=self.iou,
+            imgsz=self.imgsz,
+            device=self.device,
+            max_det=self.max_det,
+            verbose=False,
+        )
+        if not results:
+            return []
+        result = results[0]
+        boxes = getattr(result, "boxes", None)
+        if boxes is None or len(boxes) == 0:
+            return []
+
+        height, width = image.shape[:2]
+        xyxy = _as_numpy(boxes.xyxy).reshape(-1, 4)
+        confidences = _as_numpy(boxes.conf).reshape(-1)
+        scores: dict[tuple[int, int, int, int], float] = {}
+        for corners, confidence in zip(xyxy, confidences, strict=False):
+            x0 = max(0.0, min(float(width), float(corners[0])))
+            y0 = max(0.0, min(float(height), float(corners[1])))
+            x1 = max(0.0, min(float(width), float(corners[2])))
+            y1 = max(0.0, min(float(height), float(corners[3])))
+            if x1 - x0 < self.min_box_side or y1 - y0 < self.min_box_side:
+                continue
+            pad = float(self.box_padding)
+            px0 = max(0, int(round(x0 - pad)))
+            py0 = max(0, int(round(y0 - pad)))
+            px1 = min(width, int(round(x1 + pad)))
+            py1 = min(height, int(round(y1 + pad)))
+            box = (px0, py0, px1 - px0, py1 - py0)
+            if box[2] <= 1 or box[3] <= 1:
+                continue
+            scores[box] = max(float(confidence), scores.get(box, 0.0))
+
+        ordered = order_boxes(_dedupe_boxes(list(scores)), rtl=self.rtl)
+        return [
+            TextRegion(bbox=box, confidence=scores.get(box, 1.0)) for box in ordered
+        ]
 
 
 def _poly_to_bbox(poly: Any, width: int, height: int) -> tuple[int, int, int, int]:
@@ -460,6 +573,20 @@ def build_detector(settings: DetectorSettings, rtl: bool = False) -> TextDetecto
         return CraftWordDetectorAdapter(
             rtl=resolved_rtl,
             cuda=settings.craft_cuda,
+            box_padding=settings.box_padding,
+        )
+    if backend in {"yolo_words", "yolo_word"}:
+        if settings.yolo_model is None:
+            msg = "detector.yolo_model must point to a YOLO word checkpoint"
+            raise ValueError(msg)
+        return YoloWordDetector(
+            model_path=settings.yolo_model,
+            conf=settings.yolo_conf,
+            iou=settings.yolo_iou,
+            imgsz=settings.yolo_imgsz,
+            device=settings.yolo_device,
+            max_det=settings.yolo_max_det,
+            rtl=resolved_rtl,
             box_padding=settings.box_padding,
         )
     if backend in {"paddle", "paddle_mobile"}:

@@ -304,3 +304,21 @@ Detection-first fix (2026-11-10):
 - Added `scripts/benchmark_detection.py` with per-image precision/recall/F1,
   synthetic multi-line samples, JSON reports and red/green overlays. Real
   images need JSON annotation; unannotated images still produce overlays.
+
+YOLO word detector (2026-11-10):
+- Added a one-class word-localization path alongside the existing
+  character/unit YOLO path. `label_level="word"` in
+  `training/letter_dataset.py` writes one YOLO label per rendered word; the
+  dataset generator remains font-disjoint across train/val/test.
+- `scripts/build_word_dataset.py` defaults to mixed line/collage layouts,
+  30k images, 1280 px, and class `word`.
+- `scripts/train_yolo_words.py` trains Ultralytics YOLO26 with
+  `single_cls=True`, no horizontal/vertical flips, bounded rotation/scale, and
+  `max_det=300`.
+- Runtime: `detector.backend: yolo_words` is implemented by
+  `YoloWordDetector`; boxes are padded, deduplicated, and ordered line-major
+  with RTL support. `configs/yolo_words.yaml` combines the detector with the
+  hierarchical recognizer.
+- Ultralytics remains an optional `train` extra and is AGPL-3.0 or
+  commercially licensed. Full training requires a GPU; CPU is supported for
+  smoke runs.

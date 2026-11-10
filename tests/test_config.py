@@ -39,6 +39,15 @@ def test_load_arabic_alignment_config() -> None:
     assert config.recognition.alignment.max_cut_candidates is None
 
 
+def test_load_yolo_words_config() -> None:
+    config = load_config("configs/yolo_words.yaml")
+    assert config.detector.backend == "yolo_words"
+    assert config.detector.yolo_model == Path(
+        "artifacts/yolo_runs/yolo_words/weights/best.pt"
+    )
+    assert config.recognition.backend == "hierarchical"
+
+
 def test_save_config_round_trip(tmp_path: Path) -> None:
     config = load_config("configs/embedding_seg.yaml")
     output = tmp_path / "resolved.yaml"

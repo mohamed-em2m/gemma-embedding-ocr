@@ -168,15 +168,22 @@ YOLO character/unit detector training is available through the `train` extra
 
 ---
 
-## 7. YOLO character/unit detection (optional)
+## 7. YOLO character/unit and word detection (optional)
 
-- Dataset generator: `scripts/build_letter_dataset.py` renders Latin and Arabic
-  words with HarfBuzz shaping and writes YOLO labels per grapheme cluster.
+- Unit dataset generator: `scripts/build_letter_dataset.py` renders Latin and
+  Arabic words with HarfBuzz shaping and writes YOLO labels per grapheme
+  cluster.
+- Word dataset generator: `scripts/build_word_dataset.py` uses the same
+  renderer with `label_level="word"` and writes one class (`word`) per rendered
+  word, for a detector that predicts word boxes instead of characters.
 - Fonts are split before generation; train/val/test never share a font.
-- Training: `scripts/train_yolo_units.py` targets Ultralytics YOLO26 at 1280
-  input resolution with text-safe augmentations.
+- Training: `scripts/train_yolo_units.py` and `scripts/train_yolo_words.py`
+  target Ultralytics YOLO26 at 1280 input resolution with text-safe
+  augmentations. The word trainer uses `single_cls=True`.
 - Inference: `recognition.backend: yolo_units` reads classes directly from the
-  detector, groups boxes into lines, and joins text in reading order.
+  detector, groups boxes into lines, and joins text in reading order. For word
+  localization, set `detector.backend: yolo_words` (see
+  `configs/yolo_words.yaml`) and keep any recognizer for the cropped words.
 - Example:
 
 ```bash
@@ -189,8 +196,19 @@ uv run --no-sync python scripts/train_yolo_units.py \
 uv run --no-sync embedding-ocr recognize image.png --config configs/yolo_units.yaml
 ```
 
+Word detector:
+
+```bash
+uv run --no-sync python scripts/build_word_dataset.py \
+    --fonts /usr/share/fonts --out artifacts/yolo_words \
+    --n 30000 --size 1280 --layout mixed
+uv run --no-sync python scripts/train_yolo_words.py \
+    --data artifacts/yolo_words/data.yaml --model yolo26s.pt
+uv run --no-sync embedding-ocr recognize image.png --config configs/yolo_words.yaml
+```
+
 - Ultralytics YOLO is AGPL-3.0 or commercially licensed; review that before
   distributing weights or integrating the backend.
 
-Validation in this iteration: `ruff`, `mypy src`, and 143 tests pass. Optional
+Validation in this iteration: `ruff`, `mypy src`, and 181 tests pass. Optional
 model/detector probes report missing dependencies rather than crashing.

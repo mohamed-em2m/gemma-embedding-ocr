@@ -77,7 +77,7 @@ def main(argv: list[str] | None = None) -> int:
         "workers": args.workers,
         "patience": args.patience,
         "seed": args.seed,
-        "project": str(args.project),
+        "project": str(Path(args.project).resolve()),
         "name": args.name,
         "max_det": args.max_det,
         "degrees": args.degrees,
