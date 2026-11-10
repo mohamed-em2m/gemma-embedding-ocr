@@ -1,7 +1,9 @@
-.PHONY: setup setup-auto install lint format format-check typecheck test check prototypes vocabulary ui spike autotune real-dataset download-real dataset-stats eval-yolo hf-dry-run hf-upload
+.PHONY: setup setup-auto install lint format format-check typecheck test check prototypes vocabulary ui spike autotune real-dataset download-real dataset-stats eval-yolo hf-dry-run hf-upload hf-dataset train-hf
 
 VENV ?= .venv
 PYTHON ?= $(VENV)/bin/python
+HF_REPO ?= mohamedemam/words-detection
+HF_DEST ?= artifacts/words-detection
 
 setup:
 	bash scripts/setup_env.sh
@@ -62,3 +64,10 @@ hf-dry-run:
 
 hf-upload:
 	uv run --no-sync python scripts/upload_hf_dataset.py
+
+hf-dataset:
+	uv run --no-sync python scripts/download_hf_dataset.py \
+		--repo-id $(HF_REPO) --dest $(HF_DEST)
+
+train-hf:
+	HF_REPO=$(HF_REPO) HF_DEST=$(HF_DEST) bash scripts/train_from_hf.sh

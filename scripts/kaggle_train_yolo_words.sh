@@ -8,6 +8,13 @@
 #   DATASET_MODE=synthetic  render synthetic words (default)
 #   DATASET_MODE=real       merge only real Roboflow/YOLO sources
 #   DATASET_MODE=mixed      merge real sources + synthetic words
+#   DATASET_MODE=hf         download the published dataset from the Hugging Face
+#                           Hub (default: mohamedemam/words-detection) and train
+#
+# Hugging Face mode needs no Roboflow key and no local data:
+#   !DATASET_MODE=hf bash scripts/kaggle_train_yolo_words.sh
+#   !DATASET_MODE=hf HF_REPO=other-user/other-dataset EPOCHS=60 \
+#    bash scripts/kaggle_train_yolo_words.sh
 #
 # Real sources can come from configs/real_word_sources.yaml and/or a
 # colon-separated REAL_SOURCES list of extracted exports or .zip files:
@@ -43,7 +50,7 @@ DATASET="${DATASET:-$WORK_DIR/yolo_words}"
 RUNS="${RUNS:-$WORK_DIR/yolo_runs}"
 
 # Dataset construction.
-DATASET_MODE="${DATASET_MODE:-synthetic}"          # synthetic | real | mixed
+DATASET_MODE="${DATASET_MODE:-synthetic}"          # synthetic | real | mixed | hf
 REAL_CONFIG="${REAL_CONFIG:-}"                     # YAML source list
 REAL_SOURCES="${REAL_SOURCES:-}"                   # colon-separated dirs/zips
 DOWNLOAD="${DOWNLOAD:-0}"                          # 1 = download Roboflow sources
@@ -52,13 +59,20 @@ SYNTHETIC_N="${SYNTHETIC_N:-${N:-30000}}"          # N kept as a legacy alias
 OVERWRITE="${OVERWRITE:-1}"                        # rebuild the merged dataset
 SYNTH_DIR="${SYNTH_DIR:-$WORK_DIR/yolo_words_synthetic}"
 
+# Hugging Face dataset source (DATASET_MODE=hf).
+HF_REPO="${HF_REPO:-mohamedemam/words-detection}"
+HF_DEST="${HF_DEST:-$WORK_DIR/words-detection}"
+HF_METHOD="${HF_METHOD:-auto}"                     # auto | hub | git
+HF_TOKEN="${HF_TOKEN:-}"
+HF_FORCE="${HF_FORCE:-0}"                          # 1 = re-download the dataset
+
 # Use the repo's source list only when the caller did not provide sources.
 if [[ -z "$REAL_CONFIG" && -z "$REAL_SOURCES" ]]; then
     REAL_CONFIG="configs/real_word_sources.yaml"
 fi
 
-if [[ "$DATASET_MODE" != "synthetic" && "$DATASET_MODE" != "real" && "$DATASET_MODE" != "mixed" ]]; then
-    echo "ERROR: DATASET_MODE must be synthetic, real or mixed (got $DATASET_MODE)" >&2
+if [[ "$DATASET_MODE" != "synthetic" && "$DATASET_MODE" != "real" && "$DATASET_MODE" != "mixed" && "$DATASET_MODE" != "hf" ]]; then
+    echo "ERROR: DATASET_MODE must be synthetic, real, mixed or hf (got $DATASET_MODE)" >&2
     exit 2
 fi
 
@@ -74,7 +88,7 @@ if [[ ! -x .venv/bin/python ]]; then
 fi
 
 echo "Ensuring the training extra is installed into .venv..."
-uv pip install --python "$PROJECT_ROOT/.venv/bin/python" -e "$PROJECT_ROOT[train]"
+uv pip install --python "$PROJECT_ROOT/.venv/bin/python" -e "$PROJECT_ROOT[train,hf]"
 if ! uv run --no-sync python -c "import ultralytics, uharfbuzz" >/dev/null 2>&1; then
     echo "ERROR: ultralytics/uharfbuzz are not importable from .venv." >&2
     exit 1
@@ -147,6 +161,18 @@ case "$DATASET_MODE" in
         merge_args+=(--source "$SYNTH_DIR")
         echo "Merging real + synthetic word datasets into $DATASET ..."
         uv run --no-sync python scripts/build_real_word_dataset.py "${merge_args[@]}"
+        ;;
+    hf)
+        hf_args=(--repo-id "$HF_REPO" --dest "$HF_DEST" --method "$HF_METHOD")
+        if [[ -n "$HF_TOKEN" ]]; then
+            hf_args+=(--token "$HF_TOKEN")
+        fi
+        if [[ "${HF_FORCE:-0}" == "1" ]]; then
+            hf_args+=(--force)
+        fi
+        echo "Downloading $HF_REPO from the Hugging Face Hub ..."
+        uv run --no-sync python scripts/download_hf_dataset.py "${hf_args[@]}"
+        DATASET="$HF_DEST"
         ;;
 esac
 

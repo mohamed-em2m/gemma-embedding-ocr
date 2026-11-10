@@ -299,6 +299,39 @@ copies it into the dataset folder so the two cannot drift. All four upstream
 projects are CC BY 4.0, so the merged release is CC BY 4.0 and requires
 attribution to the four Roboflow authors.
 
+#### Training straight from the Hub
+
+The published dataset is
+[`mohamedemam/words-detection`](https://huggingface.co/datasets/mohamedemam/words-detection).
+One command downloads it and trains:
+
+```bash
+bash scripts/train_from_hf.sh                     # 960px, 40 epochs, device=auto
+EPOCHS=40 IMGSZ=960 BATCH=16 DEVICE=0 bash scripts/train_from_hf.sh
+HF_REPO=someone/other-dataset bash scripts/train_from_hf.sh
+```
+
+Or run the two steps separately:
+
+```bash
+make hf-dataset    # download to artifacts/words-detection
+make train-hf      # train on it
+```
+
+On Kaggle, the same thing without touching Roboflow:
+
+```bash
+!DATASET_MODE=hf bash scripts/kaggle_train_yolo_words.sh
+!DATASET_MODE=hf HF_REPO=mohamedemam/words-detection EPOCHS=60 \
+    bash scripts/kaggle_train_yolo_words.sh
+```
+
+**`git clone` caveat:** the Hub stores the images as LFS objects, so a plain
+`git clone` without `git-lfs` yields ~130-byte pointer files instead of images.
+`scripts/download_hf_dataset.py` uses the Hub client by default and refuses to
+train on pointer files. Use `--method git` only after installing `git-lfs`.
+
+
 
 #### Kaggle 2x T4
 
