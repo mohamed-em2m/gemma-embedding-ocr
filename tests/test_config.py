@@ -14,12 +14,15 @@ def test_default_config_is_valid() -> None:
     assert config.embedder.dim == 768
     assert config.recognition.backend == "hierarchical"
     assert config.detector.backend == "auto"
+    assert config.index.backend == "faiss_ivf_sq8"
+    assert config.index.nprobe == 16
 
 
 def test_load_default_yaml() -> None:
     config = load_config("configs/default.yaml")
     assert config.embedder.backend == "gemma"
     assert config.recognition.vocabulary.tokenizer_name == "google/embeddinggemma-2"
+    assert config.index.backend == "faiss_ivf_sq8"
     assert config.index.top_k == 30
     assert config.recognition.alignment.strategy == "pruned"
     assert config.recognition.alignment.max_edges_per_start == 3

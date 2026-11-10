@@ -27,6 +27,7 @@ from embedding_ocr.recognition.embedding.index import (
     FaissIndex,
     NumpyIndex,
     VectorIndex,
+    is_faiss_backend,
 )
 from embedding_ocr.recognition.embedding.prototypes import PrototypeDB
 
@@ -72,11 +73,16 @@ def build_index(
 ) -> VectorIndex:
     """Create an empty vector index from configuration."""
     backend = settings.backend.lower()
-    if backend in {"faiss", "faiss_flat_ip", "flat_ip"}:
+    if is_faiss_backend(backend):
         return FaissIndex(
             dim=dim,
             embedder_name=embedder_name,
             omp_threads=settings.omp_threads,
+            backend=backend,
+            nlist=settings.nlist,
+            nprobe=settings.nprobe,
+            quantizer_bits=settings.quantizer_bits,
+            train_size=settings.train_size,
         )
     if backend == "numpy":
         return NumpyIndex(dim=dim, embedder_name=embedder_name)
@@ -86,7 +92,7 @@ def build_index(
 
 def _load_index(settings: IndexSettings, path: Path) -> VectorIndex:
     backend = settings.backend.lower()
-    if backend in {"faiss", "faiss_flat_ip", "flat_ip"}:
+    if is_faiss_backend(backend):
         return FaissIndex.load(path)
     if backend == "numpy":
         return NumpyIndex.load(path)
@@ -153,6 +159,7 @@ def build_vocabulary(settings: AppConfig, embedder: Embedder) -> EmbeddingVocabu
         use_visual_prototypes=vocab_settings.use_visual_prototypes,
         slant_angles=vocab_settings.slant_angles,
         script=settings.recognition.script,
+        index_settings=settings.index,
     )
     vocab.extract_and_organize_tokens(
         extra_lexicon=vocab_settings.extra_lexicon,

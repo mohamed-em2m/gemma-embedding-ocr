@@ -26,7 +26,23 @@ Six distinct open-licensed fonts partitioned into Set A (Index) and Set B (Held-
 - Case-pair observation: Case distinction in isolated square-cropped glyphs (e.g. `c`/`C`, `o`/`O`, `s`/`S`, `v`/`V`, `w`/`W`, `x`/`X`, `z`/`Z`) will be measured specifically.
 
 ## 4. Vector Search
-- Index: FAISS `IndexFlatIP` (Exact Inner Product on L2-normalized embeddings = Cosine similarity).
+- Index: FAISS inner-product search on L2-normalized embeddings (cosine similarity).
+- Default: `faiss_ivf_sq8` (`IndexIVFScalarQuantizer`, `QT_8bit`, `METRIC_INNER_PRODUCT`).
+  This stores 768-d vectors in 768 bytes instead of 3072 bytes (4x smaller) and
+  uses `nlist`/`nprobe` for sub-linear search.
+- Exact baseline: `faiss_flat_ip` (`IndexFlatIP`, float32). `numpy` is the
+  dependency-free exact reference used in tests.
+- Metadata records `backend`, `index_type`, `nlist`, `nprobe`, `quantizer_bits`,
+  and `train_size`, so `FaissIndex.load()` restores the correct FAISS type.
+  Older metadata without `backend` is inferred as `flat_ip`.
+- `nlist` is clamped to roughly one centroid per 39 training vectors so small
+  character vocabularies can still train; `nprobe` is clamped to `nlist`.
+- Synthetic smoke benchmark (20k x 768d clustered vectors, 200 queries, k=10):
+  `flat_ip` 58.6 MB / 0.52 ms per query; `ivf_sq8` 16.3 MB / 0.16 ms per query
+  with exact-prototype recall@10 = 0.904 at `nprobe=16`. This measures exact
+  prototype-ID recall, not per-class max aggregation. Use `flat_ip` for
+  accuracy-critical or exact-recall runs; re-run `scripts/benchmark_index.py`
+  on the real prototype cache before relying on these numbers.
 - Metric: Top-1 and Top-5 accuracy across the 52 classes.
 
 ## 5. Generative OCR VLM Comparison (November 2026)

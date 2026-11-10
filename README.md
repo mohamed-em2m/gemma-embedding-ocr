@@ -188,7 +188,28 @@ uv run --no-sync python scripts/test_iam_handwriting.py \
 | `embedder.backend` | `gemma`, `siglip`, `jina` | Swaps the visual embedder |
 | `embedder.device` | `auto`, `cpu`, `cuda`, `cuda:N` | `auto` picks the least-used GPU |
 | `embedder.batch_size` | `0` or positive int | `0` uses tuned cache/heuristic and OOM fallback |
-| `index.backend` | `faiss`, `numpy` | Exact FAISS or NumPy reference index |
+| `index.backend` | `faiss_ivf_sq8`, `faiss_sq8`, `faiss_flat_ip`, `faiss`, `numpy` | Default is IVF + 8-bit scalar quantization (4x smaller vectors); `faiss_flat_ip` is exact float32. `numpy` is the exact reference. |
+
+FAISS quantization is configured under `index`:
+
+```yaml
+index:
+  backend: faiss_ivf_sq8   # or faiss_sq8, faiss_flat_ip, faiss, numpy
+  nlist: 1024              # requested IVF centroids (clamped for small sets)
+  nprobe: 16               # IVF lists probed per query
+  quantizer_bits: 8        # only 8 is supported
+  train_size: null         # null = train on all vectors
+```
+
+`faiss_ivf_sq8` stores each 768-d vector in 768 bytes instead of 3072 and uses
+an IVF coarse quantizer for sub-linear search. Use `faiss_flat_ip` when exact
+top-k is required, and benchmark the trade-off with:
+
+```bash
+uv run --no-sync python scripts/benchmark_index.py --n 100000 --dim 768
+uv run --no-sync python scripts/benchmark_index.py \
+    --vectors artifacts/vocab_cache/words_768d.npy --nprobe 32
+```
 
 Use `configs/baseline_paddle.yaml`, `configs/embedding_seg.yaml`, and
 `configs/embedding_align.yaml` as starting points. Detection boxes are cached

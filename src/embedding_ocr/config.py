@@ -31,11 +31,15 @@ class EmbedderSettings(_Model):
 class IndexSettings(_Model):
     """Vector index and prototype storage settings."""
 
-    backend: str = "faiss"
+    backend: str = "faiss_ivf_sq8"
     dim: int | None = None
     top_k: int = 30
     path: Path | None = None
     omp_threads: int | None = None
+    nlist: int = 1024
+    nprobe: int = 16
+    quantizer_bits: int = 8
+    train_size: int | None = None
 
 
 class DetectorSettings(_Model):

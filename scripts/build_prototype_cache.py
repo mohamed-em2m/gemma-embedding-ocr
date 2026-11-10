@@ -39,6 +39,21 @@ def parse_args() -> argparse.Namespace:
         type=Path,
         default=Path("artifacts/prototypes"),
     )
+    parser.add_argument(
+        "--index-backend",
+        default="faiss_ivf_sq8",
+        choices=["faiss_ivf_sq8", "faiss_sq8", "faiss", "faiss_flat_ip"],
+        help="FAISS storage mode; 8-bit modes shrink the saved index.",
+    )
+    parser.add_argument("--nlist", type=int, default=1024)
+    parser.add_argument("--nprobe", type=int, default=16)
+    parser.add_argument("--quantizer-bits", type=int, default=8)
+    parser.add_argument(
+        "--train-size",
+        type=int,
+        default=None,
+        help="Max vectors used to train the quantizer (default: all).",
+    )
     return parser.parse_args()
 
 
@@ -84,10 +99,19 @@ def main() -> None:
     print(f"Classes:        {total_classes} (Alphanumeric: a-z, A-Z, 0-9)")
     print(f"Total vectors:  {total_prototypes}")
     print(f"Embedding Dim:  {args.dim}d")
+    print(f"Index backend:  {args.index_backend}")
 
     # Initialize embedder and index
     embedder = EmbeddingGemma2(dim=args.dim, device=args.device, batch_size=0)
-    index = FaissIndex(dim=args.dim, embedder_name=embedder.name)
+    index = FaissIndex(
+        dim=args.dim,
+        embedder_name=embedder.name,
+        backend=args.index_backend,
+        nlist=args.nlist,
+        nprobe=args.nprobe,
+        quantizer_bits=args.quantizer_bits,
+        train_size=args.train_size,
+    )
     proto_db = PrototypeDB(embedder=embedder, index=index, classes=ALPHANUMERIC_CLASSES)
 
     t0 = time.perf_counter()

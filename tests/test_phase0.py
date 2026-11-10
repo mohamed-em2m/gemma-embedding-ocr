@@ -192,7 +192,7 @@ def test_faiss_numpy_agreement() -> None:
     np_idx.build(vecs, labels)
     np_sims, np_ids = np_idx.search(queries, k=k)
 
-    faiss_idx = FaissIndex(dim=dim)
+    faiss_idx = FaissIndex(dim=dim, backend="flat_ip")
     faiss_idx.build(vecs, labels)
     fa_sims, fa_ids = faiss_idx.search(queries, k=k)
 
@@ -215,7 +215,7 @@ def test_faiss_index_self_retrieval() -> None:
     vecs = _random_unit_vectors(n, dim)
     labels = np.arange(n)
 
-    idx = FaissIndex(dim=dim)
+    idx = FaissIndex(dim=dim, backend="flat_ip")
     idx.build(vecs, labels)
     sims, ids = idx.search(vecs, k=1)
     assert (ids[:, 0] == labels).all()

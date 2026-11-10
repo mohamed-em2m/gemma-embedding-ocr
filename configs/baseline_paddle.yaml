@@ -13,7 +13,11 @@ detector:
   box_padding: 2
 
 index:
-  backend: faiss
+  backend: faiss_ivf_sq8
+  nlist: 1024
+  nprobe: 16
+  quantizer_bits: 8
+  train_size: null
   top_k: 30
   path: artifacts/prototypes/v1
 

@@ -19,6 +19,7 @@ from pathlib import Path
 import numpy as np
 from PIL import Image, ImageDraw, ImageFont
 
+from embedding_ocr.config import IndexSettings
 from embedding_ocr.data.scripts import is_text_in_script, normalize_script_name
 from embedding_ocr.recognition.embedding.embedder import Embedder
 from embedding_ocr.recognition.embedding.index import FaissIndex, VectorIndex
@@ -158,6 +159,7 @@ class EmbeddingVocabulary:
         use_visual_prototypes: bool = False,
         slant_angles: list[float] | None = None,
         script: str = "latin",
+        index_settings: IndexSettings | None = None,
     ) -> None:
         self.embedder = embedder
         self.tokenizer_name = tokenizer_name
@@ -183,6 +185,7 @@ class EmbeddingVocabulary:
                 ]
         self.use_visual_prototypes = use_visual_prototypes
         self.slant_angles = slant_angles or [0.0]
+        self.index_settings = index_settings or IndexSettings()
 
         self.word_tokens: list[VocabToken] = []
         self.subword_tokens: list[VocabToken] = []
@@ -195,6 +198,18 @@ class EmbeddingVocabulary:
         self._word_lookup: dict[int, VocabToken] = {}
         self._subword_lookup: dict[int, VocabToken] = {}
         self._char_lookup: dict[int, VocabToken] = {}
+
+    def _new_index(self) -> FaissIndex:
+        settings = self.index_settings
+        return FaissIndex(
+            dim=self.embedder.dim,
+            omp_threads=settings.omp_threads,
+            backend=settings.backend,
+            nlist=settings.nlist,
+            nprobe=settings.nprobe,
+            quantizer_bits=settings.quantizer_bits,
+            train_size=settings.train_size,
+        )
 
     def extract_and_organize_tokens(
         self,
@@ -348,7 +363,7 @@ class EmbeddingVocabulary:
                         proto_lookup[int(v_idx_str)] = tokens[t_idx]
                     setattr(self, lookup_attr, proto_lookup)
 
-                    index = FaissIndex(dim=self.embedder.dim)
+                    index = self._new_index()
                     index.build(vectors, np.arange(len(vectors)))
                     setattr(self, attr_name, index)
                     continue
@@ -407,7 +422,7 @@ class EmbeddingVocabulary:
             meta_file.write_text(json.dumps(meta, indent=2))
 
             setattr(self, lookup_attr, active_proto_lookup)
-            index = FaissIndex(dim=self.embedder.dim)
+            index = self._new_index()
             index.build(vectors, np.arange(len(vectors)))
             setattr(self, attr_name, index)
 
