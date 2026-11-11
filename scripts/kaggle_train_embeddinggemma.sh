@@ -42,11 +42,11 @@ uv run --no-sync python scripts/build_embedding_dataset.py \
   --image-image-rows 20000 \
   "${REAL_ARGS[@]}"
 
-if ! python -c "import torch; raise SystemExit(0 if torch.cuda.is_bf16_supported() else 1)"; then
+if ! uv run --no-sync python -c "import torch; raise SystemExit(0 if torch.cuda.is_bf16_supported() else 1)"; then
   echo "T4 detected: using float32 (EmbeddingGemma 2 does not support fp16)."
 fi
 
-torchrun --standalone --nproc_per_node=2 scripts/train_embeddinggemma.py \
+uv run --no-sync torchrun --standalone --nproc_per_node=2 scripts/train_embeddinggemma.py \
   --config configs/embedding_finetune.yaml \
   --precision float32 \
   --device cuda \

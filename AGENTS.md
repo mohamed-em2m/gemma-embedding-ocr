@@ -628,7 +628,7 @@ Scope: Latin script only for now.
   uv run --no-sync python scripts/build_embedding_dataset.py \
       --fonts-dir data/google_fonts/ofl --texts data/short_texts.jsonl \
       --output artifacts/embedding_dataset
-  torchrun --standalone --nproc_per_node=2 scripts/train_embeddinggemma.py \
+  uv run --no-sync torchrun --standalone --nproc_per_node=2 scripts/train_embeddinggemma.py \
       --config configs/embedding_finetune.yaml --precision float32 --device cuda \
       --probe-batch --retune-batch --gather-across-devices
   uv run --no-sync python scripts/eval_embedding_retrieval.py \
