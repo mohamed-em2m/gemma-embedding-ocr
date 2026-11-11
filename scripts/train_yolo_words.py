@@ -7,6 +7,7 @@ before distributing trained weights or integrating this backend.
 from __future__ import annotations
 
 import argparse
+import os
 import sys
 from pathlib import Path
 
@@ -75,6 +76,8 @@ def main(argv: list[str] | None = None) -> int:
             file=sys.stderr,
         )
         return 2
+
+    os.environ["MPLBACKEND"] = "Agg"
 
     try:
         from ultralytics import YOLO  # type: ignore[import-untyped]

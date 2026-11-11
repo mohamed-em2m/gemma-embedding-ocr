@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import io
+import logging
 import random
 from collections.abc import Sequence
 from pathlib import Path
@@ -11,6 +12,7 @@ import cv2
 import numpy as np
 from PIL import Image, ImageDraw, ImageEnhance, ImageFilter, ImageFont
 
+LOGGER = logging.getLogger(__name__)
 DEFAULT_CANVAS_SIZE = 128
 FONT_CANDIDATES: tuple[str, ...] = (
     "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
@@ -48,18 +50,18 @@ def render_text(
     rng = random.Random(seed)
     font_path = str(font_path)
     chosen_size = font_size or rng.randint(28, 54)
-    font = ImageFont.truetype(font_path, chosen_size)
     image = Image.new("RGB", (canvas_size, canvas_size), "white")
     draw = ImageDraw.Draw(image)
     available = max(1, canvas_size - 2 * margin)
 
-    left, top, right, bottom = draw.textbbox((0, 0), text, font=font)
+    font, (left, top, right, bottom) = _measure_text(draw, text, font_path, chosen_size)
     width = max(1, right - left)
     height = max(1, bottom - top)
     if width > available:
         chosen_size = max(8, int(chosen_size * available / width))
-        font = ImageFont.truetype(font_path, chosen_size)
-        left, top, right, bottom = draw.textbbox((0, 0), text, font=font)
+        font, (left, top, right, bottom) = _measure_text(
+            draw, text, font_path, chosen_size
+        )
         width = max(1, right - left)
         height = max(1, bottom - top)
 
@@ -67,6 +69,33 @@ def render_text(
     y = (canvas_size - height) / 2 - top
     draw.text((x, y), text, fill="black", font=font)
     return image
+
+
+def _measure_text(
+    draw: ImageDraw.ImageDraw,
+    text: str,
+    font_path: str,
+    size: int,
+) -> tuple[ImageFont.FreeTypeFont, tuple[float, float, float, float]]:
+    """Measure text, falling back to Pillow's font for broken glyph programs."""
+    font = _load_font(font_path, size)
+    try:
+        return font, draw.textbbox((0, 0), text, font=font)
+    except OSError as exc:
+        LOGGER.warning("Font %s failed for %r: %s; using default", font_path, text, exc)
+        fallback = ImageFont.load_default(size=size)
+        return fallback, draw.textbbox((0, 0), text, font=fallback)  # type: ignore[return-value]
+
+
+def _load_font(font_path: str, size: int) -> ImageFont.FreeTypeFont:
+    """Load a font, falling back to Pillow's bundled font on broken files."""
+    try:
+        font = ImageFont.truetype(font_path, size)
+        font.getbbox("Aa0")
+        return font
+    except OSError as exc:
+        LOGGER.warning("Unusable font %s: %s; using default font", font_path, exc)
+        return ImageFont.load_default(size=size)  # type: ignore[return-value]
 
 
 def augment_image(

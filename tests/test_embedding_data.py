@@ -101,6 +101,12 @@ def test_split_font_families_requires_two() -> None:
         split_font_families([family])
 
 
+def test_render_text_falls_back_for_broken_font() -> None:
+    image = render_text("Invoice 42", "/tmp/does-not-exist.ttf", canvas_size=96, seed=0)
+    assert image.size == (96, 96)
+    assert np.asarray(image).min() < 128
+
+
 def test_render_text_shape_and_ink() -> None:
     font = resolve_default_font()
     image = render_text("Invoice 42", font, canvas_size=96, seed=0)
