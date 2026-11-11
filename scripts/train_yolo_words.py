@@ -18,6 +18,22 @@ def _positive_int(value: str) -> int:
     return parsed
 
 
+def resolve_ultralytics_device(device: str | None) -> str | None:
+    """Translate ``auto``/``cuda`` into indices accepted by Ultralytics."""
+    if device is None or device == "":
+        return None
+    value = device.strip().lower()
+    if value in {"auto", "cuda", "all"}:
+        import torch
+
+        if not torch.cuda.is_available() or torch.cuda.device_count() == 0:
+            return "cpu"
+        if value == "auto":
+            return ",".join(str(index) for index in range(torch.cuda.device_count()))
+        return "0"
+    return device
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description="Train a YOLO detector for word bounding boxes."
@@ -31,7 +47,11 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--epochs", default=100, type=_positive_int)
     parser.add_argument("--imgsz", default=1280, type=_positive_int)
     parser.add_argument("--batch", default=-1, type=int)
-    parser.add_argument("--device", default=None)
+    parser.add_argument(
+        "--device",
+        default=None,
+        help="auto uses every visible GPU; or cpu, 0, 0,1, cuda:0, etc.",
+    )
     parser.add_argument("--workers", default=4, type=int)
     parser.add_argument("--patience", default=20, type=_positive_int)
     parser.add_argument("--seed", default=42, type=int)
@@ -73,7 +93,7 @@ def main(argv: list[str] | None = None) -> int:
         "epochs": args.epochs,
         "imgsz": args.imgsz,
         "batch": args.batch,
-        "device": args.device,
+        "device": resolve_ultralytics_device(args.device),
         "workers": args.workers,
         "patience": args.patience,
         "seed": args.seed,
