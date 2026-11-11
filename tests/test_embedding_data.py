@@ -171,3 +171,61 @@ def test_build_synthetic_dataset_manifests(tmp_path: Path) -> None:
         assert all(row["split"] == "val" for row in val_rows)
         assert all(Path(str(row["positive"])).exists() for row in train_rows)
     assert (built.root / "summary.json").exists()
+
+
+def test_load_and_save_real_crops(tmp_path: Path) -> None:
+    from embedding_ocr.training.real_text_crops import (
+        load_real_crops,
+        save_real_crops,
+    )
+
+    image = Image.new("RGB", (16, 16), "white")
+    manifest = save_real_crops(
+        [(image, "Invoice 42"), (image, "   ")],
+        tmp_path / "real",
+        source="unit",
+    )
+    crops = load_real_crops(manifest)
+    assert len(crops) == 1
+    assert crops[0].text == "Invoice 42"
+    assert crops[0].source == "unit"
+    assert crops[0].image_path.exists()
+
+
+def test_builder_appends_real_rows(tmp_path: Path) -> None:
+    from embedding_ocr.training.embedding_dataset import (
+        EmbeddingDatasetConfig,
+        build_synthetic_dataset,
+        load_manifest,
+    )
+    from embedding_ocr.training.real_text_crops import RealCrop
+
+    font = Path(resolve_default_font())
+    train = [
+        FontFamily(name="train-a", paths=(font,)),
+        FontFamily(name="train-b", paths=(font,)),
+    ]
+    heldout = [FontFamily(name="heldout", paths=(font,))]
+    image = Image.new("RGB", (24, 24), "white")
+    crop_path = tmp_path / "crop.png"
+    image.save(crop_path)
+    real_crops = [RealCrop(image_path=crop_path, text="Real Invoice 42")]
+
+    built = build_synthetic_dataset(
+        make_synthetic_texts(count=10, seed=2),
+        train,
+        heldout,
+        EmbeddingDatasetConfig(
+            output_dir=tmp_path / "with-real",
+            text_image_rows=2,
+            image_image_rows=1,
+            real_rows=3,
+            val_fraction=0.0,
+            canvas_size=48,
+            augment=False,
+            seed=0,
+        ),
+        real_crops=real_crops,
+    )
+    rows = load_manifest(built.manifests["train/text_image"])
+    assert any(row["text"] == "Real Invoice 42" for row in rows)

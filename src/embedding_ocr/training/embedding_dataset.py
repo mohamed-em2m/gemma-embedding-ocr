@@ -9,7 +9,10 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
+from PIL import Image
+
 from embedding_ocr.training.fonts import FontFamily, iter_font_paths
+from embedding_ocr.training.real_text_crops import RealCrop
 from embedding_ocr.training.render import augment_image, render_text
 from embedding_ocr.training.short_texts import TextSample, hard_negative
 
@@ -23,6 +26,7 @@ class EmbeddingDatasetConfig:
     output_dir: Path
     text_image_rows: int = 60_000
     image_image_rows: int = 20_000
+    real_rows: int = 0
     val_fraction: float = 0.05
     canvas_size: int = 128
     augment: bool = True
@@ -43,6 +47,7 @@ def build_synthetic_dataset(
     train_fonts: Sequence[FontFamily],
     heldout_fonts: Sequence[FontFamily],
     config: EmbeddingDatasetConfig,
+    real_crops: Sequence[RealCrop] = (),
 ) -> BuiltDataset:
     """Render synthetic triplets and write manifests + PNG files.
 
@@ -60,6 +65,10 @@ def build_synthetic_dataset(
         raise ValueError(msg)
     if not 0 <= config.val_fraction < 1:
         msg = f"val_fraction must be in [0, 1), got {config.val_fraction}"
+        raise ValueError(msg)
+
+    if config.real_rows and not real_crops:
+        msg = "real_rows > 0 requires real_crops."
         raise ValueError(msg)
 
     rng = random.Random(config.seed)
@@ -99,6 +108,21 @@ def build_synthetic_dataset(
             )
             rows[mode].append(row)
 
+    real_root = train_root
+    for index in range(config.real_rows):
+        crop = rng.choice(real_crops)
+        negative_text = hard_negative(crop.text, lexicon, rng=rng)
+        row = _render_real_row(
+            crop=crop,
+            negative_text=negative_text,
+            fonts=train_paths,
+            output_root=real_root,
+            index=index,
+            config=config,
+            rng=rng,
+        )
+        rows["text_image"].append(row)
+
     manifests: dict[str, Path] = {}
     for mode in MODES:
         path = train_root / f"{mode}.jsonl"
@@ -124,6 +148,7 @@ def build_synthetic_dataset(
         "config": {
             "text_image_rows": config.text_image_rows,
             "image_image_rows": config.image_image_rows,
+            "real_rows": config.real_rows,
             "val_fraction": config.val_fraction,
             "canvas_size": config.canvas_size,
             "augment": config.augment,
@@ -219,6 +244,58 @@ def _render_row(
         "mode": mode,
         "split": split,
         "font": positive_font,
+    }
+
+
+def _render_real_row(
+    *,
+    crop: RealCrop,
+    negative_text: str,
+    fonts: Sequence[str],
+    output_root: Path,
+    index: int,
+    config: EmbeddingDatasetConfig,
+    rng: random.Random,
+) -> dict[str, object]:
+    image_dir = output_root / "images"
+    image_dir.mkdir(parents=True, exist_ok=True)
+    row_id = hashlib.sha1(
+        f"real|{index}|{crop.text_id}|{crop.image_path}".encode()
+    ).hexdigest()[:16]
+    positive = Image.open(crop.image_path).convert("RGB")
+    positive = positive.resize((config.canvas_size, config.canvas_size))
+    if config.augment:
+        positive = augment_image(
+            positive, hard=True, rng=random.Random(rng.randrange(1_000_000))
+        )
+    positive_path = image_dir / f"{row_id}_positive.png"
+    positive.save(positive_path)
+
+    negative_font = rng.choice(fonts)
+    negative = render_text(
+        negative_text,
+        negative_font,
+        canvas_size=config.canvas_size,
+        seed=rng.randrange(1_000_000),
+    )
+    if config.augment:
+        negative = augment_image(
+            negative, hard=True, rng=random.Random(rng.randrange(1_000_000))
+        )
+    negative_path = image_dir / f"{row_id}_negative.png"
+    negative.save(negative_path)
+    return {
+        "id": row_id,
+        "anchor": crop.text,
+        "anchor_path": None,
+        "positive": str(positive_path),
+        "negative": str(negative_path),
+        "text": crop.text,
+        "negative_text": negative_text,
+        "text_id": crop.text_id,
+        "mode": "text_image",
+        "split": "train",
+        "font": crop.source,
     }
 
 
