@@ -35,6 +35,7 @@ from embedding_ocr.training.sampler import (
 )
 from embedding_ocr.utils.gpu import resolve_device
 
+_REPO_ROOT = Path(__file__).resolve().parents[1]
 LOGGER = logging.getLogger("train_embeddinggemma")
 MODES = ("text_image", "image_image")
 
@@ -52,11 +53,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--dataset",
         type=Path,
-        default=Path("artifacts/embedding_dataset"),
+        default=_REPO_ROOT / "artifacts/embedding_dataset",
         help="Directory produced by scripts/build_embedding_dataset.py.",
     )
     parser.add_argument(
-        "--output", type=Path, default=Path("artifacts/embeddinggemma-ocr")
+        "--output", type=Path, default=_REPO_ROOT / "artifacts/embeddinggemma-ocr"
     )
     parser.add_argument("--device", default="auto")
     parser.add_argument(

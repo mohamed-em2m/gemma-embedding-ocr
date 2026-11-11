@@ -19,6 +19,7 @@ from embedding_ocr.eval.retrieval import (
 from embedding_ocr.recognition.embedding.embedder import EmbeddingGemma2
 from embedding_ocr.training.embedding_dataset import load_manifest
 
+_REPO_ROOT = Path(__file__).resolve().parents[1]
 LOGGER = logging.getLogger("eval_embedding_retrieval")
 MODES = ("text_image", "image_image")
 
@@ -27,7 +28,7 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--model-id", default="google/embeddinggemma-2")
     parser.add_argument(
-        "--dataset", type=Path, default=Path("artifacts/embedding_dataset")
+        "--dataset", type=Path, default=_REPO_ROOT / "artifacts/embedding_dataset"
     )
     parser.add_argument("--split", default="val")
     parser.add_argument("--dim", type=int, default=768)
@@ -36,7 +37,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--prompt-name", default="Document")
     parser.add_argument("--limit", type=int, default=1000)
     parser.add_argument(
-        "--output", type=Path, default=Path("artifacts/retrieval_metrics.json")
+        "--output", type=Path, default=_REPO_ROOT / "artifacts/retrieval_metrics.json"
     )
     return parser.parse_args()
 

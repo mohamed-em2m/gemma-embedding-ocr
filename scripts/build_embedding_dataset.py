@@ -23,15 +23,20 @@ from embedding_ocr.training.short_texts import (
     make_synthetic_texts,
 )
 
+_REPO_ROOT = Path(__file__).resolve().parents[1]
 LOGGER = logging.getLogger("build_embedding_dataset")
 
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--fonts-dir", type=Path, default=Path("data/google_fonts/ofl"))
-    parser.add_argument("--texts", type=Path, default=Path("data/short_texts.jsonl"))
     parser.add_argument(
-        "--output", type=Path, default=Path("artifacts/embedding_dataset")
+        "--fonts-dir", type=Path, default=_REPO_ROOT / "data/google_fonts/ofl"
+    )
+    parser.add_argument(
+        "--texts", type=Path, default=_REPO_ROOT / "data/short_texts.jsonl"
+    )
+    parser.add_argument(
+        "--output", type=Path, default=_REPO_ROOT / "artifacts/embedding_dataset"
     )
     parser.add_argument("--text-image-rows", type=int, default=60_000)
     parser.add_argument("--image-image-rows", type=int, default=20_000)

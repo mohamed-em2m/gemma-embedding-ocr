@@ -4,7 +4,7 @@ set -euo pipefail
 # Run from the repository root on a Kaggle 2x T4 session.
 # This script never runs `uv sync`; it installs into the existing environment.
 
-REPO_ROOT="${REPO_ROOT:-$(pwd)}"
+REPO_ROOT="${REPO_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
 VENV_PY="${VENV_PY:-$REPO_ROOT/.venv/bin/python}"
 TEXTS="${TEXTS:-$REPO_ROOT/data/short_texts.jsonl}"
 FONTS="${FONTS:-$REPO_ROOT/data/google_fonts/ofl}"
