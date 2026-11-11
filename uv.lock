@@ -1862,13 +1862,13 @@ experiments = [
     { name = "datasets" },
     { name = "qwen-vl-utils" },
 ]
+faiss-gpu = [
+    { name = "faiss-gpu-cu12" },
+]
 finetune = [
     { name = "accelerate" },
     { name = "datasets" },
     { name = "xxhash" },
-]
-faiss-gpu = [
-    { name = "faiss-gpu-cu12" },
 ]
 hf = [
     { name = "huggingface-hub" },
@@ -1910,10 +1910,12 @@ notebooks = [
 [package.metadata]
 requires-dist = [
     { name = "accelerate", marker = "extra == 'experiments'", specifier = ">=1.15.0" },
+    { name = "accelerate", marker = "extra == 'finetune'", specifier = ">=1.15.0" },
     { name = "addict", marker = "extra == 'dtlr'", specifier = ">=2.4.0" },
     { name = "arabic-reshaper", marker = "extra == 'arabic'" },
     { name = "craft-text-detector", marker = "extra == 'craft'" },
     { name = "datasets", marker = "extra == 'experiments'", specifier = ">=5.1.0" },
+    { name = "datasets", marker = "extra == 'finetune'", specifier = ">=5.1.0" },
     { name = "easyocr", marker = "extra == 'easyocr'", specifier = ">=1.7.2" },
     { name = "faiss-cpu", specifier = ">=1.8" },
     { name = "faiss-gpu-cu12", marker = "extra == 'faiss-gpu'" },
@@ -1947,9 +1949,10 @@ requires-dist = [
     { name = "typer" },
     { name = "uharfbuzz", marker = "extra == 'train'", specifier = ">=0.37.0" },
     { name = "ultralytics", marker = "extra == 'train'", specifier = ">=8.3.0" },
+    { name = "xxhash", marker = "extra == 'finetune'", specifier = ">=0.8.0" },
     { name = "yapf", marker = "extra == 'dtlr'", specifier = ">=0.40.0" },
 ]
-provides-extras = ["baseline", "tesseract", "easyocr", "experiments", "faiss-gpu", "surya", "jina", "siglip", "dtlr", "craft", "arabic", "train", "roboflow", "hf", "ui"]
+provides-extras = ["baseline", "tesseract", "easyocr", "experiments", "finetune", "faiss-gpu", "surya", "jina", "siglip", "dtlr", "craft", "arabic", "train", "roboflow", "hf", "ui"]
 
 [package.metadata.requires-dev]
 dev = [
