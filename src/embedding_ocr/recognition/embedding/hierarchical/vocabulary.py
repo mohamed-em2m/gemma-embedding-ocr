@@ -328,21 +328,30 @@ class EmbeddingVocabulary:
         ]
 
         # Signature hash to identify visual font configurations. The script is
-        # part of the tag so Arabic and Latin caches never collide.
+        # part of the tag so Arabic and Latin caches never collide. The embedder
+        # tag includes the model, prompt, tokenizer, and dimension so fine-tuned
+        # checkpoints never reuse base-model vectors.
         mode_tag = f"{'visual' if self.use_visual_prototypes else 'text'}_{self.script}"
         fonts_hash = hashlib.md5(
             "".join(self.prototype_fonts + [str(s) for s in self.slant_angles]).encode()
         ).hexdigest()[:8]
+        embedder_tag = hashlib.md5(
+            (
+                f"{self.embedder.name}|{self.embedder.dim}|"
+                f"{getattr(self.embedder, 'prompt_name', '')}|"
+                f"{self.tokenizer_name}"
+            ).encode()
+        ).hexdigest()[:8]
 
         for cat_name, tokens, attr_name, lookup_attr in categories:
-            emb_file = (
-                self.cache_dir
-                / f"{cat_name}_{mode_tag}_{fonts_hash}_{self.embedder.dim}d.npy"
+            base = (
+                f"{cat_name}_{mode_tag}_{fonts_hash}_{embedder_tag}_"
+                f"{self.embedder.dim}d"
             )
-            meta_file = self.cache_dir / f"{cat_name}_{mode_tag}_{fonts_hash}_meta.json"
-            mapping_file = (
-                self.cache_dir / f"{cat_name}_{mode_tag}_{fonts_hash}_map.json"
-            )
+            emb_file = self.cache_dir / f"{base}.npy"
+            meta_file = self.cache_dir / f"{base}_meta.json"
+            mapping_file = self.cache_dir / f"{base}_map.json"
+            identity_file = self.cache_dir / f"{base}_embedder.json"
 
             if (
                 not force_recompute
@@ -420,6 +429,20 @@ class EmbeddingVocabulary:
                 for t in tokens
             ]
             meta_file.write_text(json.dumps(meta, indent=2))
+            identity_file.write_text(
+                json.dumps(
+                    {
+                        "embedder": self.embedder.name,
+                        "dim": self.embedder.dim,
+                        "prompt_name": getattr(self.embedder, "prompt_name", None),
+                        "tokenizer": self.tokenizer_name,
+                        "visual_prototypes": self.use_visual_prototypes,
+                        "fonts": self.prototype_fonts,
+                        "slant_angles": self.slant_angles,
+                    },
+                    indent=2,
+                )
+            )
 
             setattr(self, lookup_attr, active_proto_lookup)
             index = self._new_index()

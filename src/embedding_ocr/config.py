@@ -26,6 +26,8 @@ class EmbedderSettings(_Model):
     device: str = "auto"
     dtype: str = "float32"
     batch_size: int = 0
+    prompt_name: str = "Document"
+    load_audio: bool = False
 
 
 class IndexSettings(_Model):

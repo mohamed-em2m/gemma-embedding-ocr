@@ -5,6 +5,7 @@ from __future__ import annotations
 from types import SimpleNamespace
 
 import numpy as np
+import pytest
 import torch
 
 from embedding_ocr.config import AppConfig
@@ -13,6 +14,7 @@ from embedding_ocr.recognition.embedding.embedder import (
     _ensure_default_rope_init,
     _feature_tensor,
     _patch_jina_remote_code,
+    _resolve_model_dtype,
     _to_numpy,
     _truncate_and_normalize,
 )
@@ -31,6 +33,17 @@ def test_truncate_and_normalize_shape_and_norm() -> None:
     assert result.shape == (3, 8)
     norms = np.linalg.norm(result, axis=1)
     np.testing.assert_allclose(norms, 1.0, atol=1e-6)
+
+
+def test_resolve_model_dtype_cpu_defaults_to_float32() -> None:
+    assert _resolve_model_dtype("auto", "cpu") == torch.float32
+    assert _resolve_model_dtype("float32", "cpu") == torch.float32
+    assert _resolve_model_dtype("bf16", "cpu") == torch.float32
+
+
+def test_resolve_model_dtype_rejects_float16() -> None:
+    with pytest.raises(ValueError, match="float16"):
+        _resolve_model_dtype("float16", "cuda")
 
 
 def test_truncate_and_normalize_preserves_full_dim() -> None:

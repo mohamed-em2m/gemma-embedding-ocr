@@ -185,6 +185,7 @@ def recommend_batch_size(
     *,
     model_id: str | None = None,
     dim: int | None = None,
+    precision: str | None = None,
     cache_path: Path = DEFAULT_TUNING_PATH,
     fallback: int = DEFAULT_BATCH_SIZE,
     max_batch: int = MAX_BATCH_SIZE,
@@ -197,6 +198,7 @@ def recommend_batch_size(
         device,
         model_id=model_id,
         dim=dim,
+        precision=precision,
         cache_path=cache_path,
         max_batch=max_batch,
     )
@@ -215,12 +217,13 @@ def get_cached_batch_size(
     *,
     model_id: str | None = None,
     dim: int | None = None,
+    precision: str | None = None,
     cache_path: Path = DEFAULT_TUNING_PATH,
     max_batch: int = MAX_BATCH_SIZE,
 ) -> int | None:
     """Return a matching cached batch size, or ``None`` when unavailable."""
     cached = load_tuning_cache(cache_path)
-    if not cached or not _cache_matches(cached, device, model_id, dim):
+    if not cached or not _cache_matches(cached, device, model_id, dim, precision):
         return None
     try:
         return max(1, min(int(cached["batch_size"]), max_batch))
@@ -245,6 +248,7 @@ def _cache_matches(
     device: str,
     model_id: str | None,
     dim: int | None,
+    precision: str | None,
 ) -> bool:
     cached_device = str(cached.get("device", ""))
     if (
@@ -255,7 +259,11 @@ def _cache_matches(
         return False
     if model_id is not None and cached.get("model_id") not in (None, model_id):
         return False
-    return not (dim is not None and cached.get("dim") not in (None, dim))
+    if dim is not None and cached.get("dim") not in (None, dim):
+        return False
+    return not (
+        precision is not None and cached.get("precision") not in (None, precision)
+    )
 
 
 def load_tuning_cache(path: Path = DEFAULT_TUNING_PATH) -> dict[str, Any] | None:

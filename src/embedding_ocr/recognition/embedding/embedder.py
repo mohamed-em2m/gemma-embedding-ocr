@@ -35,6 +35,34 @@ from embedding_ocr.utils.gpu import (
 _LOGGER = logging.getLogger(__name__)
 
 
+def _resolve_model_dtype(dtype: str, device: str) -> torch.dtype:
+    """Resolve a configured dtype for the active device.
+
+    EmbeddingGemma 2 is incompatible with float16. T4-class devices do not
+    support bfloat16, so ``auto`` falls back to float32 there.
+    """
+    requested = dtype.lower()
+    if requested in {"auto", ""}:
+        if device.startswith("cuda") and torch.cuda.is_bf16_supported():
+            return torch.bfloat16
+        return torch.float32
+    if requested in {"float32", "fp32"}:
+        return torch.float32
+    if requested in {"bfloat16", "bf16"}:
+        if not device.startswith("cuda") or not torch.cuda.is_bf16_supported():
+            _LOGGER.warning(
+                "bfloat16 was requested but is not supported on %s; using float32.",
+                device,
+            )
+            return torch.float32
+        return torch.bfloat16
+    if requested in {"float16", "fp16"}:
+        msg = "EmbeddingGemma 2 is incompatible with float16; use float32 or bfloat16."
+        raise ValueError(msg)
+    msg = f"Unsupported dtype {dtype!r}; use auto, float32, or bfloat16."
+    raise ValueError(msg)
+
+
 @runtime_checkable
 class Embedder(Protocol):
     """Protocol for all embedding backends.
@@ -84,6 +112,7 @@ class EmbeddingGemma2:
     """
 
     name: str = "google/embeddinggemma-2"
+    prompt_name: str = "Document"
 
     def __init__(
         self,
@@ -92,6 +121,9 @@ class EmbeddingGemma2:
         batch_size: int = AUTO_BATCH_SIZE,
         dtype: str = "float32",
         auto_oom_fallback: bool = True,
+        model_id: str | None = None,
+        prompt_name: str = "Document",
+        load_audio: bool = False,
     ) -> None:
         """Initialise the EmbeddingGemma2 backend.
 
@@ -102,38 +134,58 @@ class EmbeddingGemma2:
                 are respected.
             batch_size: Images/texts per forward pass. ``0`` auto-selects from
                 the tuned cache or free-memory heuristics, with OOM fallback.
-            dtype: Weight dtype. ``bfloat16`` is used on GPU automatically.
+            dtype: Weight dtype. ``auto`` selects bfloat16 only when the device
+                supports it, otherwise float32. T4 devices use float32.
             auto_oom_fallback: Halve the batch and retry on CUDA OOM.
+            model_id: Hugging Face model ID or local fine-tuned checkpoint.
+            prompt_name: Text prompt registered in the Sentence Transformers
+                model. Images are always encoded without a prompt.
+            load_audio: Load the audio encoder. Disabled by default to save
+                memory for text/image OCR work.
         """
         if dim not in (768, 512, 256, 128):
             msg = f"dim must be one of 768, 512, 256, 128; got {dim}"
             raise ValueError(msg)
 
         self.dim = dim
+        self.name = model_id or self.name
+        self.prompt_name = prompt_name
         self._cache: dict[bytes, np.ndarray] = {}
         self._device = resolve_device(device)
         self._auto_oom_fallback = auto_oom_fallback
+        self._dtype = _resolve_model_dtype(dtype, self._device)
 
         # Lazy import to avoid requiring ST at module import time
         from sentence_transformers import (
             SentenceTransformer,  # type: ignore[import-untyped]
         )
 
-        model_kwargs: dict[str, object] = {}
+        model_kwargs: dict[str, object] = {"torch_dtype": self._dtype}
         if self._device.startswith("cuda"):
-            model_kwargs["torch_dtype"] = torch.bfloat16
             torch.cuda.set_device(torch.device(self._device))
+        config_kwargs: dict[str, object] = {} if load_audio else {"audio_config": None}
 
         self._model = SentenceTransformer(
             self.name,
             model_kwargs=model_kwargs,
+            config_kwargs=config_kwargs,
             device=self._device,
         )
+        if not hasattr(self._model, "prompts") or (
+            self.prompt_name not in self._model.prompts
+        ):
+            _LOGGER.warning(
+                "Prompt %r is not registered on %s; text inputs will be "
+                "encoded without a prompt.",
+                self.prompt_name,
+                self.name,
+            )
         if batch_size <= AUTO_BATCH_SIZE:
             cached = get_cached_batch_size(
                 self._device,
                 model_id=self.name,
                 dim=self.dim,
+                precision=str(self._dtype).removeprefix("torch."),
             )
             self.batch_size = (
                 cached
@@ -142,13 +194,16 @@ class EmbeddingGemma2:
                     self._device,
                     model_id=self.name,
                     dim=self.dim,
+                    precision=str(self._dtype).removeprefix("torch."),
                 )
             )
         else:
             self.batch_size = max(1, batch_size)
         _LOGGER.info(
-            "EmbeddingGemma2 device=%s batch_size=%d",
+            "EmbeddingGemma2 model=%s device=%s dtype=%s batch_size=%d",
+            self.name,
             self._device,
+            str(self._dtype).removeprefix("torch."),
             self.batch_size,
         )
 
@@ -198,8 +253,12 @@ class EmbeddingGemma2:
         return np.array(results, dtype=np.float32)
 
     def embed_texts(self, texts: list[str]) -> np.ndarray:
-        """Embed a list of text strings using the 'Document' task prefix."""
-        return self._encode(texts, prompt_name="Document")
+        """Embed texts with the configured task prefix."""
+        if not hasattr(self._model, "prompts") or (
+            self.prompt_name not in self._model.prompts
+        ):
+            return self._encode(texts)
+        return self._encode(texts, prompt_name=self.prompt_name)
 
     def _encode(self, inputs: list[Any], **kwargs: Any) -> np.ndarray:
         """Encode a batch, halving the batch size on CUDA OOM."""

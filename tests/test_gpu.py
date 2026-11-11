@@ -106,6 +106,30 @@ def test_get_cached_batch_size_rejects_other_model(tmp_path: Path) -> None:
     )
 
 
+def test_get_cached_batch_size_rejects_other_precision(tmp_path: Path) -> None:
+    path = tmp_path / "gpu_tuning.json"
+    save_tuning_cache(
+        path,
+        {
+            "device": "cuda:0",
+            "model_id": "google/embeddinggemma-2",
+            "dim": 768,
+            "precision": "bfloat16",
+            "batch_size": 12,
+        },
+    )
+    assert (
+        get_cached_batch_size(
+            "cuda:0",
+            model_id="google/embeddinggemma-2",
+            dim=768,
+            precision="float32",
+            cache_path=path,
+        )
+        is None
+    )
+
+
 def test_recommend_batch_size_heuristic(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(
         "embedding_ocr.utils.gpu.query_gpus",

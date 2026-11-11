@@ -43,6 +43,9 @@ def build_embedder(settings: EmbedderSettings) -> Embedder:
             device=settings.device,
             batch_size=settings.batch_size,
             dtype=settings.dtype,
+            model_id=settings.model_id,
+            prompt_name=settings.prompt_name,
+            load_audio=settings.load_audio,
         )
     if backend == "siglip":
         from embedding_ocr.recognition.embedding.embedder import SiglipEmbedder

@@ -1862,6 +1862,11 @@ experiments = [
     { name = "datasets" },
     { name = "qwen-vl-utils" },
 ]
+finetune = [
+    { name = "accelerate" },
+    { name = "datasets" },
+    { name = "xxhash" },
+]
 faiss-gpu = [
     { name = "faiss-gpu-cu12" },
 ]
