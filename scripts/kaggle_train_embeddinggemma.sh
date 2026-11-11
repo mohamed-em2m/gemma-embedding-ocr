@@ -57,3 +57,10 @@ torchrun --standalone --nproc_per_node=2 scripts/train_embeddinggemma.py \
   --eval-batch-size 4 \
   --gradient-accumulation-steps 4 \
   --dataloader-workers 2
+
+uv run --no-sync python scripts/eval_embedding_retrieval.py \
+  --model-id "$REPO_ROOT/artifacts/embeddinggemma-ocr/final" \
+  --dataset "$DATASET" \
+  --device cuda \
+  --dtype float32 \
+  --output "$REPO_ROOT/artifacts/retrieval_metrics.json"

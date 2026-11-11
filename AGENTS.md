@@ -610,10 +610,32 @@ Scope: Latin script only for now.
 
 ---
 
-## 13. Current Session State & Resumption Guide (IAM Handwriting & Solution 1)
+## 13. Current Session State & Resumption Guide (Full Fine-Tune + IAM Baseline)
 
 ### Status
-- **Current Experiment**: Solution 1 (Multi-font visual prototypes for handwriting recognition on IAM words).
+- **Active work**: Full fine-tune of `google/embeddinggemma-2` with Sentence Transformers.
+  - User-selected data mix: 60% synthetic text→image, 20% synthetic image→image, 20% real OCR crops (fill the real share with `--real-rows`; until then the synthetic manifests are 80/20).
+  - Latin words only; 15% Google Fonts families held out for validation.
+  - Kaggle 2x T4, fp32 full fine-tune (T4 has no usable bf16; never use fp16).
+  - Pretrained code is wired: `EmbeddingGemma2(model_id=..., prompt_name=..., load_audio=False)` and `EmbedderSettings.model_id/prompt_name/load_audio`.
+  - Vocabulary caches include an embedder identity tag, so base and fine-tuned vectors cannot collide.
+  - Automatic batch ramp-up lives in `src/embedding_ocr/training/batch_probe.py`; training uses `--probe-batch --retune-batch`.
+- **Fine-tune commands**:
+  ```bash
+  uv pip install --python .venv/bin/python -e ".[finetune]"
+  uv run --no-sync python scripts/download_google_fonts.py --output data/google_fonts
+  uv run --no-sync python scripts/sample_short_texts.py --output data/short_texts.jsonl
+  uv run --no-sync python scripts/build_embedding_dataset.py \
+      --fonts-dir data/google_fonts/ofl --texts data/short_texts.jsonl \
+      --output artifacts/embedding_dataset
+  torchrun --standalone --nproc_per_node=2 scripts/train_embeddinggemma.py \
+      --config configs/embedding_finetune.yaml --precision float32 --device cuda \
+      --probe-batch --retune-batch --gather-across-devices
+  uv run --no-sync python scripts/eval_embedding_retrieval.py \
+      --model-id artifacts/embeddinggemma-ocr/final --device cuda --dtype float32
+  ```
+- **Real crops**: use `scripts/import_real_crops.py --dataset <verified-id> --image-column ... --text-column ...`; dataset IDs are intentionally not guessed.
+- **Earlier IAM visual-prototype work** (still available):
 - **Installed Handwriting Fonts**:
   - `fonts-dancingscript`, `fonts-kaushanscript`, `fonts-kristi`, `fonts-sjfonts` via apt.
 - **Cache Location**:
@@ -629,5 +651,5 @@ Scope: Latin script only for now.
       --max-subwords 100
   ```
 - **Primary Metric**: **Normalized CER** (`jiwer.cer([normalize_text(t) for t in gts], [normalize_text(t) for t in preds])`) — lowercase and whitespace-trimmed.
-- **Active Plan**: Refer to `PLAN.md` for complete roadmap and next steps (Solution 2: Deslanting/Otsu preprocessing, Solution 3: LoRA contrastive fine-tuning).
+- **Active Plan**: Finish the full fine-tune + held-out-font retrieval evaluation first. Keep the earlier IAM visual-prototype commands as a baseline; fall back to Solution 2/3 only if fine-tuning does not clear the decision gate.
 

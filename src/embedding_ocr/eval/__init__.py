@@ -23,6 +23,11 @@ from embedding_ocr.eval.metrics import (
     normalize_text,
     word_error_rate,
 )
+from embedding_ocr.eval.retrieval import (
+    case_pair_report,
+    predictions_from_retrieval,
+    retrieval_metrics,
+)
 
 __all__ = [
     "BenchmarkSample",
@@ -30,6 +35,7 @@ __all__ = [
     "DetectionSample",
     "aggregate_metrics",
     "box_iou",
+    "case_pair_report",
     "character_error_rate",
     "detection_metrics",
     "load_detection_annotations",
@@ -38,7 +44,9 @@ __all__ = [
     "evaluate",
     "exact_match",
     "normalize_text",
+    "predictions_from_retrieval",
     "read_manifest",
+    "retrieval_metrics",
     "run_benchmark",
     "word_error_rate",
     "write_report",
