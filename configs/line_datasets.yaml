@@ -1,0 +1,24 @@
+# Line-level OCR corpora for the CTC recognizer.
+#
+# `script` forces a script; drop it to detect the script per line. The
+# Kaggle KHATT export is intentionally absent: its schema is unverified, so it
+# is inspected first with
+#   uv run --no-sync python scripts/prepare_line_datasets.py --inspect-local <dir>
+output: artifacts/lines
+filters:
+  min_chars: 1
+  max_chars: 96
+  max_aspect: 40.0
+  min_side: 8
+  image_height: 32
+  width_stride: 2
+normalization:
+  strip_diacritics: true
+  fold_alefs: true
+sources:
+  - name: iam_line
+    hf_id: Teklia/IAM-line
+    script: latin
+  - name: khatt
+    hf_id: Teklia/KHATT_v1.0
+    script: arabic

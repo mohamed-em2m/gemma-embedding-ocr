@@ -337,3 +337,41 @@ Kaggle word-detector training (2026-11-10):
   copy `best.pt` to a Kaggle dataset before the 12-hour session ends.
 - If T4 memory is tight, lower `BATCH` to 24 or `IMGSZ` to 1024; keep the same
   `IMGSZ` at inference in `configs/yolo_words.yaml`.
+
+## CTC line recognizer (branch `feat/ctc-ocr`)
+
+Data sources (checked 2026-11-12):
+- `Teklia/IAM-line` (English handwriting, line image + text): 6482/976/2915.
+  The split is named `validation`, not `val`; the loader maps split aliases.
+- `Teklia/KHATT_v1.0` (Arabic handwriting, same schema): 4672/963/1038.
+- `staghado/Bentham` was proposed but is **not** the Bentham corpus: it is a
+  text-only config with 24 rows and no images. Bentham lines require the
+  registered official distribution, so Bentham is deferred.
+- `nizarcharrada/khattarabic` (Kaggle) needs credentials and its schema is
+  unverified. `scripts/prepare_line_datasets.py --inspect-local` prints the
+  tree and label-file samples before any import; no schema is guessed.
+
+Text normalization (recorded because it sets the CER ceiling):
+- NFKC, which folds Arabic presentation forms to base letters.
+- Zero-width/bidi controls removed; whitespace collapsed.
+- Arabic harakat/Quranic marks and tatweel stripped.
+- Alef variants `أ إ آ ٱ ٲ ٳ ٵ` folded to `ا`.
+- `ة/ه`, `ى/ي`, `ء/ؤ/ئ` stay distinct.
+- Latin case is preserved; CER is reported case-sensitive with a
+  case-insensitive secondary number.
+
+Charset:
+- Built from the train split only, sorted by code point, blank at index 0.
+- Val/test rows containing out-of-vocabulary characters are dropped and
+  counted in `totals.coverage_dropped`, never silently mapped.
+
+Encoder time axis:
+- The CTC constraint `T >= 2L - 1` is enforced at manifest time via
+  `FilterConfig.image_height` and `FilterConfig.width_stride`.
+- Measured on 400 KHATT train lines: at height 32, width stride 4 (classic
+  CRNN) is feasible for only 37.5% of lines, stride 2 for 84.8%. IAM is
+  89.5% / 100.0% respectively. The encoder must therefore downsample width
+  by 2, not 4.
+- KHATT labels are long (median 62 chars, p90 78, max 94); IAM median is 42.
+  Long KHATT lines are dropped as `ctc_infeasible` rather than trained with a
+  mis-aligned label.
