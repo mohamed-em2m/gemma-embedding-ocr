@@ -152,6 +152,8 @@ def _kaggle_download(dataset_id: str, destination: Path) -> Path:
 
 def main() -> None:
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
+    for noisy in ("httpx", "httpcore", "urllib3", "datasets", "filelock"):
+        logging.getLogger(noisy).setLevel(logging.WARNING)
     args = parse_args()
 
     if args.kaggle_download:
