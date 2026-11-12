@@ -24,7 +24,7 @@ SOURCES: dict[str, tuple[str, str | None, str, str]] = {
     "wikipedia": ("wikimedia/wikipedia", "20231101.en", "train", "text"),
     "fineweb-edu": ("HuggingFaceFW/fineweb-edu", "sample-10BT", "train", "text"),
     "c4": ("allenai/c4", "en", "train", "text"),
-    "cc100": ("facebook/cc100", "en", "train", "text"),
+    "fineweb": ("HuggingFaceFW/fineweb", "sample-10BT", "train", "text"),
 }
 
 
@@ -53,7 +53,7 @@ def main() -> None:
     args = parse_args()
     if args.per_source < 1:
         raise SystemExit("--per-source must be positive")
-    sources = args.source or ["wikipedia", "fineweb-edu", "c4", "cc100"]
+    sources = args.source or ["wikipedia", "fineweb-edu", "c4", "fineweb"]
     rng = random.Random(args.seed)
     samples: list[TextSample] = []
     seen: set[str] = set()

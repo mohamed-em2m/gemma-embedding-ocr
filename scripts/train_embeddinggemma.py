@@ -153,12 +153,14 @@ def main() -> None:
             "Prompt %r is not registered; text anchors use no prompt", args.prompt_name
         )
 
+    # Keyed by DatasetDict entry so the trainer can inject ``dataset_name``.
+    prompts = {
+        "text_image": {"anchor": prompt} if prompt else {},
+        "image_image": {},
+    }
     train_collator = OcrDataCollator(
         preprocess_fn=model.preprocess,
-        prompts={
-            "text_image": {"anchor": prompt} if prompt else {},
-            "image_image": {},
-        },
+        prompts=prompts,
     )
     batch_size = args.batch_size
     if args.probe_batch:
@@ -217,6 +219,7 @@ def main() -> None:
         remove_unused_columns=False,
         report_to="none",
         seed=args.seed,
+        prompts=prompts,
         batch_sampler=UniqueTextBatchSampler,
         multi_dataset_batch_sampler=MultiDatasetBatchSamplers.PROPORTIONAL,
     )
@@ -338,7 +341,7 @@ def _init_distributed(device: str) -> None:
 
 def _resolve_dtype(precision: str, device: str) -> torch.dtype:
     if precision == "bfloat16":
-        if not device.startswith("cuda") or not torch.cuda.is_bf16_supported():
+        if not _bf16_available(device):
             msg = (
                 "bfloat16 requires a CUDA device with bf16 support; use float32 on T4."
             )
@@ -346,9 +349,25 @@ def _resolve_dtype(precision: str, device: str) -> torch.dtype:
         return torch.bfloat16
     if precision == "float32":
         return torch.float32
-    if device.startswith("cuda") and torch.cuda.is_bf16_supported():
+    if _bf16_available(device):
         return torch.bfloat16
     return torch.float32
+
+
+def _bf16_available(device: str) -> bool:
+    """Return whether the device has native bfloat16 kernels.
+
+    ``torch.cuda.is_bf16_supported()`` can report True on Turing (compute
+    capability 7.5, e.g. T4) where bf16 falls back to slow emulation.
+    """
+    if not device.startswith("cuda") or not torch.cuda.is_available():
+        return False
+    index = int(device.split(":", 1)[1]) if ":" in device else 0
+    try:
+        major, _ = torch.cuda.get_device_capability(index)
+    except (RuntimeError, ValueError):
+        return False
+    return major >= 8 and torch.cuda.is_bf16_supported()
 
 
 def _resolve_prompt(model: SentenceTransformer, name: str) -> str | None:
@@ -408,14 +427,22 @@ def _probe_batch_size(
         cache_path = cache_path.with_name(
             f"{cache_path.stem}.rank{rank}{cache_path.suffix}"
         )
-    result = probe_training_batch(
-        step,
-        key=key,
-        device=device,
-        cache_path=cache_path,
-        retune=args.retune_batch,
-        world_size=int(os.environ.get("WORLD_SIZE", "1")),
-    )
+    try:
+        result = probe_training_batch(
+            step,
+            key=key,
+            device=device,
+            cache_path=cache_path,
+            retune=args.retune_batch,
+            world_size=int(os.environ.get("WORLD_SIZE", "1")),
+        )
+    finally:
+        # The probe steps a real optimizer, so release its state and cached
+        # blocks before the trainer allocates its own optimizer or initializes
+        # NCCL (otherwise NCCL cannot allocate on an almost-full T4).
+        optimizer.state.clear()
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
     LOGGER.info("Batch probe: %s", json.dumps(result.as_dict(), indent=2))
 
     if torch.distributed.is_available() and torch.distributed.is_initialized():

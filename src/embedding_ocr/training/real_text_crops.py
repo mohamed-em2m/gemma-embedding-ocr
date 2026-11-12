@@ -27,9 +27,15 @@ class RealCrop:
 
 
 def load_real_crops(path: str | Path) -> list[RealCrop]:
-    """Load a JSONL manifest with ``image`` and ``text`` fields."""
+    """Load a JSONL manifest with ``image`` and ``text`` fields.
+
+    A directory is accepted as well, in which case ``real.jsonl`` (or the
+    first ``*.jsonl`` file found) is used. This matches the layout written by
+    ``scripts/import_real_crops.py``.
+    """
+    manifest = resolve_real_crops_manifest(path)
     crops: list[RealCrop] = []
-    with Path(path).open(encoding="utf-8") as handle:
+    with manifest.open(encoding="utf-8") as handle:
         for line in handle:
             line = line.strip()
             if not line:
@@ -51,7 +57,7 @@ def load_real_crops(path: str | Path) -> list[RealCrop]:
                 continue
             image_path = Path(image)
             if not image_path.is_absolute():
-                image_path = Path(path).parent / image_path
+                image_path = manifest.parent / image_path
             if not image_path.exists():
                 continue
             crops.append(
@@ -62,6 +68,24 @@ def load_real_crops(path: str | Path) -> list[RealCrop]:
                 )
             )
     return crops
+
+
+def resolve_real_crops_manifest(path: str | Path) -> Path:
+    """Return the JSONL manifest for a crop file or a crop directory."""
+    candidate = Path(path).expanduser()
+    if candidate.is_dir():
+        preferred = candidate / "real.jsonl"
+        if preferred.is_file():
+            return preferred
+        manifests = sorted(candidate.glob("*.jsonl"))
+        if not manifests:
+            msg = f"No JSONL crop manifest found in {candidate}"
+            raise FileNotFoundError(msg)
+        return manifests[0]
+    if not candidate.is_file():
+        msg = f"Real crop manifest not found: {candidate}"
+        raise FileNotFoundError(msg)
+    return candidate
 
 
 def save_real_crops(

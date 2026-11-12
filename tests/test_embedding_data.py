@@ -203,6 +203,12 @@ def test_load_and_save_real_crops(tmp_path: Path) -> None:
     assert crops[0].image_path.is_absolute()
     assert crops[0].image_path.exists()
 
+    # The shell wrapper passes the dataset directory, not the manifest path.
+    assert [crop.text for crop in load_real_crops(manifest.parent)] == ["Invoice 42"]
+
+    with pytest.raises(FileNotFoundError):
+        load_real_crops(tmp_path / "missing")
+
 
 def test_builder_appends_real_rows(tmp_path: Path) -> None:
     from embedding_ocr.training.embedding_dataset import (
