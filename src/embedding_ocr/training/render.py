@@ -44,8 +44,9 @@ def render_text(
 ) -> Image.Image:
     """Render text centered on a white square canvas.
 
-    The text is scaled to fit the available width. Letter height relative to the
-    canvas is retained as a weak case cue.
+    Text longer than one line is wrapped instead of being shrunk to an
+    unreadable size: at 128 px a 20-word label becomes a few lines of legible
+    glyphs. Letter height relative to the canvas is retained as a weak case cue.
     """
     rng = random.Random(seed)
     font_path = str(font_path)
@@ -54,37 +55,92 @@ def render_text(
     draw = ImageDraw.Draw(image)
     available = max(1, canvas_size - 2 * margin)
 
-    font, (left, top, right, bottom) = _measure_text(draw, text, font_path, chosen_size)
-    width = max(1, right - left)
-    height = max(1, bottom - top)
-    if width > available:
-        chosen_size = max(8, int(chosen_size * available / width))
-        font, (left, top, right, bottom) = _measure_text(
-            draw, text, font_path, chosen_size
-        )
-        width = max(1, right - left)
-        height = max(1, bottom - top)
-
-    x = (canvas_size - width) / 2 - left
-    y = (canvas_size - height) / 2 - top
-    draw.text((x, y), text, fill="black", font=font)
+    font, lines, boxes, width, height = _fit_lines(
+        draw, text, font_path, chosen_size, available
+    )
+    _draw_lines(draw, lines, boxes, font, canvas_size, width, height)
     return image
 
 
-def _measure_text(
+def _fit_lines(
     draw: ImageDraw.ImageDraw,
     text: str,
     font_path: str,
-    size: int,
-) -> tuple[ImageFont.FreeTypeFont, tuple[float, float, float, float]]:
-    """Measure text, falling back to Pillow's font for broken glyph programs."""
-    font = _load_font(font_path, size)
-    try:
-        return font, draw.textbbox((0, 0), text, font=font)
-    except OSError as exc:
-        LOGGER.warning("Font %s failed for %r: %s; using default", font_path, text, exc)
-        fallback = ImageFont.load_default(size=size)
-        return fallback, draw.textbbox((0, 0), text, font=fallback)  # type: ignore[return-value]
+    start_size: int,
+    available: int,
+) -> tuple[
+    ImageFont.FreeTypeFont,
+    list[str],
+    list[tuple[float, float, float, float]],
+    float,
+    float,
+]:
+    """Pick the largest font size at which wrapped text fits the canvas."""
+    size = max(8, start_size)
+    while True:
+        font = _load_font(font_path, size)
+        lines = _wrap_lines(draw, text, font, available)
+        boxes = [_float_box(draw.textbbox((0, 0), line, font=font)) for line in lines]
+        width = max((box[2] - box[0] for box in boxes), default=1.0)
+        line_height = max((box[3] - box[1] for box in boxes), default=1.0)
+        gap = max(1.0, size * 0.15)
+        height = line_height * len(lines) + gap * (len(lines) - 1)
+        if (width <= available and height <= available) or size <= 8:
+            return font, lines, boxes, max(1.0, width), max(1.0, height)
+        size = max(8, size - 2)
+
+
+def _float_box(
+    box: tuple[int, int, int, int],
+) -> tuple[float, float, float, float]:
+    """Convert Pillow's integer bbox to floats for consistent layout math."""
+    return float(box[0]), float(box[1]), float(box[2]), float(box[3])
+
+
+def _wrap_lines(
+    draw: ImageDraw.ImageDraw,
+    text: str,
+    font: ImageFont.FreeTypeFont,
+    max_width: int,
+) -> list[str]:
+    """Greedy word wrap that keeps at least one word per line."""
+    lines: list[str] = []
+    for paragraph in text.splitlines() or [text]:
+        words = paragraph.split()
+        if not words:
+            continue
+        current = words[0]
+        for word in words[1:]:
+            trial = f"{current} {word}"
+            if draw.textlength(trial, font=font) <= max_width:
+                current = trial
+            else:
+                lines.append(current)
+                current = word
+        lines.append(current)
+    return lines or [text]
+
+
+def _draw_lines(
+    draw: ImageDraw.ImageDraw,
+    lines: list[str],
+    boxes: list[tuple[float, float, float, float]],
+    font: ImageFont.FreeTypeFont,
+    canvas_size: int,
+    width: float,
+    height: float,
+) -> None:
+    """Draw wrapped lines centered as one block."""
+    line_height = max((box[3] - box[1] for box in boxes), default=1.0)
+    gap = max(1.0, font.size * 0.15)
+    y = (canvas_size - height) / 2
+    for line, box in zip(lines, boxes, strict=True):
+        line_width = box[2] - box[0]
+        x = (canvas_size - line_width) / 2 - box[0]
+        # Center each line inside its slot so mixed ascent/descent stays even.
+        offset = (line_height - (box[3] - box[1])) / 2
+        draw.text((x, y + offset - box[1]), line, fill="black", font=font)
+        y += line_height + gap
 
 
 def _load_font(font_path: str, size: int) -> ImageFont.FreeTypeFont:

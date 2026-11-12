@@ -115,6 +115,16 @@ def test_render_text_shape_and_ink() -> None:
     assert np.array(image).min() < 200
 
 
+def test_render_text_wraps_long_labels() -> None:
+    font = resolve_default_font()
+    long_text = "His sons Gary and Ryan thought it would be awesome to honour their father today"
+    image = render_text(long_text, font, canvas_size=128, seed=0)
+    gray = np.asarray(image.convert("L"))
+    assert (gray < 200).mean() > 0.02
+    # Wrapped text occupies several text rows instead of one unreadable line.
+    assert int((gray < 200).any(axis=1).sum()) > 40
+
+
 def test_augment_image_returns_same_shape() -> None:
     font = resolve_default_font()
     image = render_text("Hello", font, canvas_size=96, seed=0)

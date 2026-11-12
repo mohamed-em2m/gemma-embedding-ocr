@@ -15,6 +15,11 @@ Kept here so the fixes and the remaining risks are traceable across runs.
 | 6 | `IsADirectoryError` when `REAL_CROPS` pointed at `data/real_crops` | `load_real_crops` only accepted a JSONL file | accept a directory and resolve `real.jsonl` (or the first `*.jsonl`) |
 | 7 | Full re-render on every Kaggle restart | the build step ran unconditionally | reuse `summary.json` unless `REBUILD=1` |
 | 8 | Row counts, epochs and batch sizes were hardcoded | no env overrides | expose `TEXT_IMAGE_ROWS`, `IMAGE_IMAGE_ROWS`, `REAL_ROWS`, `EPOCHS`, `MAX_STEPS`, `SAVE_STEPS`, `BATCH_SIZE`, `EVAL_BATCH_SIZE`, `MINI_BATCH_SIZE`, `GRAD_ACCUM`, `DATALOADER_WORKERS`, `MODEL_ID`, `RESUME` |
+| 9 | 11.8% of rendered crops were near-blank and unreadable | `render_text` forced up to 20 words / 120 chars onto one line by shrinking the font to 8 px | wrap labels into lines and pick the largest size that fits both width and height; near-blank dropped to 3.0% and mean ink rose from 3.5% to 12.5% |
+
+The label length was the root cause: the sampled corpus has a median of 53
+characters and 29% of rows exceed 80 characters, so most rows were microscopic
+before the fix.
 
 ## Open risks
 
