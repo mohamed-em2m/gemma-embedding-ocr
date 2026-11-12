@@ -72,7 +72,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--warmup-ratio", type=float, default=0.05)
     parser.add_argument("--weight-decay", type=float, default=0.01)
     parser.add_argument("--max-grad-norm", type=float, default=1.0)
-    parser.add_argument("--max-seq-length", type=int, default=64)
+    parser.add_argument("--max-seq-length", type=int, default=512)
     parser.add_argument("--canvas-size", type=int, default=128)
     parser.add_argument("--prompt-name", default="Document")
     parser.add_argument("--gradient-checkpointing", action="store_true")

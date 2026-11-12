@@ -11,7 +11,7 @@ gradient_accumulation_steps: 4
 learning_rate: 2.0e-5
 warmup_ratio: 0.05
 weight_decay: 0.01
-max_seq_length: 64
+max_seq_length: 512
 canvas_size: 128
 prompt_name: Document
 gradient_checkpointing: true
