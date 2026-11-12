@@ -141,3 +141,103 @@ def test_paddle_detector_falls_back_on_onednn_error() -> None:
 
     regions = detector.detect(np.full((12, 20, 3), 255, dtype=np.uint8))
     assert regions == []
+
+
+def test_build_ctc_recognizer_requires_checkpoint() -> None:
+    config = AppConfig()
+    config.recognition.backend = "ctc"
+    with pytest.raises(ValueError, match="ctc_checkpoint"):
+        build_recognizer(config)
+
+
+def test_build_ctc_recognizer_loads_a_checkpoint(tmp_path) -> None:
+    from embedding_ocr.recognition.ctc.charset import CharSet
+    from embedding_ocr.recognition.ctc.checkpoint import save_checkpoint
+    from embedding_ocr.recognition.ctc.model import CTCSeq2Seq, ModelConfig
+
+    charset = CharSet(("a", "b", " "))
+    model = CTCSeq2Seq(
+        ModelConfig(
+            vocab_size=charset.size,
+            image_height=8,
+            channels=(8, 16, 32),
+            rnn_hidden=16,
+            rnn_layers=1,
+            dropout=0.0,
+            decoder_layers=1,
+            decoder_dim=32,
+            decoder_heads=4,
+            decoder_ffn=64,
+            max_decoder_len=16,
+        )
+    )
+    path = tmp_path / "ctc.pt"
+    save_checkpoint(path, model, charset=charset)
+
+    config = AppConfig()
+    config.recognition.backend = "ctc"
+    config.recognition.ctc_checkpoint = path
+    config.recognition.ctc_device = "cpu"
+    recognizer = build_recognizer(config)
+
+    image = np.full((24, 64), 255, dtype=np.uint8)
+    result = recognizer.recognize(image)
+    assert set(result.text) <= set(charset.chars)
+
+
+def test_build_ctc_recognizer_attaches_a_lexicon(tmp_path) -> None:
+    from embedding_ocr.recognition.ctc.charset import CharSet
+    from embedding_ocr.recognition.ctc.checkpoint import save_checkpoint
+    from embedding_ocr.recognition.ctc.engine import CTCRecognizer
+    from embedding_ocr.recognition.ctc.model import CTCSeq2Seq, ModelConfig
+
+    charset = CharSet(("a", "b", " "))
+    model = CTCSeq2Seq(
+        ModelConfig(
+            vocab_size=charset.size,
+            image_height=8,
+            channels=(8, 16, 32),
+            rnn_hidden=16,
+            rnn_layers=1,
+            dropout=0.0,
+            decoder_layers=1,
+            decoder_dim=32,
+            decoder_heads=4,
+            decoder_ffn=64,
+            max_decoder_len=16,
+        )
+    )
+    checkpoint = tmp_path / "ctc.pt"
+    save_checkpoint(checkpoint, model, charset=charset)
+    lexicon = tmp_path / "words.txt"
+    lexicon.write_text("ab\nab\nba\nba\n", encoding="utf-8")
+
+    config = AppConfig()
+    config.recognition.backend = "ctc"
+    config.recognition.ctc_checkpoint = checkpoint
+    config.recognition.ctc_device = "cpu"
+    config.recognition.ctc_beam_width = 4
+    config.recognition.ctc_lexicon = lexicon
+    config.recognition.ctc_lexicon_weight = 1.0
+    recognizer = build_recognizer(config)
+
+    assert isinstance(recognizer, CTCRecognizer)
+    assert recognizer.scorer is not None
+    assert recognizer.decode.beam_width == 4
+    assert len(recognizer.scorer.lexicon) == 2
+
+
+def test_line_grouping_wraps_the_word_detector() -> None:
+    from embedding_ocr.pipeline.lines import LineGroupingDetector
+
+    detector = build_detector(DetectorSettings(backend="full", line_grouping=True))
+    assert isinstance(detector, LineGroupingDetector)
+    regions = detector.detect(np.zeros((10, 20, 3), dtype=np.uint8))
+    assert len(regions) == 1
+
+
+def test_line_grouping_is_off_by_default() -> None:
+    from embedding_ocr.pipeline.lines import LineGroupingDetector
+
+    detector = build_detector(DetectorSettings(backend="full"))
+    assert not isinstance(detector, LineGroupingDetector)

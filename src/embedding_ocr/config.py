@@ -63,6 +63,9 @@ class DetectorSettings(_Model):
     yolo_imgsz: int = 1280
     yolo_device: str | None = None
     yolo_max_det: int = 1000
+    line_grouping: bool = False
+    line_vertical_overlap: float = 0.5
+    line_padding: int = 2
 
 
 class VocabularySettings(_Model):
@@ -124,6 +127,14 @@ class RecognitionSettings(_Model):
     yolo_device: str | None = None
     yolo_max_det: int = 1000
     yolo_space_gap_ratio: float = 0.9
+    ctc_checkpoint: Path | None = None
+    ctc_device: str = "auto"
+    ctc_max_width: int = 1280
+    ctc_beam_width: int = 1
+    ctc_top_k: int = 8
+    ctc_lexicon: Path | None = None
+    ctc_lexicon_min_count: int = 2
+    ctc_lexicon_weight: float = 1.0
     vocabulary: VocabularySettings = Field(default_factory=VocabularySettings)
 
 

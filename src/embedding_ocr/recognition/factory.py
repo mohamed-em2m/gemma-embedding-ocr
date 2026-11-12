@@ -225,6 +225,29 @@ def build_recognizer(
             rtl=rec.rtl,
             space_gap_ratio=rec.yolo_space_gap_ratio,
         )
+    if backend == "ctc":
+        if rec.ctc_checkpoint is None:
+            message = "recognition.ctc_checkpoint must point to a CTC checkpoint"
+            raise ValueError(message)
+        from embedding_ocr.recognition.ctc.engine import CTCRecognizer, DecodeSettings
+        from embedding_ocr.recognition.ctc.lexicon import WordLexicon
+
+        lexicon = None
+        if rec.ctc_lexicon is not None:
+            lexicon = WordLexicon.from_file(
+                rec.ctc_lexicon, min_count=rec.ctc_lexicon_min_count
+            )
+        return CTCRecognizer.from_checkpoint(
+            rec.ctc_checkpoint,
+            device=rec.ctc_device,
+            max_width=rec.ctc_max_width,
+            decode=DecodeSettings(
+                beam_width=rec.ctc_beam_width,
+                top_k=rec.ctc_top_k,
+                lexicon_weight=rec.ctc_lexicon_weight if lexicon is not None else 0.0,
+            ),
+            lexicon=lexicon,
+        )
     if backend == "embedding":
         if embedder is None:
             embedder = build_embedder(settings.embedder)

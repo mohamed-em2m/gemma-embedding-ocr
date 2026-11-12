@@ -414,3 +414,36 @@ LR schedule:
   decoder reaches CER 0.0000 with the default `ctc_weight: 0.3`. The two heads
   trade off as expected: at 70% decoder weight the CTC head converges slower
   because the shared encoder is mostly optimized for the decoder.
+
+Word boxes to lines (`pipeline/lines.py`):
+- The CTC recognizer is trained on line crops, so it needs one crop per line,
+  while the word detectors (CRAFT, YOLO words, PaddleOCR det) return one box
+  per word. `group_word_regions` clusters boxes by vertical overlap and
+  `merge_line_box` collapses each cluster into one box.
+- Two boxes share a line when their vertical overlap is at least 50% of the
+  shorter box. Boxes are visited top-to-bottom and assigned to the line with
+  the largest overlap, so a slightly tilted line still groups correctly.
+- Merging is lossless for reading order: the recognizer emits the whole line in
+  order, so the pipeline's existing `reconstruct_text` ordering is unchanged.
+  For RTL, member boxes are sorted right-to-left for inspection, but the merged
+  box is position-based, so the emitted character order comes from the model.
+- `LineGroupingDetector` wraps any word detector behind the same
+  `TextDetector` protocol, so the pipeline needs no special case. It is opt-in
+  via `detector.line_grouping` (default off) because the embedding and
+  hierarchical recognizers still expect word crops.
+- Degenerate boxes (zero width or height) are skipped rather than grouped; a
+  zero-height box would otherwise divide by zero in the overlap test.
+
+Inference preprocessing is shared with training:
+- `to_gray`, `load_gray` and `to_model_tensor` live in `training/ctc_dataset.py`
+  and are used by both the trainer and `CTCRecognizer`, so the crop the engine
+  sees at inference is byte-identical to the one the encoder was trained on.
+  Duplicating the normalization in the engine would let the two drift apart.
+- Inference downscales crops wider than `max_width` instead of raising, because
+  there is no label whose CTC alignment must be preserved.
+
+Batched inference must sort by width:
+- The encoder is bidirectional, so a crop's features depend slightly on how far
+  right the batch is padded. Sorting by width keeps padding minimal and the
+  results are restored to the caller's order afterwards.
+- Verified by a test that a three-crop batch matches three single-image calls.

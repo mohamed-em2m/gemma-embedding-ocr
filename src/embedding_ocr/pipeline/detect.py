@@ -554,7 +554,30 @@ class AutoTextDetector:
 
 
 def build_detector(settings: DetectorSettings, rtl: bool = False) -> TextDetector:
-    """Create a detector from configuration."""
+    """Create a detector from configuration.
+
+    When ``detector.line_grouping`` is set, the configured word detector is
+    wrapped so it returns one box per text line, which is what the CTC
+    recognizer was trained on.
+    """
+    detector = _build_word_detector(settings, rtl=rtl)
+    if not settings.line_grouping:
+        return detector
+    from embedding_ocr.pipeline.lines import LineGroupingConfig, LineGroupingDetector
+
+    resolved_rtl = settings.rtl if settings.rtl is not None else rtl
+    return LineGroupingDetector(
+        detector,
+        LineGroupingConfig(
+            rtl=resolved_rtl,
+            vertical_overlap=settings.line_vertical_overlap,
+            padding=settings.line_padding,
+        ),
+    )
+
+
+def _build_word_detector(settings: DetectorSettings, rtl: bool = False) -> TextDetector:
+    """Create the configured word/line detector without grouping."""
     backend = settings.backend.lower()
     resolved_rtl = settings.rtl if settings.rtl is not None else rtl
     if backend == "full":
