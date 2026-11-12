@@ -76,6 +76,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--epochs", type=float, default=None)
     parser.add_argument("--batch-size", type=int, default=None)
     parser.add_argument("--lr", type=float, default=None)
+    parser.add_argument(
+        "--ctc-weight",
+        type=float,
+        default=None,
+        help="Weight on the CTC loss; the decoder gets 1 - w (default: from config).",
+    )
     parser.add_argument("--device", default=None)
     parser.add_argument(
         "--scheduler",
@@ -413,7 +419,11 @@ def main() -> None:
     )
     scaler = torch.amp.GradScaler("cuda", enabled=amp)
     grad_clip = float(train_settings.get("grad_clip", 5.0))
-    ctc_weight = float(train_settings.get("ctc_weight", 0.3))
+    ctc_weight = float(
+        args.ctc_weight
+        if args.ctc_weight is not None
+        else train_settings.get("ctc_weight", 0.3)
+    )
     label_smoothing = float(train_settings.get("label_smoothing", 0.1))
     decoder_samples = (
         args.decoder_eval_samples
