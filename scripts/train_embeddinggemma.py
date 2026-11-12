@@ -71,6 +71,12 @@ def parse_args() -> argparse.Namespace:
         "--precision", choices=("auto", "float32", "bfloat16"), default="float32"
     )
     parser.add_argument("--epochs", type=float, default=3.0)
+    parser.add_argument(
+        "--max-steps",
+        type=int,
+        default=-1,
+        help="Stop after this many optimizer steps (overrides --epochs when > 0).",
+    )
     parser.add_argument("--batch-size", type=int, default=8)
     parser.add_argument("--eval-batch-size", type=int, default=8)
     parser.add_argument("--mini-batch-size", type=int, default=8)
@@ -199,6 +205,7 @@ def main() -> None:
     training_args = SentenceTransformerTrainingArguments(
         output_dir=str(args.output),
         num_train_epochs=args.epochs,
+        max_steps=args.max_steps,
         per_device_train_batch_size=batch_size,
         per_device_eval_batch_size=args.eval_batch_size,
         learning_rate=args.learning_rate,
