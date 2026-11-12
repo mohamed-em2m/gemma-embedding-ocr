@@ -375,3 +375,42 @@ Encoder time axis:
 - KHATT labels are long (median 62 chars, p90 78, max 94); IAM median is 42.
   Long KHATT lines are dropped as `ctc_infeasible` rather than trained with a
   mis-aligned label.
+
+Prepared line corpus (2026-11-12, `artifacts/lines`, gitignored):
+- 16,031 usable lines: 10,428 train / 1,786 val / 3,817 test.
+- 10,369 Latin (IAM-line) and 5,662 Arabic (KHATT); 115 characters.
+- Raw rows 17,046 -> collected 16,033 -> kept 16,031. Drops: 1 out-of-
+  vocabulary val row, 1 duplicate image, plus the per-split `too_long` and
+  `ctc_infeasible` rejections counted in `stats.json`.
+- 346 distinct texts appear in more than one split. This is text overlap, not
+  image overlap (images are hash-deduplicated); handwriting corpora reuse
+  common phrases. It is reported rather than removed so the test score stays
+  honest.
+
+Encoder normalization: GroupNorm, not BatchNorm.
+- The encoder collapses height to a single row, so BatchNorm computes its
+  statistics over `B * T` activations and mixes information across the batch.
+- On an 8-line memorization fixture the BatchNorm model exploited this: it
+  emitted confident characters (`z`, `y`) over the blank right edge of the
+  crop, and its CTC loss moved from 0.09 (batch of 4) to 0.75 (batch of 8) on
+  the same samples. Training loss reached 0.06 while the saved checkpoint
+  scored 0.75 in eval mode, so the reported progress was not real.
+- With GroupNorm the same fixture learns real words, train and eval agree,
+  and `tests/test_ctc_model.py` pins the property that a sample's encoder
+  output does not depend on its batch companions.
+- Consequence: the model no longer depends on batch size, so `eval_batch_size`
+  can differ from `batch_size` without changing results.
+
+LR schedule:
+- `train.scheduler: cosine` with `min_lr_ratio: 0.05` is the default for real
+  runs. The cosine decay is computed from `epochs * steps_per_epoch`, so a
+  short run anneals almost immediately.
+- A cosine schedule that reaches zero starves CTC: on the fixture, 400 steps
+  at constant 3e-3 reached CER 0.35, the same 400 steps on a cosine decay
+  reached 0.80. `train.scheduler: constant` (CLI `--scheduler constant`) is
+  therefore required for memorization checks and short smoke runs.
+- Memorization check result (`--overfit 8 --scheduler constant`): CTC CER
+  reaches 0.0000 with `ctc_weight: 1.0` after ~500 steps, and the transformer
+  decoder reaches CER 0.0000 with the default `ctc_weight: 0.3`. The two heads
+  trade off as expected: at 70% decoder weight the CTC head converges slower
+  because the shared encoder is mostly optimized for the decoder.

@@ -15,6 +15,7 @@ from embedding_ocr.recognition.ctc.decode import (
     greedy_decode,
     greedy_decode_batch,
     log_softmax,
+    mask_padded,
     prefix_beam_search,
 )
 
@@ -140,3 +141,37 @@ def test_beam_rejects_bad_parameters() -> None:
 def test_log_softmax_normalizes() -> None:
     probabilities = np.exp(log_softmax(np.array([[1.0, 2.0, 3.0]], dtype=np.float32)))
     assert float(probabilities.sum()) == pytest.approx(1.0, rel=1e-5)
+
+
+def test_mask_padded_drops_characters_from_padded_steps() -> None:
+    # Sample 0 has 4 valid steps; steps 4 and 5 are padding that still emits
+    # the same character. Without the mask, decoding appends a spurious "a".
+    log_probs = np.full((2, 6, 3), -1e9, dtype=np.float32)
+    log_probs[:, :, 0] = 0.0  # blank by default
+    log_probs[0, 0, 1] = 0.0
+    log_probs[0, 0, 0] = -1e9
+    log_probs[1, 0, 2] = 0.0
+    log_probs[1, 0, 0] = -1e9
+    log_probs[0, 4, 1] = 0.0
+    log_probs[0, 4, 0] = -1e9
+    log_probs[0, 5, 1] = 0.0
+    log_probs[0, 5, 0] = -1e9
+
+    unmasked = greedy_decode_batch(log_probs)
+    assert unmasked[0].indices == (1, 1)
+
+    masked = greedy_decode_batch(mask_padded(log_probs, [4, 6]))
+    assert masked[0].indices == (1,)
+    assert masked[1].indices == (2,)
+
+
+def test_mask_padded_keeps_valid_region_untouched() -> None:
+    rng = np.random.default_rng(0)
+    log_probs = log_softmax(rng.normal(size=(1, 5, 4)).astype(np.float32))
+    masked = mask_padded(log_probs, [5])
+    assert np.array_equal(masked, log_probs)
+
+
+def test_mask_padded_rejects_bad_shape() -> None:
+    with pytest.raises(ValueError, match="expected \\(B, T, C\\)"):
+        mask_padded(np.zeros((2, 3), dtype=np.float32), [2])

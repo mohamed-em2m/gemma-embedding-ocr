@@ -56,6 +56,35 @@ def log_softmax(logits: np.ndarray) -> np.ndarray:
     return shifted - np.log(np.exp(shifted).sum(axis=-1, keepdims=True))
 
 
+def mask_padded(
+    log_probs: np.ndarray, lengths: Sequence[int], blank: int = BLANK_INDEX
+) -> np.ndarray:
+    """Force padded time steps to blank so they cannot emit characters.
+
+    Batches are right-padded with white, and the encoder still produces logits
+    for those columns. Decoding them verbatim inserts spurious characters, so
+    every step at or past ``lengths[i]`` is replaced by a certain blank.
+
+    Args:
+        log_probs: ``(B, T, C)`` log-probabilities.
+        lengths: Valid time steps per sample.
+        blank: Blank index.
+
+    Returns:
+        A copy with the padded region set to blank with probability 1.
+    """
+    probs = np.array(log_probs, dtype=np.float32, copy=True)
+    if probs.ndim != 3:
+        message = f"expected (B, T, C) log-probabilities, got shape {probs.shape}"
+        raise ValueError(message)
+    steps = probs.shape[1]
+    for index, length in enumerate(lengths):
+        start = max(0, min(int(length), steps))
+        probs[index, start:, :] = -1e9
+        probs[index, start:, blank] = 0.0
+    return probs
+
+
 def _logsumexp(values: Sequence[float]) -> float:
     finite = [value for value in values if value != _NEG_INF]
     if not finite:

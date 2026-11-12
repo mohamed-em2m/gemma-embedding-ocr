@@ -1,0 +1,38 @@
+# CTC line recognizer: CRNN encoder + CTC head + small transformer decoder.
+# Prepare the data first with:
+#   uv run --no-sync python scripts/prepare_line_datasets.py
+data:
+  manifest: artifacts/lines/manifest.jsonl
+  charset: artifacts/lines/charset.json
+  image_height: 32
+  max_width: 1280
+  augment: true
+model:
+  channels: [32, 64, 128, 256, 256]
+  norm_groups: 8
+  rnn_hidden: 256
+  rnn_layers: 2
+  dropout: 0.1
+  decoder_layers: 3
+  decoder_dim: 256
+  decoder_heads: 4
+  decoder_ffn: 1024
+  max_decoder_len: 128
+train:
+  epochs: 25
+  batch_size: 32
+  eval_batch_size: 64
+  lr: 3.0e-4
+  weight_decay: 1.0e-4
+  warmup_ratio: 0.05
+  scheduler: cosine
+  min_lr_ratio: 0.05
+  grad_clip: 5.0
+  ctc_weight: 0.3
+  label_smoothing: 0.1
+  amp: false
+  num_workers: 2
+  log_every: 50
+  decoder_eval_samples: 200
+  seed: 42
+output: artifacts/ctc_ocr
