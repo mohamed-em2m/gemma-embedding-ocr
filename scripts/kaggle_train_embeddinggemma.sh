@@ -13,6 +13,8 @@ set -euo pipefail
 #   REAL_CROPS=/path/to/real.jsonl   (or a directory containing real.jsonl)
 #   REBUILD=1                   Rebuild the rendered dataset even if it exists
 #   MAX_STEPS=400               Stop after N optimizer steps (-1 = use EPOCHS)
+#   SAVE_STEPS=1000             Checkpoint interval
+#   MODEL_ID=...                Base or checkpoint model to start from
 #   RESUME=/path/to/checkpoint  Resume training from a checkpoint directory
 #   OUTPUT=/path/to/run         Fine-tuned model directory
 
@@ -39,6 +41,8 @@ REAL_ROWS="${REAL_ROWS:-20000}"
 SAMPLES_PER_SOURCE="${SAMPLES_PER_SOURCE:-10000}"
 REBUILD="${REBUILD:-0}"
 MAX_STEPS="${MAX_STEPS:--1}"
+SAVE_STEPS="${SAVE_STEPS:-1000}"
+MODEL_ID="${MODEL_ID:-}"
 RESUME="${RESUME:-}"
 
 cd "$REPO_ROOT"
@@ -124,6 +128,10 @@ if [[ "$NPROC" -gt 1 ]]; then
 fi
 
 echo "Launching with NPROC=$NPROC PRECISION=$PRECISION DEVICE=cuda"
+MODEL_ARGS=()
+if [[ -n "$MODEL_ID" ]]; then
+  MODEL_ARGS=(--model "$MODEL_ID")
+fi
 RESUME_ARGS=()
 if [[ -n "$RESUME" ]]; then
   if [[ ! -d "$RESUME" ]]; then
@@ -140,6 +148,7 @@ uv run --no-sync "${TRAIN_CMD[@]}" \
   --device cuda \
   --epochs "$EPOCHS" \
   --max-steps "$MAX_STEPS" \
+  --save-steps "$SAVE_STEPS" \
   --probe-batch \
   --retune-batch \
   --batch-size "$BATCH_SIZE" \
@@ -148,7 +157,8 @@ uv run --no-sync "${TRAIN_CMD[@]}" \
   --gradient-accumulation-steps "$GRAD_ACCUM" \
   --dataloader-workers "$DATALOADER_WORKERS" \
   "${DDP_ARGS[@]}" \
-  "${RESUME_ARGS[@]}"
+  "${RESUME_ARGS[@]}" \
+  "${MODEL_ARGS[@]}"
 
 uv run --no-sync python scripts/eval_embedding_retrieval.py \
   --model-id "$OUTPUT/final" \
