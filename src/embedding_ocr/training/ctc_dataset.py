@@ -63,7 +63,7 @@ class LineBatch:
     texts: tuple[str, ...]
 
 
-def _load_gray(path: Path) -> np.ndarray:
+def load_gray(path: Path) -> np.ndarray:
     with path.open("rb") as handle:
         buffer = np.frombuffer(handle.read(), dtype=np.uint8)
     image = cv2.imdecode(buffer, cv2.IMREAD_GRAYSCALE)
@@ -83,6 +83,34 @@ def resize_to_height(image: np.ndarray, height: int) -> np.ndarray:
         return image
     width = max(1, round(source_width * height / source_height))
     return cv2.resize(image, (width, height), interpolation=cv2.INTER_AREA)
+
+
+def to_model_tensor(image: np.ndarray) -> Tensor:
+    """Convert an 8-bit grayscale crop into a normalized ``(1, H, W)`` tensor.
+
+    White background maps to ``+1.0`` and black ink to ``-1.0``, which is the
+    convention the encoder is trained on. Training and inference both call
+    this, so preprocessing cannot drift between them.
+    """
+    return torch.from_numpy(image).float().div(255.0).sub(0.5).div(0.5).unsqueeze(0)
+
+
+def to_gray(image: np.ndarray) -> np.ndarray:
+    """Return an 8-bit single-channel view of ``image``.
+
+    Accepts ``(H, W)``, ``(H, W, 1)``, ``(H, W, 3)`` and ``(H, W, 4)`` uint8
+    arrays, which is what detectors and callers hand over.
+    """
+    array = np.asarray(image)
+    if array.ndim == 2:
+        return array.astype(np.uint8, copy=False)
+    if array.ndim == 3 and array.shape[2] == 1:
+        return array[:, :, 0].astype(np.uint8, copy=False)
+    if array.ndim == 3 and array.shape[2] in {3, 4}:
+        code = cv2.COLOR_RGBA2GRAY if array.shape[2] == 4 else cv2.COLOR_RGB2GRAY
+        return cv2.cvtColor(array.astype(np.uint8, copy=False), code)
+    message = f"expected a 2D or 3D uint8 image, got shape {array.shape}"
+    raise ValueError(message)
 
 
 def augment_gray(image: np.ndarray) -> np.ndarray:
@@ -153,7 +181,7 @@ class LineCropDataset(Dataset[LineSample]):
             )
             raise ValueError(message)
 
-        image = resize_to_height(_load_gray(record.image), self.config.image_height)
+        image = resize_to_height(load_gray(record.image), self.config.image_height)
         if image.shape[1] > self.config.max_width:
             message = (
                 f"crop width {image.shape[1]} exceeds max_width="
@@ -163,9 +191,8 @@ class LineCropDataset(Dataset[LineSample]):
         if self.config.augment:
             image = augment_gray(image)
 
-        tensor = torch.from_numpy(image).float().div(255.0).sub(0.5).div(0.5)
         return LineSample(
-            image=tensor.unsqueeze(0),
+            image=to_model_tensor(image),
             target=torch.tensor(target, dtype=torch.long),
             width=int(image.shape[1]),
             text=record.text_norm,
