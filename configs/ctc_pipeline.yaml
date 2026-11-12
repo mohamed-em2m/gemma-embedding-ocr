@@ -1,0 +1,57 @@
+# Full pipeline with the learned CTC line recognizer.
+#
+# Unlike the embedding/hierarchical backends, this recognizer reads whole text
+# lines, so `detector.line_grouping` merges detected word boxes into line boxes
+# first. Both settings must be changed together: CTC + word boxes would feed
+# single words to a model trained on lines.
+#
+# Train the checkpoint first:
+#   uv run --no-sync python scripts/train_ctc_ocr.py --config configs/ctc_line.yaml
+#
+# Build the optional word list from the training transcripts:
+#   uv run --no-sync python - <<'PY'
+#   from pathlib import Path
+#   from embedding_ocr.recognition.ctc.lexicon import WordLexicon
+#   from embedding_ocr.training.line_dataset import read_manifest
+#   texts = [r.text_norm for r in read_manifest(Path("artifacts/lines/manifest.jsonl"))
+#            if r.split == "train"]
+#   lexicon = WordLexicon.from_texts(texts, min_count=2)
+#   Path("artifacts/lines/lexicon.txt").write_text("\n".join(sorted(lexicon.words)))
+#   PY
+detector:
+  backend: auto
+  rtl: null
+  device: auto
+  min_component_area: 8
+  lang: en
+  paddle_model: PP-OCRv5_server_det
+  paddle_mobile_model: PP-OCRv5_mobile_det
+  min_confidence: 0.3
+  box_padding: 2
+  # Merge word boxes into line boxes for the line recognizer.
+  line_grouping: true
+  line_vertical_overlap: 0.5
+  line_padding: 2
+
+recognition:
+  backend: ctc
+  script: latin
+  rtl: null
+  ctc_checkpoint: artifacts/ctc_ocr/best.pt
+  ctc_device: auto
+  ctc_max_width: 1280
+  # 1 = greedy; > 1 = prefix beam search.
+  ctc_beam_width: 10
+  ctc_top_k: 8
+  # Optional word list; omit or null to disable rescoring.
+  ctc_lexicon: artifacts/lines/lexicon.txt
+  ctc_lexicon_min_count: 2
+  ctc_lexicon_weight: 1.0
+
+pipeline:
+  preprocess: false
+  deslant: true
+  binarize: true
+  padding: 4
+  detection_cache: null
+  seed: 42
