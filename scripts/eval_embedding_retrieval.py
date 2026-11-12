@@ -65,30 +65,14 @@ def main() -> None:
         if mode == "text_image":
             queries = embedder.embed_texts([str(row["text"]) for row in rows])
             targets = embedder.embed_images(
-                [
-                    np.asarray(
-                        Image.open(str(row["positive"])).convert("RGB"), dtype=np.uint8
-                    )
-                    for row in rows
-                ]
+                [_load_rgb(row["positive"]) for row in rows]
             )
         else:
             queries = embedder.embed_images(
-                [
-                    np.asarray(
-                        Image.open(str(row["anchor_path"])).convert("RGB"),
-                        dtype=np.uint8,
-                    )
-                    for row in rows
-                ]
+                [_load_rgb(row["anchor_path"]) for row in rows]
             )
             targets = embedder.embed_images(
-                [
-                    np.asarray(
-                        Image.open(str(row["positive"])).convert("RGB"), dtype=np.uint8
-                    )
-                    for row in rows
-                ]
+                [_load_rgb(row["positive"]) for row in rows]
             )
         labels = [str(row["text"]) for row in rows]
         metrics = retrieval_metrics(queries, targets, labels, labels)
@@ -103,6 +87,11 @@ def main() -> None:
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(json.dumps(report, indent=2))
     LOGGER.info("Wrote %s", args.output)
+
+
+def _load_rgb(path: object) -> np.ndarray:
+    with Image.open(str(path)) as image:
+        return np.asarray(image.convert("RGB"), dtype=np.uint8)
 
 
 def _unique_rows(

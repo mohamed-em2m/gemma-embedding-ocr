@@ -67,15 +67,16 @@ def probe_training_batch(
     """Find the largest batch whose forward/backward pass fits.
 
     Args:
-        step: Callable that performs one forward/backward pass for a batch
-            size. It must not call ``optimizer.step()``.
+        step: Callable that performs one forward pass, backward pass and
+            optimizer step for a batch size so optimizer state is measured.
+            It must not launch DDP collectives.
         key: Settings that determine memory use. A cached result is reused only
             when every key/value matches.
         device: ``cpu`` or a CUDA device string.
         candidates: Batch sizes to try in ascending order.
         max_batch: Hard upper bound.
-        headroom: Fraction of device memory reserved for optimizer state and
-            allocator fragmentation.
+        headroom: Fraction of device memory reserved for allocator
+            fragmentation.
         cache_path: JSON cache written after a successful probe.
         retune: Ignore an existing matching cache entry.
         world_size: Number of DDP processes used by the caller. The final run
@@ -92,6 +93,8 @@ def probe_training_batch(
         raise ValueError(msg)
 
     cache_key = dict(key)
+    cache_key["headroom"] = headroom
+    cache_key["max_batch"] = max_batch
     if device.startswith("cuda"):
         cache_key["device"] = _device_name(device)
         cache_key["gpu_count"] = max(1, world_size)
@@ -145,10 +148,12 @@ def probe_training_batch(
             attempts[-1]["limit_mb"] = round(limit_mb, 2)
             _empty_cache(device)
             if best == 0:
-                best = size
-                best_peak = peak_mb
-                best_latency = latency_ms
-                best_throughput = throughput
+                msg = (
+                    f"batch size {size} exceeds the memory headroom "
+                    f"({peak_mb:.0f} MB > {limit_mb:.0f} MB); "
+                    "reduce headroom or use a more memory-efficient optimizer"
+                )
+                raise RuntimeError(msg)
             break
         best = size
         best_peak = peak_mb
@@ -258,7 +263,7 @@ def _reset_peak(device: str) -> None:
     import torch
 
     torch.cuda.empty_cache()
-    torch.cuda.reset_peak_memory_stats()
+    torch.cuda.reset_peak_memory_stats(device)
 
 
 def _peak_memory_mb(device: str) -> float:
@@ -266,7 +271,7 @@ def _peak_memory_mb(device: str) -> float:
         return 0.0
     import torch
 
-    return torch.cuda.max_memory_allocated() / (1024 * 1024)
+    return torch.cuda.max_memory_allocated(device) / (1024 * 1024)
 
 
 def _empty_cache(device: str) -> None:
@@ -282,7 +287,7 @@ def _synchronize(device: str) -> None:
         return
     import torch
 
-    torch.cuda.synchronize()
+    torch.cuda.synchronize(device)
 
 
 def to_batch_tuning_result(result: TrainingBatchProbeResult) -> BatchTuningResult:

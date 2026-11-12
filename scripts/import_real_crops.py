@@ -78,11 +78,14 @@ def _to_pil(value: object) -> Image.Image | None:
         raw = value.get("bytes")
         path = value.get("path")
         if isinstance(raw, bytes):
-            return Image.open(io.BytesIO(raw)).convert("RGB")
+            with Image.open(io.BytesIO(raw)) as image:
+                return image.convert("RGB")
         if isinstance(path, str):
-            return Image.open(path).convert("RGB")
+            with Image.open(path) as image:
+                return image.convert("RGB")
     if isinstance(value, str):
-        return Image.open(value).convert("RGB")
+        with Image.open(value) as image:
+            return image.convert("RGB")
     return None
 
 

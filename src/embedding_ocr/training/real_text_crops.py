@@ -44,7 +44,9 @@ def load_real_crops(path: str | Path) -> list[RealCrop]:
             text = payload.get("text")
             if not isinstance(image, str) or not isinstance(text, str):
                 continue
-            sample = TextSample.from_text(text, source=str(payload.get("source", "real")))
+            sample = TextSample.from_text(
+                text, source=str(payload.get("source", "real"))
+            )
             if sample is None:
                 continue
             image_path = Path(image)
@@ -70,7 +72,7 @@ def save_real_crops(
     prefix: str = "crop",
 ) -> Path:
     """Save PIL crops and return a JSONL manifest path."""
-    root = Path(output_dir)
+    root = Path(output_dir).expanduser().resolve()
     image_dir = root / "images"
     image_dir.mkdir(parents=True, exist_ok=True)
     manifest = root / f"{prefix}.jsonl"

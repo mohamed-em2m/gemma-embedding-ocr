@@ -175,7 +175,12 @@ def test_build_synthetic_dataset_manifests(tmp_path: Path) -> None:
         assert val_rows
         assert all(row["split"] == "train" for row in train_rows)
         assert all(row["split"] == "val" for row in val_rows)
+        assert all(Path(str(row["positive"])).is_absolute() for row in train_rows)
         assert all(Path(str(row["positive"])).exists() for row in train_rows)
+        if mode == "image_image":
+            assert all(
+                Path(str(row["anchor_path"])).is_absolute() for row in train_rows
+            )
     assert (built.root / "summary.json").exists()
 
 
@@ -195,6 +200,7 @@ def test_load_and_save_real_crops(tmp_path: Path) -> None:
     assert len(crops) == 1
     assert crops[0].text == "Invoice 42"
     assert crops[0].source == "unit"
+    assert crops[0].image_path.is_absolute()
     assert crops[0].image_path.exists()
 
 

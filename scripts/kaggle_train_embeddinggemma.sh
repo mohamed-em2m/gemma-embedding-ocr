@@ -48,6 +48,7 @@ fi
 
 uv run --no-sync torchrun --standalone --nproc_per_node=2 scripts/train_embeddinggemma.py \
   --config configs/embedding_finetune.yaml \
+  --dataset "$DATASET" \
   --precision float32 \
   --device cuda \
   --probe-batch \

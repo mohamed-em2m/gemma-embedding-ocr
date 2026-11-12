@@ -10,9 +10,10 @@ import os
 from pathlib import Path
 
 import torch
+import torch.distributed as dist
 import yaml
-from datasets import Dataset, DatasetDict
-from PIL import Image
+from datasets import Dataset, DatasetDict, Features, Value
+from datasets import Image as HFImage
 from sentence_transformers import (
     SentenceTransformer,
     SentenceTransformerTrainer,
@@ -22,6 +23,7 @@ from sentence_transformers.base.sampler import MultiDatasetBatchSamplers
 from sentence_transformers.sentence_transformer.losses import (
     CachedMultipleNegativesRankingLoss,
 )
+from torch.optim import AdamW
 
 from embedding_ocr.training.batch_probe import (
     DEFAULT_BATCH_TUNING_PATH,
@@ -44,11 +46,16 @@ def parse_args() -> argparse.Namespace:
     config_parser = argparse.ArgumentParser(add_help=False)
     config_parser.add_argument("--config", type=Path, default=None)
     known, _ = config_parser.parse_known_args()
-    defaults = _load_defaults(known.config)
+    config_path = known.config
+    if config_path is not None and not config_path.exists():
+        candidate = _REPO_ROOT / config_path
+        if candidate.exists():
+            config_path = candidate
+    defaults = _load_defaults(config_path)
 
     parser = argparse.ArgumentParser(description=__doc__)
     parser.set_defaults(**defaults)
-    parser.add_argument("--config", type=Path, default=known.config)
+    parser.add_argument("--config", type=Path, default=config_path)
     parser.add_argument("--model", default="google/embeddinggemma-2")
     parser.add_argument(
         "--dataset",
@@ -112,16 +119,24 @@ def _load_defaults(path: Path | None) -> dict[str, object]:
     defaults: dict[str, object] = {}
     for key, value in payload.items():
         target = key_map.get(str(key), str(key))
+        if target in {"dataset", "output", "batch_cache"} and isinstance(value, str):
+            value = _absolute_repo_path(value)
         defaults[target] = value
     return defaults
+
+
+def _absolute_repo_path(value: str) -> Path:
+    path = Path(value).expanduser()
+    return path if path.is_absolute() else _REPO_ROOT / path
 
 
 def main() -> None:
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
     args = parse_args()
-    device = resolve_device(args.device)
+    device = _resolve_training_device(args.device)
     dtype = _resolve_dtype(args.precision, device)
     LOGGER.info("Device=%s dtype=%s", device, dtype)
+    _init_distributed(device)
 
     train_dataset, eval_dataset = _load_datasets(args.dataset)
     model = SentenceTransformer(
@@ -145,6 +160,32 @@ def main() -> None:
             "image_image": {},
         },
     )
+    batch_size = args.batch_size
+    if args.probe_batch:
+        probe_dataset = train_dataset["image_image"]
+        if len(probe_dataset) == 0:
+            probe_dataset = train_dataset["text_image"]
+        if len(probe_dataset) == 0:
+            msg = "Cannot probe batch size without training rows"
+            raise RuntimeError(msg)
+        probe_loss = CachedMultipleNegativesRankingLoss(
+            model=model,
+            mini_batch_size=args.mini_batch_size,
+            gather_across_devices=False,
+            hardness_mode="hard_negatives",
+            hardness_strength=5.0,
+        )
+        batch_size = _probe_batch_size(
+            model=model,
+            dataset=probe_dataset,
+            collator=train_collator,
+            loss=probe_loss,
+            args=args,
+            device=device,
+            dtype=dtype,
+        )
+        LOGGER.info("Using probed per-device batch size: %d", batch_size)
+
     loss = CachedMultipleNegativesRankingLoss(
         model=model,
         mini_batch_size=args.mini_batch_size,
@@ -152,19 +193,6 @@ def main() -> None:
         hardness_mode="hard_negatives",
         hardness_strength=5.0,
     )
-
-    batch_size = args.batch_size
-    if args.probe_batch:
-        batch_size = _probe_batch_size(
-            model=model,
-            dataset=train_dataset["image_image"],
-            collator=train_collator,
-            loss=loss,
-            args=args,
-            device=device,
-            dtype=dtype,
-        )
-        LOGGER.info("Using probed per-device batch size: %d", batch_size)
 
     training_args = SentenceTransformerTrainingArguments(
         output_dir=str(args.output),
@@ -209,7 +237,10 @@ def main() -> None:
 
 def _load_datasets(root: Path) -> tuple[DatasetDict, DatasetDict | None]:
     train = _load_split(root / "train")
-    val = _load_split(root / "val")
+    try:
+        val = _load_split(root / "val")
+    except FileNotFoundError:
+        val = DatasetDict()
     eval_dataset = val if len(val) and all(len(ds) for ds in val.values()) else None
     if eval_dataset is None:
         LOGGER.warning("No validation rows; running without evaluation")
@@ -234,9 +265,9 @@ def _load_split(root: Path) -> DatasetDict:
 
 
 def _dataset_from_rows(rows: list[dict[str, object]], mode: str) -> Dataset:
-    anchors: list[object] = []
-    positives: list[Image.Image] = []
-    negatives: list[Image.Image] = []
+    anchors: list[str] = []
+    positives: list[str] = []
+    negatives: list[str] = []
     text_ids: list[str] = []
     texts: list[str] = []
     for row in rows:
@@ -247,16 +278,26 @@ def _dataset_from_rows(rows: list[dict[str, object]], mode: str) -> Dataset:
         if not isinstance(positive, str) or not isinstance(negative, str):
             continue
         if mode == "text_image":
-            anchors.append(text)
+            anchor = text
         else:
             anchor_path = row.get("anchor_path")
             if not isinstance(anchor_path, str):
                 continue
-            anchors.append(Image.open(anchor_path).convert("RGB"))
-        positives.append(Image.open(positive).convert("RGB"))
-        negatives.append(Image.open(negative).convert("RGB"))
+            anchor = anchor_path
+        anchors.append(anchor)
+        positives.append(positive)
+        negatives.append(negative)
         text_ids.append(text_id)
         texts.append(text)
+    features = Features(
+        {
+            "anchor": Value("string") if mode == "text_image" else HFImage(),
+            "positive": HFImage(),
+            "negative": HFImage(),
+            "text_id": Value("string"),
+            "text": Value("string"),
+        }
+    )
     return Dataset.from_dict(
         {
             "anchor": anchors,
@@ -264,8 +305,35 @@ def _dataset_from_rows(rows: list[dict[str, object]], mode: str) -> Dataset:
             "negative": negatives,
             "text_id": text_ids,
             "text": texts,
-        }
+        },
+        features=features,
     )
+
+
+def _resolve_training_device(requested: str) -> str:
+    """Pin torchrun ranks to their local GPU instead of racing on free memory."""
+    local_rank = os.environ.get("LOCAL_RANK")
+    if (
+        requested in {"auto", "cuda"}
+        and local_rank is not None
+        and torch.cuda.is_available()
+    ):
+        index = int(local_rank)
+        torch.cuda.set_device(index)
+        return f"cuda:{index}"
+    return resolve_device(requested)
+
+
+def _init_distributed(device: str) -> None:
+    """Initialize torchrun's process group before probing batch sizes."""
+    world_size = int(os.environ.get("WORLD_SIZE", "1"))
+    if world_size <= 1 or dist.is_initialized():
+        return
+    if not dist.is_available():
+        msg = "torch.distributed is unavailable but WORLD_SIZE > 1"
+        raise RuntimeError(msg)
+    backend = "nccl" if device.startswith("cuda") else "gloo"
+    dist.init_process_group(backend=backend)
 
 
 def _resolve_dtype(precision: str, device: str) -> torch.dtype:
@@ -305,6 +373,7 @@ def _probe_batch_size(
         preprocess_fn=model.preprocess,
         prompts={},
     )
+    optimizer = AdamW(model.parameters(), lr=0.0)
 
     def step(batch_size: int) -> None:
         items = [dataset[index] for index in range(min(batch_size, len(dataset)))]
@@ -320,7 +389,8 @@ def _probe_batch_size(
         labels = torch.empty(0, dtype=torch.long, device=device)
         output = loss(features, labels)
         output.backward()
-        model.zero_grad(set_to_none=True)
+        optimizer.step()
+        optimizer.zero_grad(set_to_none=True)
 
     key = {
         "model_id": args.model,

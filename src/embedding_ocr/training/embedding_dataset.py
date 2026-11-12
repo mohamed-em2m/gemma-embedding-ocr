@@ -83,7 +83,7 @@ def build_synthetic_dataset(
         "image_image": config.image_image_rows,
     }
 
-    root = Path(config.output_dir)
+    root = Path(config.output_dir).expanduser().resolve()
     train_root = root / "train"
     val_root = root / "val"
     _prepare_dirs(train_root, val_root)
@@ -262,8 +262,10 @@ def _render_real_row(
     row_id = hashlib.sha1(
         f"real|{index}|{crop.text_id}|{crop.image_path}".encode()
     ).hexdigest()[:16]
-    positive = Image.open(crop.image_path).convert("RGB")
-    positive = positive.resize((config.canvas_size, config.canvas_size))
+    with Image.open(crop.image_path) as source:
+        positive = source.convert("RGB").resize(
+            (config.canvas_size, config.canvas_size)
+        )
     if config.augment:
         positive = augment_image(
             positive, hard=True, rng=random.Random(rng.randrange(1_000_000))
